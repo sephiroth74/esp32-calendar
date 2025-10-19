@@ -7,6 +7,10 @@
 # Local configuration (contains sensitive data - WiFi credentials and location)
 include/config.local
 
+# LittleFS configuration file with sensitive data
+# Keep the example file but ignore the actual config
+data/config.json
+
 # OS files
 .DS_Store
 Thumbs.db

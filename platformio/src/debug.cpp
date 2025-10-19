@@ -553,7 +553,7 @@ void testCalendarFetch() {
 
     // Sync time with NTP for proper timezone conversion
     Serial.println("Syncing time with NTP server...");
-    setenv("TZ", TIMEZONE, 1);
+    setenv("TZ", DEFAULT_TIMEZONE, 1);
     tzset();
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 
@@ -777,7 +777,7 @@ void testTimezoneConversion() {
     };
 
     Serial.println("Current configuration:");
-    Serial.println("TIMEZONE: " + String(TIMEZONE));
+    Serial.println("TIMEZONE: " + String(DEFAULT_TIMEZONE));
     Serial.println("(System handles DST automatically based on timezone)");
     Serial.println("");
 
@@ -817,7 +817,7 @@ void testTimezoneConversion() {
         int y = 100;
 
         display.display.setCursor(50, y);
-        display.display.print("TIMEZONE: " + String(TIMEZONE));
+        display.display.print("TIMEZONE: " + String(DEFAULT_TIMEZONE));
         y += 30;
 
         display.display.setCursor(50, y);

@@ -15,28 +15,12 @@ bool WiFiManager::connect() {
         return true;
     }
 
-    Serial.println("Connecting to WiFi...");
-    Serial.print("SSID: ");
-    Serial.println(WIFI_SSID);
+    // This WiFiManager is deprecated - configuration now comes from LittleFS
+    Serial.println("WARNING: WiFiManager::connect() called but this class is deprecated");
+    Serial.println("WiFi configuration should be loaded from LittleFS config.json");
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-    lastConnectionAttempt = millis();
-
-    while (!isConnected()) {
-        if (millis() - lastConnectionAttempt > connectionTimeout) {
-            Serial.println("\nWiFi connection timeout!");
-            return false;
-        }
-        delay(500);
-        Serial.print(".");
-    }
-
-    Serial.println("\nWiFi connected!");
-    printStatus();
-
-    return true;
+    // Return false as we don't have credentials
+    return false;
 }
 
 bool WiFiManager::isConnected() {

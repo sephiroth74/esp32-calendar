@@ -41,6 +41,8 @@ struct WeatherData {
 class WeatherClient {
 private:
     WiFiClientSecure* client;
+    float latitude;
+    float longitude;
 
     // Map weather code to icon name
     const char* getWeatherIcon(int weatherCode, bool isDay = true);
@@ -54,6 +56,9 @@ private:
 public:
     WeatherClient(WiFiClientSecure* wifiClient);
     ~WeatherClient();
+
+    // Set location for weather fetching
+    void setLocation(float lat, float lon);
 
     // Fetch weather data from API
     bool fetchWeather(WeatherData& data);

@@ -24,7 +24,7 @@ private:
     // ICS parsing helpers
     String extractICSValue(const String& line, const String& key);
     CalendarEvent parseICSEvent(const String& eventData);
-    std::vector<CalendarEvent> parseICSCalendar(const String& icsData);
+    std::vector<CalendarEvent> parseICSCalendar(const String& icsData, int daysAhead);
     time_t parseICSDateTime(const String& dtString, bool& isUTC);
 
     // Google Calendar helpers
@@ -40,8 +40,8 @@ public:
     // Public for testing
     String convertUTCToLocalTime(const String& dtString);
 
-    // Main fetch method - automatically uses the configured calendar type
-    std::vector<CalendarEvent> fetchEvents(int daysAhead = DAYS_TO_FETCH);
+    // Main fetch method - deprecated, use fetchICSEvents directly
+    std::vector<CalendarEvent> fetchEvents(int daysAhead = DEFAULT_DAYS_TO_FETCH);
 
     // Specific calendar source methods
     std::vector<CalendarEvent> fetchICSEvents(const String& url, int daysAhead);

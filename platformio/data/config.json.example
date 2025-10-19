@@ -1,0 +1,20 @@
+{
+  "wifi": {
+    "ssid": "YOUR_WIFI_SSID",
+    "password": "YOUR_WIFI_PASSWORD"
+  },
+  "location": {
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "name": "New York"
+  },
+  "calendar": {
+    "type": "ics",
+    "url": "https://calendar.google.com/calendar/ical/YOUR_CALENDAR_ID/public/basic.ics",
+    "days_to_fetch": 30
+  },
+  "display": {
+    "timezone": "EST5EDT,M3.2.0,M11.1.0",
+    "update_hour": 5
+  }
+}

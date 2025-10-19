@@ -7,18 +7,27 @@ WeatherClient::WeatherClient(WiFiClientSecure* wifiClient) : client(wifiClient) 
     if (client) {
         client->setInsecure(); // Skip certificate validation for simplicity
     }
+    // Initialize with default location from config
+    latitude = LOC_LATITUDE;
+    longitude = LOC_LONGITUDE;
 }
 
 WeatherClient::~WeatherClient() {
     // Client is managed externally, don't delete
 }
 
+void WeatherClient::setLocation(float lat, float lon) {
+    latitude = lat;
+    longitude = lon;
+    Serial.println("Weather location set to: " + String(latitude, 6) + ", " + String(longitude, 6));
+}
+
 String WeatherClient::buildWeatherUrl() {
     String url = String(OPEN_WEATHER_REST_URL);
 
-    // Replace latitude and longitude placeholders
-    url.replace("{LOC_LATITUDE}", String(LOC_LATITUDE, 6));
-    url.replace("{LOC_LONGITUDE}", String(LOC_LONGITUDE, 6));
+    // Replace latitude and longitude placeholders with runtime values
+    url.replace("{LOC_LATITUDE}", String(latitude, 6));
+    url.replace("{LOC_LONGITUDE}", String(longitude, 6));
 
     return url;
 }

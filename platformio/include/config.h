@@ -10,24 +10,28 @@
  */
 
 // =============================================================================
-// LOCAL CONFIGURATION (Sensitive Data)
+// CONFIGURATION SYSTEM
 // =============================================================================
 /**
- * IMPORTANT: Sensitive configuration is stored in a separate file
+ * IMPORTANT: Configuration is now stored in LittleFS filesystem
  *
- * Before compiling, you must:
- * 1. Copy 'config.local.example' to 'config.local'
- * 2. Edit 'config.local' with your actual WiFi credentials and location
+ * Before deploying, you must:
+ * 1. Edit 'data/config.json' with your settings
+ * 2. Upload filesystem: pio run -t uploadfs
+ * 3. Upload firmware: pio run -t upload
  *
- * The config.local file contains:
- * - WIFI_SSID: Your WiFi network name
- * - WIFI_PASSWORD: Your WiFi password
- * - LOC_LATITUDE: Your location latitude
- * - LOC_LONGITUDE: Your location longitude
+ * The config.json file contains:
+ * - WiFi credentials (SSID and password)
+ * - Location coordinates for weather
+ * - Calendar URL and settings
+ * - Display timezone and update schedule
  *
- * Note: config.local is excluded from git to protect your sensitive data
+ * Note: config.json is excluded from git to protect your sensitive data
  */
-#include "config.local"
+
+// Default values used when LittleFS config is missing
+#define LOC_LATITUDE 40.7128
+#define LOC_LONGITUDE -74.0060
 
 // =============================================================================
 // DISPLAY HARDWARE CONFIGURATION
@@ -110,70 +114,30 @@
 #define EPD_MOSI  11
 
 // =============================================================================
-// CALENDAR DATA SOURCE CONFIGURATION
+// DEFAULT CALENDAR CONFIGURATION
 // =============================================================================
+// These defaults are used only when config.json is missing or incomplete
 
-// Calendar source type
-// Options: "ICS", "GOOGLE"
-// ICS is recommended for simplicity
-// Note: CalDAV support is not implemented in this version
-#define CALENDAR_TYPE "ICS"
+// Default calendar URL (used as fallback)
+#define DEFAULT_CALENDAR_URL "YOUR_CALENDAR_ICS_URL"
 
-// -----------------------------------------------------------------------------
-// ICS Calendar Configuration (for CALENDAR_TYPE = "ICS")
-// -----------------------------------------------------------------------------
-
-// ICS calendar URL
-// How to get your ICS URL:
-// - Google Calendar: Settings → Calendar → Integrate → Secret address in iCal format
-// - iCloud: Calendar app → Share Calendar → Public Calendar → Copy link
-// - Outlook: Settings → Calendar → Shared calendars → Publish → Copy ICS link
-#define ICS_CALENDAR_URL "https://calendar.google.com/calendar/ical/alessandro.crugnola%40gmail.com/private-4ce5196fe2a4720cdeb66f798713d2a2/basic.ics"
-
-// -----------------------------------------------------------------------------
-// Google Calendar API Configuration (for CALENDAR_TYPE = "GOOGLE")
-// -----------------------------------------------------------------------------
-
-// Google Calendar ID
-// Use "primary" for your main calendar
-#define GOOGLE_CALENDAR_ID "primary"
-
-// Google API credentials (requires OAuth2 setup)
-#define GOOGLE_API_KEY "YOUR_GOOGLE_API_KEY"
-#define GOOGLE_REFRESH_TOKEN "YOUR_REFRESH_TOKEN"
-#define GOOGLE_CLIENT_ID "YOUR_CLIENT_ID"
-#define GOOGLE_CLIENT_SECRET "YOUR_CLIENT_SECRET"
-
-// -----------------------------------------------------------------------------
-// CalDAV Configuration (for CALENDAR_TYPE = "CALDAV")
-// -----------------------------------------------------------------------------
-// Note: CalDAV support is not implemented in this version
+// Default number of days to fetch events
+#define DEFAULT_DAYS_TO_FETCH 30
 
 // =============================================================================
 // UPDATE & REFRESH CONFIGURATION
 // =============================================================================
 
-// Daily update time
-// The calendar will update once per day at this hour (24-hour format)
-// Example: 5 = 5:00 AM
-#define DAY_START_HOUR 5
+// Daily update time and timezone are now configured in data/config.json
+// Default values (used only if config.json is missing):
+#define DEFAULT_UPDATE_HOUR 5                        // 5:00 AM
+#define DEFAULT_TIMEZONE "EST5EDT,M3.2.0,M11.1.0"   // US Eastern
 
 // Error retry intervals (in minutes)
 // How long to wait before retrying after specific errors
 #define WIFI_ERROR_RETRY_MINUTES 60        // Retry after 1 hour if WiFi fails
 #define CALENDAR_ERROR_RETRY_MINUTES 120   // Retry after 2 hours if calendar fetch fails
 // Note: Battery low error will not set a wake-up timer (sleep indefinitely)
-
-// Timezone configuration with DST rules
-// Format: "STD offset DST [offset],start[/time],end[/time]"
-// Examples:
-// - US Eastern: "EST5EDT,M3.2.0,M11.1.0"
-// - US Pacific: "PST8PDT,M3.2.0,M11.1.0"
-// - Central Europe: "CET-1CEST,M3.5.0,M10.5.0"
-// - UK: "GMT0BST,M3.5.0,M10.5.0"
-// - Japan: "JST-9"
-// - Australia Sydney: "AEST-10AEDT,M10.1.0,M4.1.0"
-#define TIMEZONE "CET-1CEST,M3.5.0,M10.5.0"
 
 // =============================================================================
 // DISPLAY CONTENT CONFIGURATION
@@ -274,5 +238,18 @@
 // Location coordinates are defined in config.local
 // The weather API URL is defined internally in weather_client.cpp
 // It uses the Open-Meteo free weather API with your coordinates
+
+// =============================================================================
+// DEBUG & TESTING CONFIGURATION
+// =============================================================================
+
+// Disable deep sleep for testing
+// When true, device stays awake to test button presses and configuration
+// Set to false for production use to enable battery-saving deep sleep
+#define DISABLE_DEEP_SLEEP false
+
+// Configuration reset button hold time (milliseconds)
+// How long to hold the button to reset WiFi configuration during runtime
+#define CONFIG_RESET_HOLD_TIME 3000
 
 #endif // CONFIG_H

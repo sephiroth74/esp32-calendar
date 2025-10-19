@@ -2,18 +2,19 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <SPI.h>
+#include <LittleFS.h>
 #include <time.h>
 #include "display_manager.h"
 #include "calendar_client.h"
 #include "weather_client.h"
-#include "wifi_manager.h"
+#include "littlefs_config.h"
 #include "error_manager.h"
 #include "config.h"
 #include "version.h"
 
 // Global objects
 DisplayManager displayMgr;
-WiFiManager wifiMgr;
+LittleFSConfig configLoader;
 ErrorManager errorMgr;
 WeatherClient* weatherClient = nullptr;
 CalendarClient* calendarClient = nullptr;
@@ -25,12 +26,17 @@ ErrorCode lastError = ErrorCode::SUCCESS;
 float batteryVoltage = 0.0;
 int batteryPercentage = 0;
 
+// Button monitoring for configuration reset
+unsigned long buttonPressStart = 0;
+bool buttonPressed = false;
+bool configResetPending = false;
+
 // Forward declarations
 void performUpdate();
 bool syncTimeFromNTP();
 void updateBatteryStatus();
 int getBatteryPercentage(float voltage);
-void enterDeepSleep(int retryMinutes = -1);  // -1 means calculate next DAY_START_HOUR
+void enterDeepSleep(int retryMinutes = -1);  // -1 means calculate next update hour
 void printWakeupReason();
 
 void setup() {
@@ -66,6 +72,26 @@ void setup() {
     // Initialize SPI
     SPI.begin(EPD_SCK, -1, EPD_MOSI, EPD_CS);
 
+    // Initialize LittleFS and load configuration
+    Serial.println("Initializing LittleFS...");
+    if (!configLoader.begin()) {
+        Serial.println("Failed to initialize LittleFS!");
+        displayMgr.showMessage("Configuration Error", "Failed to mount filesystem");
+        delay(5000);
+        ESP.restart();
+    }
+
+    // Load configuration from LittleFS
+    if (!configLoader.loadConfiguration()) {
+        Serial.println("No valid configuration found in LittleFS!");
+        displayMgr.showMessage("Configuration Missing",
+            "Please upload config.json:\n\n"
+            "1. Edit data/config.json\n"
+            "2. Run: pio run -t uploadfs");
+        delay(10000);
+        ESP.restart();
+    }
+
     // Perform calendar update
     performUpdate();
 
@@ -83,35 +109,108 @@ void setup() {
         delay(1000);
     }
 
-    // Enter deep sleep with appropriate retry interval based on last error
-    if (lastError == ErrorCode::BATTERY_LOW || lastError == ErrorCode::BATTERY_CRITICAL) {
-        // Battery too low - sleep without setting wake-up timer
-        enterDeepSleep(0);  // 0 means no wake-up timer
-    } else if (lastError == ErrorCode::WIFI_CONNECTION_FAILED) {
-        // WiFi error - retry after 1 hour
-        enterDeepSleep(WIFI_ERROR_RETRY_MINUTES);
-    } else if (lastError == ErrorCode::CALENDAR_FETCH_FAILED) {
-        // Calendar error - retry after 2 hours
-        enterDeepSleep(CALENDAR_ERROR_RETRY_MINUTES);
+    // Enter deep sleep or stay awake for testing
+    if (!DISABLE_DEEP_SLEEP) {
+        // Normal operation - enter deep sleep
+        if (lastError == ErrorCode::BATTERY_LOW || lastError == ErrorCode::BATTERY_CRITICAL) {
+            // Battery too low - sleep without setting wake-up timer
+            enterDeepSleep(0);  // 0 means no wake-up timer
+        } else if (lastError == ErrorCode::WIFI_CONNECTION_FAILED) {
+            // WiFi error - retry after 1 hour
+            enterDeepSleep(WIFI_ERROR_RETRY_MINUTES);
+        } else if (lastError == ErrorCode::CALENDAR_FETCH_FAILED) {
+            // Calendar error - retry after 2 hours
+            enterDeepSleep(CALENDAR_ERROR_RETRY_MINUTES);
+        } else {
+            // Success - wake up at next update hour
+            enterDeepSleep();  // Default: next day at update hour
+        }
     } else {
-        // Success - wake up at next DAY_START_HOUR
-        enterDeepSleep();  // Default: next day at DAY_START_HOUR
+        Serial.println("\n=== DEEP SLEEP DISABLED - Device staying awake for testing ===");
+        Serial.println("Hold button for 3 seconds to reset configuration and restart");
     }
 }
 
 void loop() {
-    // Never reached - we go to deep sleep at end of setup
+    // Only runs when DISABLE_DEEP_SLEEP is true
+    if (DISABLE_DEEP_SLEEP) {
+        // Monitor button for configuration reset
+        int buttonState = digitalRead(BUTTON_PIN);
+
+        if (buttonState == HIGH && !buttonPressed) {
+            // Button just pressed
+            buttonPressed = true;
+            buttonPressStart = millis();
+            Serial.println("Button pressed - hold for 3 seconds to reset config...");
+        } else if (buttonState == LOW && buttonPressed) {
+            // Button released
+            buttonPressed = false;
+            unsigned long pressDuration = millis() - buttonPressStart;
+
+            if (pressDuration >= CONFIG_RESET_HOLD_TIME) {
+                Serial.println("Configuration reset triggered!");
+
+                // Show message on display
+                displayMgr.showMessage("Configuration Reset",
+                    "Deleting saved configuration...\n\n"
+                    "Device will restart.\n\n"
+                    "Please upload new config.json");
+
+                // Delete configuration
+                configLoader.resetConfiguration();
+
+                // Wait a moment for user to see message
+                delay(3000);
+
+                // Restart device
+                ESP.restart();
+            } else {
+                Serial.println("Button released after " + String(pressDuration) + "ms (not long enough)");
+            }
+        } else if (buttonPressed) {
+            // Button still held - check if held long enough
+            unsigned long pressDuration = millis() - buttonPressStart;
+            if (pressDuration >= CONFIG_RESET_HOLD_TIME && !configResetPending) {
+                configResetPending = true;
+                Serial.println("Config reset ready - release button to execute");
+            }
+        }
+
+        // Small delay to prevent excessive CPU usage
+        delay(50);
+    }
 }
 
 void performUpdate() {
-    // Connect to WiFi
+    // Get configuration
+    const RuntimeConfig& config = configLoader.getConfig();
+
+    // Connect to WiFi using LittleFS configuration
     Serial.println("\n--- WiFi Connection ---");
-    if (!wifiMgr.connect()) {
+    Serial.println("Connecting to: " + config.wifi_ssid);
+
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(config.wifi_ssid.c_str(), config.wifi_password.c_str());
+
+    int timeout = 40; // 20 seconds
+    while (WiFi.status() != WL_CONNECTED && timeout > 0) {
+        delay(500);
+        Serial.print(".");
+        timeout--;
+    }
+    Serial.println();
+
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi connection failed!");
         lastError = ErrorCode::WIFI_CONNECTION_FAILED;
         errorMgr.setError(lastError);
         displayMgr.showFullScreenError(errorMgr.getCurrentError());
         return;
     }
+
+    Serial.println("WiFi connected!");
+    Serial.println("IP Address: " + WiFi.localIP().toString());
+    Serial.println("RSSI: " + String(WiFi.RSSI()) + " dBm");
 
     // Successful WiFi connection
     lastError = ErrorCode::SUCCESS;
@@ -124,8 +223,10 @@ void performUpdate() {
     }
     client->setInsecure();  // Skip certificate validation
 
-    // Initialize clients
+    // Initialize clients with configuration from LittleFS
     weatherClient = new WeatherClient(client);
+    weatherClient->setLocation(config.latitude, config.longitude);
+
     calendarClient = new CalendarClient(client);
 
     // Update battery status
@@ -172,8 +273,8 @@ void performUpdate() {
     Serial.println("\n--- Calendar Update ---");
     std::vector<CalendarEvent> events;
 
-    String calendarUrl = ICS_CALENDAR_URL;
-    events = calendarClient->fetchICSEvents(calendarUrl, DAYS_TO_FETCH);
+    // Use calendar URL from configuration
+    events = calendarClient->fetchICSEvents(config.calendar_url, config.days_to_fetch);
 
     if (!events.empty()) {
         Serial.println("Fetched " + String(events.size()) + " events");
@@ -194,8 +295,8 @@ void performUpdate() {
     Serial.println("\n--- Display Update ---");
     displayMgr.showCalendar(events, currentDate, currentTime,
                            weatherSuccess ? &weatherData : nullptr,
-                           wifiMgr.isConnected(),
-                           wifiMgr.getRSSI(),
+                           WiFi.status() == WL_CONNECTED,
+                           WiFi.RSSI(),
                            batteryVoltage,
                            batteryPercentage);
 
@@ -212,8 +313,9 @@ void performUpdate() {
 bool syncTimeFromNTP() {
     Serial.println("Configuring time with NTP...");
 
-    // Set timezone
-    setenv("TZ", TIMEZONE, 1);
+    // Set timezone from configuration
+    const RuntimeConfig& config = configLoader.getConfig();
+    setenv("TZ", config.timezone.c_str(), 1);
     tzset();
 
     // Configure NTP
@@ -307,12 +409,16 @@ void enterDeepSleep(int retryMinutes) {
         Serial.println("Error retry - sleeping for " + String(retryMinutes) + " minutes");
         esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000ULL);
     } else {
-        // Normal operation - wake up at next DAY_START_HOUR
+        // Normal operation - wake up at next update hour
         struct tm targetTime = *timeinfo;
 
-        // Always move to next day's DAY_START_HOUR for once-daily update
+        // Get update hour from configuration
+        const RuntimeConfig& config = configLoader.getConfig();
+        int updateHour = config.update_hour;
+
+        // Always move to next day's update hour for once-daily update
         targetTime.tm_mday += 1;
-        targetTime.tm_hour = DAY_START_HOUR;
+        targetTime.tm_hour = updateHour;
         targetTime.tm_min = 0;
         targetTime.tm_sec = 0;
 
@@ -324,7 +430,7 @@ void enterDeepSleep(int retryMinutes) {
             sleepSeconds = 24 * 60 * 60;
         }
 
-        Serial.println("Next update at " + String(DAY_START_HOUR) + ":00 tomorrow");
+        Serial.println("Next update at " + String(updateHour) + ":00 tomorrow");
         Serial.println("Sleeping for " + String(sleepSeconds / 3600) + " hours");
         esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000ULL);
     }
@@ -350,7 +456,8 @@ void enterDeepSleep(int retryMinutes) {
     }
 
     // Disconnect WiFi
-    wifiMgr.disconnect();
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
 
     Serial.println("Going to sleep...");
     Serial.flush();

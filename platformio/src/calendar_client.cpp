@@ -13,16 +13,12 @@ CalendarClient::~CalendarClient() {
 }
 
 std::vector<CalendarEvent> CalendarClient::fetchEvents(int daysAhead) {
-    String calType = String(CALENDAR_TYPE);
+    // This method is deprecated - use fetchICSEvents directly with URL from config
+    // Kept for backward compatibility with debug.cpp
+    Serial.println("WARNING: CalendarClient::fetchEvents() is deprecated");
+    Serial.println("Use fetchICSEvents() directly with URL from config.json");
 
-    if (calType == "ICS") {
-        return fetchICSEvents(ICS_CALENDAR_URL, daysAhead);
-    } else if (calType == "GOOGLE") {
-        return fetchGoogleCalendarEvents(daysAhead);
-    } else if (calType == "CALDAV") {
-        return fetchCalDAVEvents(daysAhead);
-    }
-
+    // Return empty vector as configuration now comes from LittleFS
     std::vector<CalendarEvent> emptyEvents;
     return emptyEvents;
 }
@@ -49,7 +45,7 @@ std::vector<CalendarEvent> CalendarClient::fetchICSEvents(const String& url, int
         }
 
         // Parse and filter events (filtering is now done in parseICSCalendar)
-        events = parseICSCalendar(payload);
+        events = parseICSCalendar(payload, daysAhead);
 
         // Remove past events if configured
         if (!SHOW_PAST_EVENTS) {
@@ -72,13 +68,13 @@ std::vector<CalendarEvent> CalendarClient::fetchICSEvents(const String& url, int
     return events;
 }
 
-std::vector<CalendarEvent> CalendarClient::parseICSCalendar(const String& icsData) {
+std::vector<CalendarEvent> CalendarClient::parseICSCalendar(const String& icsData, int daysAhead) {
     std::vector<CalendarEvent> events;
 
     // Get current time for filtering
     time_t now;
     time(&now);
-    time_t endRange = now + (DAYS_TO_FETCH * 24 * 3600);
+    time_t endRange = now + (daysAhead * 24 * 3600);
 
     // Get today's date for comparison
     struct tm* nowTm = localtime(&now);
@@ -86,7 +82,7 @@ std::vector<CalendarEvent> CalendarClient::parseICSCalendar(const String& icsDat
     int currentMonth = nowTm->tm_mon + 1;
     int currentDay = nowTm->tm_mday;
 
-    Serial.println("Parsing ICS, filtering events from today to " + String(DAYS_TO_FETCH) + " days ahead");
+    Serial.println("Parsing ICS, filtering events from today to " + String(daysAhead) + " days ahead");
     Serial.println("Current date: " + String(currentYear) + "-" + String(currentMonth) + "-" + String(currentDay));
 
     int pos = 0;
@@ -479,19 +475,25 @@ std::vector<CalendarEvent> CalendarClient::fetchGoogleCalendarEvents(int daysAhe
     char timeMax[30];
     strftime(timeMax, sizeof(timeMax), "%Y-%m-%dT%H:%M:%S.000Z", timeinfo);
 
+    // Google Calendar API integration is not implemented
+    // Configuration should be done through config.json with ICS URL
+    Serial.println("ERROR: Google Calendar API is not implemented");
+    Serial.println("Please use ICS calendar URL in config.json instead");
+    return events;  // Return empty vector
+
+    /* Commented out - would need API credentials from config.json
     String url = "https://www.googleapis.com/calendar/v3/calendars/";
-    url += urlEncode(GOOGLE_CALENDAR_ID);
+    url += urlEncode(calendarId);  // Would need to come from config
     url += "/events?";
     url += "timeMin=" + String(timeMin);
     url += "&timeMax=" + String(timeMax);
     url += "&singleEvents=true";
     url += "&orderBy=startTime";
     url += "&maxResults=" + String(MAX_EVENTS_TO_SHOW);
-    url += "&key=" + String(GOOGLE_API_KEY);
+    url += "&key=" + String(apiKey);  // Would need to come from config
 
     Serial.println("Fetching Google Calendar events...");
 
-    httpClient.begin(*wifiClient, url);
     httpClient.addHeader("Accept", "application/json");
 
     int httpCode = httpClient.GET();
@@ -506,6 +508,7 @@ std::vector<CalendarEvent> CalendarClient::fetchGoogleCalendarEvents(int daysAhe
 
     httpClient.end();
     return events;
+    */
 }
 
 std::vector<CalendarEvent> CalendarClient::parseGoogleCalendarResponse(const String& jsonResponse) {
