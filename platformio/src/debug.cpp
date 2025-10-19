@@ -1,0 +1,1185 @@
+#ifdef DEBUG_DISPLAY
+
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <time.h>
+#include "config.h"
+#include "display_manager.h"
+#include "error_manager.h"
+#include "wifi_manager.h"
+#include "calendar_client.h"
+#include "weather_client.h"
+#include "localization.h"
+#include "version.h"
+#include <assets/fonts.h>
+#include <assets/icons/icons_64x64.h>
+#include <assets/icons/icons_48x48.h>
+#include <assets/icons/icons_32x32.h>
+#include <vector>
+
+// Display layout constants (for old layout compatibility)
+#define CALENDAR_START_X 10
+#define CONTENT_START_Y 60
+#define EVENTS_START_X 400
+#define OLD_EVENTS_WIDTH 390
+
+// Global objects
+DisplayManager display;
+WiFiManager wifiManager;
+CalendarClient* calendarClient = nullptr;
+WeatherClient* weatherClient = nullptr;
+
+// Function declarations
+void showMenu();
+void processCommand(String command);
+void testEventList();
+void testFullScreenError();
+void testWifiConnection();
+void testIconDisplay();
+void testBatteryDisplay();
+void testCalendarFetch();
+void testErrorLevels();
+void testDithering();
+void testTimeDisplay();
+void clearDisplay();
+void testTimezoneConversion();
+void testWeatherFetch();
+std::vector<CalendarEvent> generateMockEvents();
+MonthCalendar generateMockCalendar();
+WeatherData generateMockWeather();
+int getBatteryPercentage(float voltage);  // Battery percentage calculation
+
+void setup() {
+    Serial.begin(115200);
+    while (!Serial.isConnected())
+        delay(10);
+
+    Serial.println("\n\n=================================");
+    Serial.println("ESP32 Calendar Display - DEBUG MODE");
+    Serial.println("Version: " + getFullVersionString());
+    Serial.println("=================================\n");
+
+    // Initialize display
+    Serial.println("Initializing display...");
+    display.init();
+    display.clear();
+    display.display.init(115200, false); // Initialize GxEPD2 display directly
+
+    Serial.println("Display initialized!");
+    Serial.println("\nDEBUG_DISPLAY mode active - Normal operation bypassed");
+
+    // Initialize WiFi client for calendar and weather testing
+    WiFiClientSecure* wifiClient = new WiFiClientSecure();
+    wifiClient->setInsecure();
+    calendarClient = new CalendarClient(wifiClient);
+    weatherClient = new WeatherClient(wifiClient);
+
+    showMenu();
+}
+
+void loop() {
+    if (Serial.available()) {
+        String command = Serial.readStringUntil('\n');
+        command.trim();
+        processCommand(command);
+    }
+    delay(100);
+}
+
+void showMenu() {
+    Serial.println("\n========== DEBUG MENU ==========");
+    Serial.println("1  - Full Modern Calendar Demo");
+    Serial.println("2  - Test Event List");
+    Serial.println("3  - Test Full Screen Errors");
+    Serial.println("4  - Test WiFi Connection");
+    Serial.println("5  - Test Icon Display (Inverted Bitmaps)");
+    Serial.println("6  - Test Battery Status Display");
+    Serial.println("7  - Test Calendar Fetch (Real)");
+    Serial.println("8  - Test Error Levels");
+    Serial.println("9  - Test Dithering Patterns");
+    Serial.println("10 - Test Time/Date Display");
+    Serial.println("11 - Clear Display");
+    Serial.println("12 - Test ICS Timezone Conversion");
+    Serial.println("13 - Test Weather Fetch (Real)");
+    Serial.println("h  - Show this menu");
+    Serial.println("================================");
+    Serial.print("\nEnter command: ");
+}
+
+void processCommand(String command) {
+    Serial.println(command);
+
+    if (command == "1") {
+        // Full demo with modern layout
+        Serial.println("Running modern calendar demo...");
+
+        // Get current time
+        struct tm date;
+
+        date.tm_year = 2025 - 1900; // Number of years since 1900
+        date.tm_mon = 10 - 1; // Number of months since January
+        date.tm_mday = 16;
+        date.tm_hour = 12;
+        date.tm_min = 30;
+        date.tm_sec = 1;
+        date.tm_isdst = -1;
+        mktime(&date);
+
+        int currentDay = date.tm_mday;
+        int currentMonth = date.tm_mon + 1;
+        int currentYear = date.tm_year + 1900;
+
+        char timeStr[32];
+        strftime(timeStr, sizeof(timeStr), "%I:%M %p", &date);
+
+        // Generate mock events
+        std::vector<CalendarEvent> mockEvents = generateMockEvents();
+
+        // Generate mock weather data
+        WeatherData mockWeather = generateMockWeather();
+
+        // Display modern layout with weather
+        display.showModernCalendar(mockEvents, currentDay, currentMonth, currentYear,
+                                   String(timeStr), &mockWeather, true, -65, 4.2, 85);
+
+        Serial.println("Modern demo displayed!");
+    } else if (command == "2") {
+        testEventList();
+    } else if (command == "3") {
+        testFullScreenError();
+    } else if (command == "4") {
+        testWifiConnection();
+    } else if (command == "5") {
+        testIconDisplay();
+    } else if (command == "6") {
+        testBatteryDisplay();
+    } else if (command == "7") {
+        testCalendarFetch();
+    } else if (command == "8") {
+        testErrorLevels();
+    } else if (command == "9") {
+        testDithering();
+    } else if (command == "10") {
+        testTimeDisplay();
+    } else if (command == "11") {
+        clearDisplay();
+    } else if (command == "12") {
+        testTimezoneConversion();
+    } else if (command == "13") {
+        testWeatherFetch();
+    } else if (command == "h") {
+        showMenu();
+    } else {
+        Serial.println("Unknown command: " + command);
+    }
+
+    Serial.print("\nEnter command: ");
+}
+
+
+void testEventList() {
+    Serial.println("\nTesting Event List...");
+
+    std::vector<CalendarEvent> events = generateMockEvents();
+
+    display.display.firstPage();
+    do {
+        display.clear();
+        display.drawEventsList(events, 50, 50, 700, 400);
+    } while (display.display.nextPage());
+
+    Serial.println("Event list displayed!");
+}
+
+void testFullScreenError() {
+    Serial.println("\nTesting Full Screen Errors...");
+    Serial.println("Select error type:");
+    Serial.println("1 - WiFi Connection Error");
+    Serial.println("2 - Calendar Fetch Error");
+    Serial.println("3 - Battery Critical");
+    Serial.println("4 - Memory Error");
+    Serial.println("5 - NTP Sync Failed");
+
+    while (!Serial.available()) delay(10);
+    String choice = Serial.readStringUntil('\n');
+    choice.trim();
+
+    ErrorInfo error;
+
+    if (choice == "1") {
+        error.code = ErrorCode::WIFI_CONNECTION_FAILED;
+        error.message = LOC_ERROR_WIFI_CONNECTION_FAILED;
+        error.level = ErrorLevel::ERROR;
+        error.icon = ErrorIcon::WIFI;
+        error.details = "SSID: TestNetwork";
+    } else if (choice == "2") {
+        error.code = ErrorCode::CALENDAR_FETCH_FAILED;
+        error.message = LOC_ERROR_CALENDAR_FETCH_FAILED;
+        error.level = ErrorLevel::WARNING;
+        error.icon = ErrorIcon::CALENDAR;
+        error.details = "HTTP Error 404";
+    } else if (choice == "3") {
+        error.code = ErrorCode::BATTERY_CRITICAL;
+        error.message = LOC_ERROR_BATTERY_CRITICAL;
+        error.level = ErrorLevel::CRITICAL;
+        error.icon = ErrorIcon::BATTERY;
+        error.details = "Battery: 5%";
+    } else if (choice == "4") {
+        error.code = ErrorCode::MEMORY_ALLOCATION_FAILED;
+        error.message = LOC_ERROR_MEMORY_ALLOCATION_FAILED;
+        error.level = ErrorLevel::CRITICAL;
+        error.icon = ErrorIcon::MEMORY;
+        error.details = "Free heap: 1024 bytes";
+    } else if (choice == "5") {
+        error.code = ErrorCode::NTP_SYNC_FAILED;
+        error.message = LOC_ERROR_NTP_SYNC_FAILED;
+        error.level = ErrorLevel::WARNING;
+        error.icon = ErrorIcon::CLOCK;
+        error.details = "pool.ntp.org";
+    }
+
+    display.showFullScreenError(error);
+    Serial.println("Error screen displayed!");
+}
+
+void testWifiConnection() {
+    Serial.println("\nTesting WiFi Connection...");
+    Serial.println("Connecting to WiFi...");
+
+    bool connected = wifiManager.connect();
+
+    if (connected) {
+        Serial.println("WiFi connected!");
+        Serial.print("IP Address: ");
+        Serial.println(WiFi.localIP());
+        Serial.print("RSSI: ");
+        Serial.println(WiFi.RSSI());
+
+        // Display connection info
+        display.display.firstPage();
+        do {
+            display.clear();
+            display.display.setFont(&Ubuntu_R_18pt8b);
+            display.display.setCursor(100, 100);
+            display.display.print("WiFi Connected");
+
+            display.display.setFont(&Ubuntu_R_12pt8b);
+            display.display.setCursor(100, 150);
+            display.display.print("IP: " + WiFi.localIP().toString());
+
+            display.display.setCursor(100, 200);
+            display.display.print("RSSI: " + String(WiFi.RSSI()) + " dBm");
+
+            display.display.setCursor(100, 250);
+            display.display.print("SSID: " + String(WIFI_SSID));
+        } while (display.display.nextPage());
+    } else {
+        Serial.println("WiFi connection failed!");
+        ErrorInfo error;
+        error.code = ErrorCode::WIFI_CONNECTION_FAILED;
+        error.message = LOC_ERROR_WIFI_CONNECTION_FAILED;
+        error.level = ErrorLevel::ERROR;
+        error.icon = ErrorIcon::WIFI;
+        error.details = "Timeout";
+        display.showFullScreenError(error);
+    }
+}
+
+void testIconDisplay() {
+    Serial.println("\nTesting Icon Display with Inverted Bitmaps...");
+    Serial.println("Drawing error and warning icons using actual bitmap files...");
+
+    display.display.firstPage();
+    do {
+        display.clear();
+
+        display.display.setFont(&Luna_ITC_Std_Bold12pt7b);
+        display.display.setCursor(50, 30);
+        display.display.print("Icon Test - Error & Warning Icons");
+
+        // Draw 64x64 icons
+        int x = 50;
+        int y = 60;
+
+        // Error icon (for WiFi errors)
+        display.display.drawInvertedBitmap(x, y, error_icon_64x64, 64, 64, GxEPD_BLACK);
+        display.display.setFont(&Ubuntu_R_9pt8b);
+        display.display.setCursor(x, y + 75);
+        display.display.print("Error 64");
+
+        x += 100;
+
+        // Warning icon (for other errors)
+        display.display.drawInvertedBitmap(x, y, warning_icon_64x64, 64, 64, GxEPD_BLACK);
+        display.display.setCursor(x, y + 75);
+        display.display.print("Warning 64");
+
+        // Draw weather icons
+        x = 50;
+        y = 160;
+
+        display.display.setFont(&Luna_ITC_Std_Bold12pt7b);
+        display.display.setCursor(x, y);
+        display.display.print("Weather Icons (32x32):");
+
+        y += 20;
+
+        // Sunny day
+        display.display.drawInvertedBitmap(x, y, wi_day_sunny_32x32, 32, 32, GxEPD_BLACK);
+        display.display.setFont(&Ubuntu_R_9pt8b);
+        display.display.setCursor(x, y + 40);
+        display.display.print("Sun");
+
+        x += 80;
+
+        // Cloudy day
+        display.display.drawInvertedBitmap(x, y, wi_day_cloudy_32x32, 32, 32, GxEPD_BLACK);
+        display.display.setCursor(x, y + 40);
+        display.display.print("Cloud");
+
+        x += 80;
+
+        // Rain
+        display.display.drawInvertedBitmap(x, y, wi_rain_32x32, 32, 32, GxEPD_BLACK);
+        display.display.setCursor(x, y + 40);
+        display.display.print("Rain");
+
+        x += 80;
+
+        // Cloudy night
+        display.display.drawInvertedBitmap(x, y, wi_night_cloudy_32x32, 32, 32, GxEPD_BLACK);
+        display.display.setCursor(x, y + 40);
+        display.display.print("Night");
+
+        // Draw smaller icons
+        x = 50;
+        y = 250;
+
+        display.display.setFont(&Luna_ITC_Std_Bold12pt7b);
+        display.display.setCursor(x, y);
+        display.display.print("48x48 Icons:");
+
+        y += 20;
+
+        // Error 48x48
+        display.display.drawInvertedBitmap(x, y, error_icon_48x48, 48, 48, GxEPD_BLACK);
+        display.display.setFont(&Ubuntu_R_9pt8b);
+        display.display.setCursor(x, y + 55);
+        display.display.print("Error");
+
+        x += 80;
+
+        // Warning 48x48
+        display.display.drawInvertedBitmap(x, y, warning_icon_48x48, 48, 48, GxEPD_BLACK);
+        display.display.setCursor(x, y + 55);
+        display.display.print("Warning");
+
+    } while (display.display.nextPage());
+
+    Serial.println("Icon test with inverted bitmaps complete!");
+}
+
+// LiPo battery discharge curve lookup table (same as in main.cpp)
+int getBatteryPercentageDebug(float voltage) {
+    const struct {
+        float voltage;
+        int percentage;
+    } lipoTable[] = {
+        {4.20, 100},
+        {4.15, 95},
+        {4.11, 90},
+        {4.08, 85},
+        {4.02, 80},
+        {3.98, 75},
+        {3.95, 70},
+        {3.91, 65},
+        {3.87, 60},
+        {3.85, 55},
+        {3.84, 50},
+        {3.82, 45},
+        {3.80, 40},
+        {3.79, 35},
+        {3.77, 30},
+        {3.75, 25},
+        {3.73, 20},
+        {3.71, 15},
+        {3.69, 10},
+        {3.60, 5},
+        {3.50, 0}
+    };
+
+    const int tableSize = sizeof(lipoTable) / sizeof(lipoTable[0]);
+
+    if (voltage >= lipoTable[0].voltage) return lipoTable[0].percentage;
+    if (voltage <= lipoTable[tableSize - 1].voltage) return lipoTable[tableSize - 1].percentage;
+
+    for (int i = 0; i < tableSize - 1; i++) {
+        if (voltage >= lipoTable[i + 1].voltage) {
+            float v1 = lipoTable[i].voltage;
+            float v2 = lipoTable[i + 1].voltage;
+            int p1 = lipoTable[i].percentage;
+            int p2 = lipoTable[i + 1].percentage;
+            float ratio = (voltage - v2) / (v1 - v2);
+            return p2 + (int)(ratio * (p1 - p2));
+        }
+    }
+    return 0;
+}
+
+void testBatteryDisplay() {
+    Serial.println("\nTesting Battery Status - Live Monitor");
+    Serial.println("========================================");
+    Serial.println("Press any key to stop monitoring...\n");
+
+    // Initialize ADC for battery monitoring
+    pinMode(BATTERY_PIN, INPUT);
+    analogReadResolution(12);  // 12-bit resolution
+    analogSetAttenuation(ADC_11db);  // Full scale 0-3.3V
+
+    // Display initial screen
+    display.display.firstPage();
+    do {
+        display.clear();
+        display.display.setFont(&Ubuntu_R_18pt8b);
+        display.display.setCursor(50, 50);
+        display.display.print("Battery Monitor Active");
+        display.display.setFont(&Ubuntu_R_12pt8b);
+        display.display.setCursor(50, 100);
+        display.display.print("Check serial monitor for readings");
+    } while (display.display.nextPage());
+
+    // Monitor battery in a loop
+    int loopCount = 0;
+    while (!Serial.available()) {
+        // Read ADC value
+        int adcValue = analogRead(BATTERY_PIN);
+
+        // Convert to voltage
+        float measuredMillivolts = (adcValue / 4095.0) * 3300.0;  // mV at ADC pin
+        float batteryMillivolts = measuredMillivolts * BATTERY_VOLTAGE_DIVIDER;  // mV at battery
+        float batteryVoltage = batteryMillivolts / 1000.0;  // Convert to volts
+
+        // Calculate percentage using LiPo curve
+        int batteryPercentage = getBatteryPercentageDebug(batteryVoltage);
+
+        // Print detailed readings
+        Serial.print("[");
+        Serial.print(loopCount++);
+        Serial.print("] ADC: ");
+        Serial.print(adcValue);
+        Serial.print(" | ADC mV: ");
+        Serial.print(measuredMillivolts, 0);
+        Serial.print(" | Battery mV: ");
+        Serial.print(batteryMillivolts, 0);
+        Serial.print(" | Battery V: ");
+        Serial.print(batteryVoltage, 3);
+        Serial.print(" | Percentage: ");
+        Serial.print(batteryPercentage);
+        Serial.print("%");
+
+        // Add battery state description
+        if (batteryPercentage >= 80) {
+            Serial.print(" [Full]");
+        } else if (batteryPercentage >= 60) {
+            Serial.print(" [Good]");
+        } else if (batteryPercentage >= 40) {
+            Serial.print(" [Fair]");
+        } else if (batteryPercentage >= 20) {
+            Serial.print(" [Low]");
+        } else if (batteryPercentage >= 10) {
+            Serial.print(" [Critical]");
+        } else {
+            Serial.print(" [Empty]");
+        }
+        Serial.println();
+
+        // Update display every 10 readings
+        if (loopCount % 10 == 0) {
+            display.display.firstPage();
+            do {
+                display.clear();
+
+                // Title
+                display.display.setFont(&Ubuntu_R_18pt8b);
+                display.display.setCursor(50, 50);
+                display.display.print("Battery Monitor");
+
+                // Current readings
+                display.display.setFont(&Ubuntu_R_24pt8b);
+                display.display.setCursor(50, 120);
+                display.display.print(String(batteryVoltage, 2) + "V");
+
+                display.display.setCursor(250, 120);
+                display.display.print(String(batteryPercentage) + "%");
+
+                // Detailed info
+                display.display.setFont(&Ubuntu_R_12pt8b);
+                display.display.setCursor(50, 180);
+                display.display.print("ADC: " + String(adcValue) + " (" + String(measuredMillivolts, 0) + " mV)");
+
+                display.display.setCursor(50, 220);
+                display.display.print("Battery: " + String(batteryMillivolts, 0) + " mV");
+
+                // Draw battery status bar
+                display.drawStatusBar(true, -65, batteryVoltage, batteryPercentage);
+
+            } while (display.display.nextPage());
+        }
+
+        delay(1000);  // Update every second
+    }
+
+    // Clear serial buffer
+    while (Serial.available()) {
+        Serial.read();
+    }
+
+    Serial.println("\nBattery monitoring stopped.");
+    Serial.println("========================================");
+}
+
+void testCalendarFetch() {
+    Serial.println("\nTesting Real Calendar Fetch...");
+
+    // Connect to WiFi first if not connected
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("Connecting to WiFi first...");
+        if (!wifiManager.connect()) {
+            Serial.println("WiFi connection failed!");
+            return;
+        }
+    }
+
+    // Sync time with NTP for proper timezone conversion
+    Serial.println("Syncing time with NTP server...");
+    setenv("TZ", TIMEZONE, 1);
+    tzset();
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+
+    // Wait for time to be set
+    time_t now = 0;
+    struct tm timeinfo = {0};
+    int retry = 0;
+    const int retry_count = 10;
+
+    while (timeinfo.tm_year < (2020 - 1900) && ++retry < retry_count) {
+        Serial.print(".");
+        delay(1000);
+        time(&now);
+        localtime_r(&now, &timeinfo);
+    }
+
+    if (retry < retry_count) {
+        Serial.println("\nTime synchronized!");
+        char timeStr[32];
+        strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
+        Serial.println("Current time: " + String(timeStr));
+    } else {
+        Serial.println("\nWarning: Failed to sync time, continuing anyway...");
+    }
+
+    Serial.println("Fetching calendar events...");
+
+    std::vector<CalendarEvent> events = calendarClient->fetchEvents(30);
+
+    Serial.println("Found " + String(events.size()) + " events");
+
+    display.display.firstPage();
+    do {
+        display.clear();
+
+        display.display.setFont(&Ubuntu_R_18pt8b);
+        display.display.setCursor(50, 50);
+        display.display.print("Calendar Events (" + String(events.size()) + ")");
+
+        if (events.empty()) {
+            display.display.setFont(&Ubuntu_R_12pt8b);
+            display.display.setCursor(50, 100);
+            display.display.print("No events found");
+        } else {
+            display.drawEventsList(events, 50, 80, 700, 400);
+        }
+
+    } while (display.display.nextPage());
+
+    Serial.println("Calendar fetch test complete!");
+}
+
+void testErrorLevels() {
+    Serial.println("\nTesting Error Levels...");
+
+    display.display.firstPage();
+    do {
+        display.clear();
+
+        display.display.setFont(&Ubuntu_R_18pt8b);
+        display.display.setCursor(50, 50);
+        display.display.print("Error Level Test");
+
+        int y = 100;
+
+        // Test each error level
+        ErrorLevel levels[] = {ErrorLevel::INFO, ErrorLevel::WARNING,
+                              ErrorLevel::ERROR, ErrorLevel::CRITICAL};
+        const char* levelNames[] = {"INFO", "WARNING", "ERROR", "CRITICAL"};
+
+        for (int i = 0; i < 4; i++) {
+            ErrorInfo error;
+            error.level = levels[i];
+            error.message = String("Test ") + levelNames[i] + " message";
+            error.code = static_cast<ErrorCode>(100 + i);
+
+            display.display.setFont(&Ubuntu_R_12pt8b);
+            display.display.setCursor(50, y);
+            display.display.print(levelNames[i]);
+
+            // Draw appropriate icon for each level
+            int iconX = 200;
+            int iconSize = 48;
+
+            switch (levels[i]) {
+                case ErrorLevel::INFO:
+                    display.drawInfoIcon(iconX, y - 30, iconSize);
+                    break;
+                case ErrorLevel::WARNING:
+                    display.drawWarningIcon(iconX, y - 30, iconSize);
+                    break;
+                case ErrorLevel::ERROR:
+                case ErrorLevel::CRITICAL:
+                    display.drawErrorIcon(iconX, y - 30, iconSize);
+                    break;
+            }
+
+            y += 80;
+        }
+
+    } while (display.display.nextPage());
+
+    Serial.println("Error levels test complete!");
+}
+
+void testDithering() {
+    Serial.println("\nTesting Dithering Patterns...");
+
+    display.display.firstPage();
+    do {
+        display.clear();
+
+        display.display.setFont(&Ubuntu_R_18pt8b);
+        display.display.setCursor(50, 50);
+        display.display.print("Dithering Test");
+
+        // Test different dithering levels
+        float levels[] = {0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.75};
+        int x = 50;
+        int y = 100;
+        int boxSize = 80;
+
+        for (int i = 0; i < 8; i++) {
+            // Apply dithering to a box
+            display.applyFloydSteinbergDithering(x, y, boxSize, boxSize, levels[i]);
+
+            // Draw label
+            display.display.setFont(&Ubuntu_R_9pt8b);
+            display.display.setCursor(x + 10, y + boxSize + 20);
+            display.display.print(String(int(levels[i] * 100)) + "%");
+
+            x += boxSize + 20;
+            if (x > 650) {
+                x = 50;
+                y += boxSize + 40;
+            }
+        }
+
+    } while (display.display.nextPage());
+
+    Serial.println("Dithering test complete!");
+}
+
+void testTimeDisplay() {
+    Serial.println("\nTesting Time/Date Display...");
+
+    // Get current time
+    time_t now;
+    time(&now);
+    struct tm* timeinfo = localtime(&now);
+
+    char dateStr[32];
+    char timeStr[32];
+    strftime(dateStr, sizeof(dateStr), "%B %d, %Y", timeinfo);
+    strftime(timeStr, sizeof(timeStr), "%I:%M %p", timeinfo);
+
+    display.display.firstPage();
+    do {
+        display.clear();
+
+        // Test header
+        display.drawHeader(String(dateStr), String(timeStr));
+
+        // Test different date formats
+        display.display.setFont(&Ubuntu_R_12pt8b);
+        int y = 100;
+
+        display.display.setCursor(50, y);
+        display.display.print("ISO Format: ");
+        strftime(dateStr, sizeof(dateStr), "%Y-%m-%d %H:%M:%S", timeinfo);
+        display.display.print(dateStr);
+
+        y += 40;
+        display.display.setCursor(50, y);
+        display.display.print("US Format: ");
+        strftime(dateStr, sizeof(dateStr), "%m/%d/%Y %I:%M %p", timeinfo);
+        display.display.print(dateStr);
+
+        y += 40;
+        display.display.setCursor(50, y);
+        display.display.print("EU Format: ");
+        strftime(dateStr, sizeof(dateStr), "%d.%m.%Y %H:%M", timeinfo);
+        display.display.print(dateStr);
+
+        y += 40;
+        display.display.setCursor(50, y);
+        display.display.print("Full Format: ");
+        strftime(dateStr, sizeof(dateStr), "%A, %B %d, %Y", timeinfo);
+        display.display.print(dateStr);
+
+    } while (display.display.nextPage());
+
+    Serial.println("Time display test complete!");
+}
+
+void clearDisplay() {
+    Serial.println("\nClearing display...");
+    display.clear();
+    display.display.display();  // Refresh display
+    Serial.println("Display cleared!");
+}
+
+void testTimezoneConversion() {
+    Serial.println("\nTesting ICS Timezone Conversion...");
+    Serial.println("========================================");
+
+    // Test cases for UTC to local time conversion
+    struct TestCase {
+        String input;
+        String description;
+    };
+
+    TestCase testCases[] = {
+        {"20251015T080000Z", "UTC 8:00 AM on Oct 15, 2025"},
+        {"20251015T120000Z", "UTC 12:00 PM on Oct 15, 2025"},
+        {"20251015T180000Z", "UTC 6:00 PM on Oct 15, 2025"},
+        {"20250315T100000Z", "UTC 10:00 AM on Mar 15, 2025 (before DST)"},
+        {"20250415T100000Z", "UTC 10:00 AM on Apr 15, 2025 (during DST)"},
+        {"20251105T100000Z", "UTC 10:00 AM on Nov 5, 2025 (after DST)"},
+        {"20251231T235959Z", "UTC 11:59:59 PM on Dec 31, 2025"}
+    };
+
+    Serial.println("Current configuration:");
+    Serial.println("TIMEZONE: " + String(TIMEZONE));
+    Serial.println("(System handles DST automatically based on timezone)");
+    Serial.println("");
+
+    for (int i = 0; i < 7; i++) {
+        TestCase& tc = testCases[i];
+        Serial.println("Test " + String(i+1) + ": " + tc.description);
+        Serial.println("  Input:  " + tc.input);
+
+        String converted = calendarClient->convertUTCToLocalTime(tc.input);
+        Serial.println("  Output: " + converted);
+
+        // Parse the output to show human-readable format
+        if (converted.length() >= 15) {
+            String year = converted.substring(0, 4);
+            String month = converted.substring(4, 6);
+            String day = converted.substring(6, 8);
+            String hour = converted.substring(9, 11);
+            String minute = converted.substring(11, 13);
+            String second = converted.substring(13, 15);
+
+            Serial.println("  Readable: " + year + "-" + month + "-" + day + " " +
+                         hour + ":" + minute + ":" + second + " (local time)");
+        }
+        Serial.println("");
+    }
+
+    // Display test results on screen
+    display.display.firstPage();
+    do {
+        display.clear();
+
+        display.display.setFont(&Ubuntu_R_18pt8b);
+        display.display.setCursor(50, 50);
+        display.display.print("ICS Timezone Conversion Test");
+
+        display.display.setFont(&Ubuntu_R_12pt8b);
+        int y = 100;
+
+        display.display.setCursor(50, y);
+        display.display.print("TIMEZONE: " + String(TIMEZONE));
+        y += 30;
+
+        display.display.setCursor(50, y);
+        display.display.print("(DST handled automatically)");
+        y += 40;
+
+        // Show a few test results
+        for (int i = 0; i < 3 && i < 7; i++) {
+            TestCase& tc = testCases[i];
+            String converted = calendarClient->convertUTCToLocalTime(tc.input);
+
+            display.display.setFont(&Ubuntu_R_9pt8b);
+            display.display.setCursor(50, y);
+            display.display.print("UTC: " + tc.input.substring(9, 15));
+
+            display.display.setCursor(250, y);
+            display.display.print("Local: " + converted.substring(9, 15));
+
+            display.display.setCursor(450, y);
+            display.display.print(tc.input.substring(0, 8));
+
+            y += 25;
+        }
+
+        display.display.setFont(&Ubuntu_R_9pt8b);
+        display.display.setCursor(50, y + 20);
+        display.display.print("Check serial monitor for full test results");
+
+    } while (display.display.nextPage());
+
+    Serial.println("Timezone conversion test complete!");
+    Serial.println("========================================");
+}
+
+void testWeatherFetch() {
+    Serial.println("\nTesting Real Weather Fetch...");
+    Serial.println("========================================");
+
+    // Connect to WiFi first if not connected
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("Connecting to WiFi first...");
+        if (!wifiManager.connect()) {
+            Serial.println("WiFi connection failed!");
+            return;
+        }
+    }
+
+    // Fetch weather data
+    Serial.println("Fetching weather data...");
+    Serial.println("Location: Latitude " + String(LOC_LATITUDE, 6) + ", Longitude " + String(LOC_LONGITUDE, 6));
+
+    WeatherData weatherData;
+    bool success = weatherClient->fetchWeather(weatherData);
+
+    if (!success) {
+        Serial.println("Failed to fetch weather data!");
+        return;
+    }
+
+    // Display weather info in serial
+    Serial.println("\n=== Current Weather ===");
+    Serial.println("Temperature: " + String(weatherData.currentTemp) + "°C");
+    Serial.println("Weather Code: " + String(weatherData.currentWeatherCode));
+    Serial.println("Is Day: " + String(weatherData.isDay ? "Yes" : "No"));
+
+    Serial.println("\n=== Hourly Forecast (7 Items, 3-Hour Intervals) ===");
+    for (size_t i = 0; i < weatherData.hourlyForecast.size() && i < 7; i++) {
+        const WeatherHour& hour = weatherData.hourlyForecast[i];
+        String hourStr = hour.time.substring(11, 13);
+        Serial.print("Hour " + hourStr + ":00 - ");
+        Serial.print("Temp: " + String(hour.temperature, 1) + "°C, ");
+        Serial.print("Code: " + String(hour.weatherCode) + ", ");
+        Serial.println("Rain%: " + String(hour.precipitationProbability) + "%");
+    }
+
+    Serial.println("\n=== Daily Forecast ===");
+    for (size_t i = 0; i < weatherData.dailyForecast.size(); i++) {
+        const WeatherDay& day = weatherData.dailyForecast[i];
+        Serial.print("Date: " + day.date + " - ");
+        Serial.print("Code: " + String(day.weatherCode) + ", ");
+        Serial.print("Max: " + String(day.tempMax, 1) + "°C, ");
+        Serial.print("Min: " + String(day.tempMin, 1) + "°C, ");
+        Serial.println("Sunrise: " + day.sunrise.substring(11) + ", Sunset: " + day.sunset.substring(11));
+    }
+
+    // Display on screen
+    Serial.println("\nDisplaying weather on screen...");
+
+    // Get current time
+    time_t now;
+    time(&now);
+    struct tm* timeinfo = localtime(&now);
+
+    // Use mock date if time not synced
+    int currentDay = timeinfo->tm_mday;
+    int currentMonth = timeinfo->tm_mon + 1;
+    int currentYear = timeinfo->tm_year + 1900;
+
+    if (currentYear <= 1970) {
+        currentDay = 16;
+        currentMonth = 10;
+        currentYear = 2025;
+    }
+
+    char timeStr[32];
+    strftime(timeStr, sizeof(timeStr), "%I:%M %p", timeinfo);
+
+    // Generate mock events for display
+    std::vector<CalendarEvent> mockEvents = generateMockEvents();
+
+    // Get real WiFi signal strength
+    int rssi = WiFi.RSSI();
+    bool wifiConnected = WiFi.status() == WL_CONNECTED;
+
+    // Get real battery values
+    int adcValue = analogRead(BATTERY_PIN);
+    float measuredVoltage = (adcValue / 4095.0) * 3.3;
+    float batteryVoltage = measuredVoltage * BATTERY_VOLTAGE_DIVIDER;
+    int batteryPercentage = getBatteryPercentage(batteryVoltage);
+
+    // Display with weather data using real values
+    display.showModernCalendar(mockEvents, currentDay, currentMonth, currentYear,
+                               String(timeStr), &weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage);
+
+    Serial.println("Weather test complete!");
+    Serial.println("========================================");
+}
+
+std::vector<CalendarEvent> generateMockEvents() {
+    std::vector<CalendarEvent> events;
+
+    // Today's event (October 16)
+    CalendarEvent event1;
+    event1.title = "DS Call Swisscom";
+    event1.location = "Office";
+    event1.startTime = "11:00";
+    event1.endTime = "12:00";
+    event1.date = "2025-10-16";
+    event1.allDay = false;
+    event1.isToday = true;
+    event1.isTomorrow = false;
+    event1.dayOfMonth = 16;
+    events.push_back(event1);
+
+    // Tomorrow's events (October 17)
+    CalendarEvent event2;
+    event2.title = "Ritirare la moto";
+    event2.location = "Officina";
+    event2.startTime = "10:30";
+    event2.endTime = "11:00";
+    event2.date = "2025-10-17";
+    event2.allDay = false;
+    event2.isToday = false;
+    event2.isTomorrow = true;
+    event2.dayOfMonth = 17;
+    events.push_back(event2);
+
+    CalendarEvent event3;
+    event3.title = "Chiamare meccanico";
+    event3.location = "";
+    event3.startTime = "12:30";
+    event3.endTime = "13:00";
+    event3.date = "2025-10-17";
+    event3.allDay = false;
+    event3.isToday = false;
+    event3.isTomorrow = true;
+    event3.dayOfMonth = 17;
+    events.push_back(event3);
+
+    // Event on Sunday 19th (same month)
+    CalendarEvent event5;
+    event5.title = "Buttare il secco";
+    event5.location = "";
+    event5.startTime = "09:30";
+    event5.endTime = "10:00";
+    event5.date = "2025-10-19";
+    event5.allDay = false;
+    event5.isToday = false;
+    event5.isTomorrow = false;
+    event5.dayOfMonth = 19;
+    events.push_back(event5);
+
+    // Event on Wednesday 22nd (same month)
+    CalendarEvent event6;
+    event6.title = "Cena di Natale con i colleghi di Swisscom";
+    event6.location = "Ristorante";
+    event6.startTime = "17:30";
+    event6.endTime = "23:00";
+    event6.date = "2025-10-22";
+    event6.allDay = false;
+    event6.isToday = false;
+    event6.isTomorrow = false;
+    event6.dayOfMonth = 22;
+    events.push_back(event6);
+
+    // Event on Friday 31st (same month)
+    CalendarEvent event7;
+    event7.title = "Partita";
+    event7.location = "Stadium";
+    event7.startTime = "21:00";
+    event7.endTime = "23:00";
+    event7.date = "2025-10-31";
+    event7.allDay = false;
+    event7.isToday = false;
+    event7.isTomorrow = false;
+    event7.dayOfMonth = 31;
+    events.push_back(event7);
+
+    // Event on Saturday, November 4th (next month)
+    CalendarEvent event8;
+    event8.title = "Partita";
+    event8.location = "Stadium";
+    event8.startTime = "09:00";
+    event8.endTime = "11:00";
+    event8.date = "2025-11-04";
+    event8.allDay = false;
+    event8.isToday = false;
+    event8.isTomorrow = false;
+    event8.dayOfMonth = 4;
+    events.push_back(event8);
+
+    // Event on Christmas Eve (December)
+    CalendarEvent event9;
+    event9.title = "Vigilia di Natale";
+    event9.location = "Casa";
+    event9.startTime = "19:00";
+    event9.endTime = "23:59";
+    event9.date = "2025-12-24";
+    event9.allDay = false;
+    event9.isToday = false;
+    event9.isTomorrow = false;
+    event9.dayOfMonth = 24;
+    events.push_back(event9);
+
+    // Event on New Year's Day 2026 (next year)
+    CalendarEvent event10;
+    event10.title = "Nuovo Anno";
+    event10.location = "Casa";
+    event10.startTime = "12:00";
+    event10.endTime = "13:00";
+    event10.date = "2026-01-01";
+    event10.allDay = false;
+    event10.isToday = false;
+    event10.isTomorrow = false;
+    event10.dayOfMonth = 1;
+    events.push_back(event10);
+
+    return events;
+}
+
+MonthCalendar generateMockCalendar() {
+    MonthCalendar calendar;
+    calendar.year = 2025;
+    calendar.month = 10; // October
+    calendar.daysInMonth = 31;
+    calendar.firstDayOfWeek = 3; // Wednesday
+    calendar.today = 16;  // October 16th
+
+    // Mark some days as having events
+    for (int i = 0; i < 32; i++) {
+        calendar.hasEvent[i] = false;
+    }
+    calendar.hasEvent[16] = true; // Today
+    calendar.hasEvent[17] = true; // Tomorrow
+    calendar.hasEvent[20] = true; // Birthday
+    calendar.hasEvent[25] = true; // Random event
+    calendar.hasEvent[28] = true; // Random event
+
+    return calendar;
+}
+
+WeatherData generateMockWeather() {
+    WeatherData weatherData;
+
+    // Current weather
+    weatherData.currentTemp = 15.5;
+    weatherData.currentWeatherCode = 2; // Partly cloudy
+    weatherData.isDay = true;
+
+    // Generate hourly forecast (7 items at 3-hour intervals starting at 6am)
+    int hours[] = {6, 9, 12, 15, 18, 21, 0}; // 6am to midnight coverage
+    float temps[] = {10.2, 14.5, 18.3, 19.2, 15.2, 12.1, 9.5};
+    int codes[] = {2, 1, 0, 0, 2, 3, 3}; // Various weather conditions
+    int rainProb[] = {10, 5, 0, 0, 5, 15, 20};
+
+    for (int i = 0; i < 7; i++) {
+        WeatherHour hour;
+        char timeStr[20];
+        sprintf(timeStr, "2025-10-16T%02d:00", hours[i]);
+        hour.time = String(timeStr);
+        hour.temperature = temps[i];
+        hour.weatherCode = codes[i];
+        hour.precipitationProbability = rainProb[i];
+        hour.isDay = (hours[i] >= 6 && hours[i] <= 18);
+        weatherData.hourlyForecast.push_back(hour);
+    }
+
+    // Daily forecast (for sunrise/sunset)
+    WeatherDay today;
+    today.date = "2025-10-16";
+    today.weatherCode = 2;
+    today.tempMax = 18.5;
+    today.tempMin = 8.0;
+    today.sunrise = "2025-10-16T06:42";
+    today.sunset = "2025-10-16T18:15";
+    weatherData.dailyForecast.push_back(today);
+
+    return weatherData;
+}
+
+// LiPo battery discharge curve lookup table
+// Based on typical LiPo discharge characteristics
+int getBatteryPercentage(float voltage) {
+    // Voltage to percentage lookup table for single LiPo cell
+    const struct {
+        float voltage;
+        int percentage;
+    } lipoTable[] = {
+        {4.20, 100},
+        {4.15, 95},
+        {4.11, 90},
+        {4.08, 85},
+        {4.02, 80},
+        {3.98, 75},
+        {3.95, 70},
+        {3.91, 65},
+        {3.87, 60},
+        {3.85, 55},
+        {3.84, 50},
+        {3.82, 45},
+        {3.80, 40},
+        {3.79, 35},
+        {3.77, 30},
+        {3.75, 25},
+        {3.73, 20},
+        {3.71, 15},
+        {3.69, 10},
+        {3.60, 5},
+        {3.50, 0}
+    };
+
+    const int tableSize = sizeof(lipoTable) / sizeof(lipoTable[0]);
+
+    // Handle edge cases
+    if (voltage >= lipoTable[0].voltage) return lipoTable[0].percentage;
+    if (voltage <= lipoTable[tableSize - 1].voltage) return lipoTable[tableSize - 1].percentage;
+
+    // Find the two points to interpolate between
+    for (int i = 0; i < tableSize - 1; i++) {
+        if (voltage >= lipoTable[i + 1].voltage) {
+            // Linear interpolation between two points
+            float v1 = lipoTable[i].voltage;
+            float v2 = lipoTable[i + 1].voltage;
+            int p1 = lipoTable[i].percentage;
+            int p2 = lipoTable[i + 1].percentage;
+
+            float ratio = (voltage - v2) / (v1 - v2);
+            return p2 + (int)(ratio * (p1 - p2));
+        }
+    }
+
+    return 0;
+}
+
+#endif // DEBUG_DISPLAY
