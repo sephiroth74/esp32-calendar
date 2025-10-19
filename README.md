@@ -407,7 +407,7 @@ Version details are in `include/version.h` and displayed on serial startup.
 
 ## License
 
-This project is open source. Feel free to modify and distribute.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
