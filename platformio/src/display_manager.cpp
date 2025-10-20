@@ -82,14 +82,14 @@ void DisplayManager::drawModernHeader(int currentDay, const String& monthYear, c
     display.print(dayStr);
 #endif
 
-    // Center the month and year below day - with more spacing
+    // Center the month and year below day - moved down 10 pixels
     display.setFont(&Luna_ITC_Regular26pt7b);
     int monthYearX = (LEFT_WIDTH - monthYearWidth) / 2;
-    display.setCursor(monthYearX, 85);  // Even more space to avoid overlap
+    display.setCursor(monthYearX, 95);  // Moved down 10 pixels (was 85)
     display.print(monthYear);
 
-    // Horizontal separator under header
-    display.drawLine(10, HEADER_HEIGHT - 5, LEFT_WIDTH - 10, HEADER_HEIGHT - 5, GxEPD_BLACK);
+    // Horizontal separator under header - moved down 10 pixels
+    display.drawLine(10, HEADER_HEIGHT + 5, LEFT_WIDTH - 10, HEADER_HEIGHT + 5, GxEPD_BLACK);
 }
 
 void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar)
@@ -189,14 +189,14 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar)
         }
         if (isWeekend) {
 #ifdef DISP_TYPE_6C
-            // Fill weekend cells with 25% yellow on 6-color displays
+            // Fill weekend cells with 50% yellow on 6-color displays
             // First fill with white (background)
             display.fillRect(x, y, cellWidth, CELL_HEIGHT, GxEPD_WHITE);
-            // Then draw a dithered pattern with yellow (25% density)
-            for (int dy = 0; dy < CELL_HEIGHT; dy += 2) {
-                for (int dx = 0; dx < cellWidth; dx += 2) {
-                    // 25% pattern: draw 1 out of every 4 pixels
-                    if ((dx + dy) % 4 == 0) {
+            // Then draw a dithered pattern with yellow (50% density)
+            for (int dy = 0; dy < CELL_HEIGHT; dy++) {
+                for (int dx = 0; dx < cellWidth; dx++) {
+                    // 50% pattern: checkerboard pattern
+                    if ((dx + dy) % 2 == 0) {
                         display.drawPixel(x + dx, y + dy, COLOR_CALENDAR_WEEKEND_BG);
                     }
                 }
@@ -298,8 +298,12 @@ String DisplayManager::formatEventDate(const String& eventDate, int currentYear,
     int eventMonth = eventDate.substring(5, 7).toInt();
     int eventDay = eventDate.substring(8, 10).toInt();
 
+    Serial.println("formatEventDate: Event date " + String(eventYear) + "-" + String(eventMonth) + "-" + String(eventDay) +
+                   " vs Current " + String(currentYear) + "-" + String(currentMonth) + "-" + String(currentDay));
+
     // Check if today
     if (eventYear == currentYear && eventMonth == currentMonth && eventDay == currentDay) {
+        Serial.println("  -> Returning TODAY: " + String(LOC_TODAY));
         return String(LOC_TODAY);
     }
 
@@ -309,9 +313,13 @@ String DisplayManager::formatEventDate(const String& eventDate, int currentYear,
     time_t tomorrow = now + 86400; // Add 24 hours
     struct tm* tomorrowInfo = localtime(&tomorrow);
 
+    Serial.println("  Tomorrow check: " + String(tomorrowInfo->tm_year + 1900) + "-" +
+                   String(tomorrowInfo->tm_mon + 1) + "-" + String(tomorrowInfo->tm_mday));
+
     if (eventYear == tomorrowInfo->tm_year + 1900 &&
         eventMonth == tomorrowInfo->tm_mon + 1 &&
         eventDay == tomorrowInfo->tm_mday) {
+        Serial.println("  -> Returning TOMORROW: " + String(LOC_TOMORROW));
         return String(LOC_TOMORROW);
     }
 
@@ -388,6 +396,9 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent>& events)
         // Get formatted date for this event
         String dateHeader = formatEventDate(event.date, currentYear, currentMonth, currentDay);
 
+        // Debug output for date header
+        Serial.println("Date header for event: '" + dateHeader + "' (last: '" + lastDateHeader + "')");
+
         // If this is a new date, show the date header
         if (dateHeader != lastDateHeader) {
             // Add spacing between date groups (except for first)
@@ -402,14 +413,19 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent>& events)
             display.setFont(&Luna_ITC_Std_Bold12pt7b);
             display.setCursor(x, y);
 
+            Serial.println("Drawing date header at y=" + String(y) + ": " + dateHeader);
+
 #ifdef DISP_TYPE_6C
-            // Use red for "Today" header, orange for others on 6-color displays
+            // Use red for "Today" and "Tomorrow", black for other dates for visibility
             if (dateHeader.indexOf("Oggi") >= 0 || dateHeader.indexOf("Today") >= 0) {
-                display.setTextColor(COLOR_EVENT_TODAY_HEADER);
+                display.setTextColor(GxEPD_RED);  // Red for today
+                Serial.println("Using RED color for Today header");
             } else if (dateHeader.indexOf("Domani") >= 0 || dateHeader.indexOf("Tomorrow") >= 0) {
-                display.setTextColor(COLOR_EVENT_TOMORROW_HEADER);
+                display.setTextColor(GxEPD_RED);  // Red for tomorrow
+                Serial.println("Using RED color for Tomorrow header");
             } else {
-                display.setTextColor(COLOR_EVENT_OTHER_HEADER);
+                display.setTextColor(GxEPD_BLACK);  // Changed to BLACK for better visibility (was orange)
+                Serial.println("Using BLACK color for other date headers");
             }
             display.print(dateHeader);
             display.setTextColor(GxEPD_BLACK); // Reset to black
@@ -893,30 +909,36 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
 
         // Add day header if needed
         if (event.isToday && !todayShown) {
-#ifdef DISP_TYPE_6C            
+#ifdef DISP_TYPE_6C
             display.setTextColor(GxEPD_RED);
 #endif
             display.setFont(&Ubuntu_R_12pt8b);
             display.setCursor(x, currentY);
             display.print(LOC_TODAY);
+#ifdef DISP_TYPE_6C
+            display.setTextColor(GxEPD_BLACK);  // Reset color to black
+#endif
             currentY += 20;
             todayShown = true;
         } else if (event.isTomorrow && !tomorrowShown) {
             if (todayShown)
                 currentY += 10; // Add spacing
-#ifdef DISP_TYPE_6C            
-            display.setTextColor(COLOR_CALENDAR_OUTSIDE_MONTH);
+#ifdef DISP_TYPE_6C
+            display.setTextColor(COLOR_EVENT_TOMORROW_HEADER);  // Use orange for better visibility
 #endif
             display.setFont(&Ubuntu_R_12pt8b);
             display.setCursor(x, currentY);
             display.print(LOC_TOMORROW);
+#ifdef DISP_TYPE_6C
+            display.setTextColor(GxEPD_BLACK);  // Reset color to black
+#endif
             currentY += 20;
             tomorrowShown = true;
         } else if (!event.isToday && !event.isTomorrow && !dayAfterShown) {
             if (todayShown || tomorrowShown)
                 currentY += 10; // Add spacing
 #ifdef DISP_TYPE_6C
-            display.setTextColor(COLOR_CALENDAR_OUTSIDE_MONTH);
+            display.setTextColor(COLOR_EVENT_TOMORROW_HEADER);  // Use orange for all date headers for visibility
 #endif
             display.setFont(&Ubuntu_R_12pt8b);
             display.setCursor(x, currentY);
@@ -927,6 +949,9 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
                 int day = event.date.substring(8, 10).toInt();
                 display.print(String(MONTH_NAMES_SHORT[month]) + " " + String(day));
             }
+#ifdef DISP_TYPE_6C
+            display.setTextColor(GxEPD_BLACK);  // Reset color to black
+#endif
             currentY += 20;
             dayAfterShown = true;
         }
@@ -946,6 +971,11 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
 
 void DisplayManager::drawEventCompact(const CalendarEvent& event, int x, int y, int maxWidth)
 {
+#ifdef DISP_TYPE_6C
+    // Ensure text color is black for event content
+    display.setTextColor(GxEPD_BLACK);
+#endif
+
     // Draw time or "All Day"
     display.setFont(&Ubuntu_R_9pt8b); // Use default small font for time
     display.setCursor(x, y);

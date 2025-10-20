@@ -9,7 +9,7 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 3
-#define VERSION_PATCH 0
+#define VERSION_PATCH 1
 
 // Build metadata (optional)
 #define VERSION_BUILD __DATE__ " " __TIME__
@@ -49,7 +49,7 @@
 #define FEATURE_COLOR_CUSTOMIZATION 1  // Configurable color scheme
 #define FEATURE_ONCE_DAILY_UPDATE 1  // Calendar updates once per day
 #define FEATURE_SMART_ERROR_RETRY 1  // Intelligent retry intervals based on error type
-#define FEATURE_LOCAL_CONFIG 1  // Sensitive data in separate config.local file
+#define FEATURE_LITTLEFS_CONFIG 1  // Configuration stored in LittleFS filesystem
 #define FEATURE_BATTERY_SLEEP 1  // No wake on critical battery
 
 // Display version info function

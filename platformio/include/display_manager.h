@@ -68,9 +68,9 @@ private:
 
     // Left side - Header and Calendar
     static const int LEFT_WIDTH = 400;             // Left half of screen
-    static const int HEADER_HEIGHT = 120;          // Header with large day number and month/year (increased by 10px)
-    static const int CALENDAR_START_Y = HEADER_HEIGHT + 10;
-    static const int CALENDAR_HEIGHT = 370;        // Rest of left side for calendar
+    static const int HEADER_HEIGHT = 120;          // Header with large day number and month/year
+    static const int CALENDAR_START_Y = HEADER_HEIGHT + 20;  // Moved down 10 pixels (was +10)
+    static const int CALENDAR_HEIGHT = 360;        // Adjusted for moved calendar
 
     // Right side - Events and Weather
     static const int RIGHT_WIDTH = 400;            // Right half of screen
