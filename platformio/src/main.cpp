@@ -75,9 +75,13 @@ void setup() {
     Serial.println("Initializing LittleFS...");
     if (!configLoader.begin()) {
         Serial.println("Failed to initialize LittleFS!");
-        displayMgr.showMessage("Configuration Error", "Failed to mount filesystem");
-        delay(5000);
-        ESP.restart();
+        displayMgr.showMessage("Configuration Error",
+            "Failed to mount filesystem\n\n"
+            "Device will sleep indefinitely.\n"
+            "Fix filesystem and reset device.");
+        delay(10000);  // Give user time to read the message
+        Serial.println("Going to indefinite deep sleep due to filesystem error...");
+        enterDeepSleep(0);  // 0 means no wake-up timer - sleep indefinitely
     }
 
     // Load configuration from LittleFS
@@ -86,9 +90,11 @@ void setup() {
         displayMgr.showMessage("Configuration Missing",
             "Please upload config.json:\n\n"
             "1. Edit data/config.json\n"
-            "2. Run: pio run -t uploadfs");
-        delay(10000);
-        ESP.restart();
+            "2. Run: pio run -t uploadfs\n\n"
+            "Device will sleep indefinitely.");
+        delay(15000);  // Give user more time to read instructions
+        Serial.println("Going to indefinite deep sleep due to missing configuration...");
+        enterDeepSleep(0);  // 0 means no wake-up timer - sleep indefinitely
     }
 
     // Perform calendar update
@@ -338,8 +344,9 @@ void enterDeepSleep(int retryMinutes) {
     int sleepSeconds;
 
     if (retryMinutes == 0) {
-        // Battery too low - don't set wake-up timer
-        Serial.println("Battery too low - sleeping without wake-up timer");
+        // Indefinite sleep - don't set wake-up timer
+        // Used for: battery too low, configuration errors, filesystem errors
+        Serial.println("Sleeping indefinitely without wake-up timer");
         // Don't call esp_sleep_enable_timer_wakeup
     } else if (retryMinutes > 0) {
         // Error retry - sleep for specified minutes

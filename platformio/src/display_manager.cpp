@@ -250,7 +250,7 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar)
             int circleSpacing = 8; // Space between circles
 
             // Count how many calendar colors we have for this day
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < MAX_CALENDARS; i++) {
                 if (!calendar.eventColors[currentDay][i].isEmpty()) {
                     circleCount++;
                 }
@@ -1215,7 +1215,7 @@ MonthCalendar DisplayManager::generateMonthCalendar(int year, int month,
     // Initialize hasEvent array and event colors
     for (int i = 0; i < 32; i++) {
         calendar.hasEvent[i] = false;
-        for (int j = 0; j < 3; j++) {
+        for (int j = 0; j < MAX_CALENDARS; j++) {
             calendar.eventColors[i][j] = "";
         }
     }
@@ -1261,7 +1261,7 @@ MonthCalendar DisplayManager::generateMonthCalendar(int year, int month,
                 // Store calendar color for this day (up to 3 different colors)
                 if (!event->calendarColor.isEmpty()) {
                     bool colorExists = false;
-                    for (int i = 0; i < 3; i++) {
+                    for (int i = 0; i < MAX_CALENDARS; i++) {
                         if (calendar.eventColors[eventDay][i] == event->calendarColor) {
                             colorExists = true;
                             break;
@@ -1270,7 +1270,7 @@ MonthCalendar DisplayManager::generateMonthCalendar(int year, int month,
 
                     if (!colorExists) {
                         // Find first empty slot
-                        for (int i = 0; i < 3; i++) {
+                        for (int i = 0; i < MAX_CALENDARS; i++) {
                             if (calendar.eventColors[eventDay][i].isEmpty()) {
                                 calendar.eventColors[eventDay][i] = event->calendarColor;
                                 break;

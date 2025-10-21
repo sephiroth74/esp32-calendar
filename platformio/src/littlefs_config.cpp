@@ -123,7 +123,7 @@ bool LittleFSConfig::loadConfiguration() {
     // Extract calendar settings
     config.calendars.clear(); // Clear default calendars
 
-    // Check for new format (calendars array) - limit to 3 calendars maximum
+    // Check for new format (calendars array) - limit to MAX_CALENDARS
     if (doc.containsKey("calendars")) {
         Serial.println("Found 'calendars' section");
 
@@ -131,10 +131,19 @@ bool LittleFSConfig::loadConfiguration() {
             JsonArray calendars = doc["calendars"];
             Serial.println("  Calendars array size: " + String(calendars.size()));
 
+            // Validate calendar count
+            if (calendars.size() > MAX_CALENDARS) {
+                Serial.println("  ERROR: Configuration contains " + String(calendars.size()) +
+                             " calendars, but maximum allowed is " + String(MAX_CALENDARS));
+                Serial.println("  WARNING: Only the first " + String(MAX_CALENDARS) +
+                             " calendars will be loaded. Please update your config.json!");
+            }
+
             int calendarCount = 0;
             for (JsonVariant cal : calendars) {
-                if (calendarCount >= 3) {
-                    Serial.println("  Warning: Maximum 3 calendars allowed. Ignoring additional calendars.");
+                if (calendarCount >= MAX_CALENDARS) {
+                    Serial.println("  Skipping calendar '" + String(cal["name"] | "unnamed") +
+                                 "' (exceeds MAX_CALENDARS limit)");
                     break;
                 }
 
@@ -328,8 +337,8 @@ void LittleFSConfig::setCalendarUrl(const String& url) {
 }
 
 void LittleFSConfig::addCalendar(const CalendarConfig& calendar) {
-    if (config.calendars.size() >= 3) {
-        Serial.println("Error: Maximum 3 calendars allowed");
+    if (config.calendars.size() >= MAX_CALENDARS) {
+        Serial.println("Error: Maximum " + String(MAX_CALENDARS) + " calendars allowed");
         return;
     }
     config.calendars.push_back(calendar);

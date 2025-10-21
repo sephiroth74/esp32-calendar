@@ -39,7 +39,7 @@ struct MonthCalendar {
     int firstDayOfWeek; // 0=Sunday, 1=Monday, etc.
     int today;
     bool hasEvent[32]; // Track which days have events (1-31)
-    String eventColors[32][3]; // Store up to 3 calendar colors per day (max 3 calendars)
+    String eventColors[32][MAX_CALENDARS]; // Store calendar colors per day (max MAX_CALENDARS)
 };
 
 class DisplayManager {
