@@ -1,0 +1,37 @@
+{
+  "wifi": {
+    "ssid": "YourWiFiSSID",
+    "password": "YourWiFiPassword"
+  },
+  "location": {
+    "name": "Zurich",
+    "latitude": 47.345138,
+    "longitude": 8.504618
+  },
+  "calendars": [
+    {
+      "name": "Personal Calendar",
+      "url": "https://calendar.google.com/calendar/ical/your-personal-calendar-id/basic.ics",
+      "color": "red",
+      "enabled": true
+    },
+    {
+      "name": "Birthdays",
+      "url": "/calendars/birthdays.ics",
+      "color": "yellow",
+      "enabled": true,
+      "_comment": "Birthday calendar with RRULE:FREQ=YEARLY events. Shows birthdays every year."
+    },
+    {
+      "name": "Work Calendar",
+      "url": "https://calendar.google.com/calendar/ical/your-work-calendar-id/basic.ics",
+      "color": "orange",
+      "enabled": true
+    }
+  ],
+  "days_to_fetch": 30,
+  "display": {
+    "timezone": "CET-1CEST,M3.5.0,M10.5.0",
+    "update_hour": 5
+  }
+}

@@ -6,6 +6,7 @@
 #include "weather_client.h"
 #include <vector>
 #include <ArduinoJson.h>
+#include "calendar_event.h"
 
 #define MAX_DISPLAY_BUFFER_SIZE 65536ul
 
@@ -28,17 +29,8 @@
             : (MAX_DISPLAY_BUFFER_SIZE) / (EPD::WIDTH / 2))
 #endif // DISP_TYPE
 
-struct CalendarEvent {
-    String title;
-    String location;
-    String startTime;
-    String endTime;
-    String date;
-    bool allDay;
-    bool isToday;
-    bool isTomorrow;
-    int dayOfMonth;  // Added for calendar highlighting
-};
+// Forward declaration - CalendarEvent is now defined in calendar_event.h
+class CalendarEvent;
 
 struct MonthCalendar {
     int year;
@@ -47,6 +39,7 @@ struct MonthCalendar {
     int firstDayOfWeek; // 0=Sunday, 1=Monday, etc.
     int today;
     bool hasEvent[32]; // Track which days have events (1-31)
+    String eventColors[32][3]; // Store up to 3 calendar colors per day (max 3 calendars)
 };
 
 class DisplayManager {
@@ -96,10 +89,10 @@ private:
     void drawDayLabels(int x, int y);
     void applyFloydSteinbergDithering(int x, int y, int width, int height, float grayLevel);
     int getDaysInMonth(int year, int month);
-    void drawEventsList(const std::vector<CalendarEvent>& events, int x, int y, int maxWidth, int maxHeight);
+    void drawEventsList(const std::vector<CalendarEvent*>& events, int x, int y, int maxWidth, int maxHeight);
     String formatEventDate(const String& eventDate, int currentYear, int currentMonth, int currentDay);
-    void drawEventsSection(const std::vector<CalendarEvent>& events);
-    void drawEventCompact(const CalendarEvent& event, int x, int y, int maxWidth);
+    void drawEventsSection(const std::vector<CalendarEvent*>& events);
+    void drawEventCompact(const CalendarEvent* event, int x, int y, int maxWidth);
     void drawWeatherPlaceholder();
     void drawWeatherForecast(const WeatherData& weatherData);
     void drawDivider();
@@ -110,7 +103,7 @@ private:
     void centerText(const String& text, int x, int y, int width, const GFXfont* font);
     String formatTime(const String& timeStr);
     String truncateText(const String& text, int maxWidth);
-    MonthCalendar generateMonthCalendar(int year, int month, const std::vector<CalendarEvent>& events);
+    MonthCalendar generateMonthCalendar(int year, int month, const std::vector<CalendarEvent*>& events);
 
     // Error icon drawing functions
     void drawWiFiIcon(int x, int y, int size, bool error = false);
@@ -130,7 +123,7 @@ public:
     DisplayManager();
     void init();
     void clear();
-    void showCalendar(const std::vector<CalendarEvent>& events,
+    void showCalendar(const std::vector<CalendarEvent*>& events,
                      const String& currentDate,
                      const String& currentTime,
                      const WeatherData* weatherData = nullptr,
@@ -138,7 +131,7 @@ public:
                      int rssi = 0,
                      float batteryVoltage = 0.0,
                      int batteryPercentage = 0);
-    void showModernCalendar(const std::vector<CalendarEvent>& events,
+    void showModernCalendar(const std::vector<CalendarEvent*>& events,
                            int currentDay,
                            int currentMonth,
                            int currentYear,

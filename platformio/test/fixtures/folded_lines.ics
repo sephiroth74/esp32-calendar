@@ -1,0 +1,21 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test Calendar with Folded Lines//EN
+X-WR-CALDESC:This is a very long description that needs to be folded beca
+ use it exceeds the 75 character limit per line according to RFC 5545 spec
+ ifications for content lines
+BEGIN:VEVENT
+DTSTART:20251026T100000Z
+DTEND:20251026T110000Z
+UID:folded-event@example.com
+SUMMARY:Event with a very long summary that will be folded across multiple
+  lines to test the line folding functionality of the ICS parser
+DESCRIPTION:This event has a description that is so incredibly long that i
+ t will definitely need to be folded across multiple lines. The RFC 5545 s
+ pecification states that content lines should be folded at 75 octets. Thi
+ s is to ensure compatibility with older systems and to maintain readabili
+ ty of the ICS file format.
+LOCATION:A very long location string that might also need to be folded if
+ it exceeds the maximum line length specified in the standard
+END:VEVENT
+END:VCALENDAR

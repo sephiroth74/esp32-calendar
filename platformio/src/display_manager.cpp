@@ -241,9 +241,53 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar)
         display.print(dayStr);
 #endif
 
-        // Draw event indicator below day number if needed
+        // Draw event indicator(s) below day number if needed
         if (calendar.hasEvent[currentDay]) {
+#ifdef DISP_TYPE_6C
+            // On 6-color displays, draw colored circles based on calendar colors (max 3)
+            int circleCount = 0;
+            int circleRadius = 3;
+            int circleSpacing = 8; // Space between circles
+
+            // Count how many calendar colors we have for this day
+            for (int i = 0; i < 3; i++) {
+                if (!calendar.eventColors[currentDay][i].isEmpty()) {
+                    circleCount++;
+                }
+            }
+
+            if (circleCount > 0) {
+                // Calculate starting X position to center the circles
+                int totalWidth = (circleCount * circleRadius * 2) + ((circleCount - 1) * circleSpacing);
+                int startX = x + cellWidth / 2 - totalWidth / 2 + circleRadius;
+
+                // Draw each circle with its calendar color
+                for (int i = 0; i < circleCount; i++) {
+                    String colorStr = calendar.eventColors[currentDay][i];
+                    uint16_t circleColor = GxEPD_BLACK; // Default
+
+                    // Map color strings to display colors
+                    if (colorStr == "red") {
+                        circleColor = GxEPD_RED;
+                    } else if (colorStr == "orange") {
+                        circleColor = GxEPD_ORANGE;
+                    } else if (colorStr == "yellow") {
+                        circleColor = GxEPD_YELLOW;
+                    } else if (colorStr == "green") {
+                        circleColor = GxEPD_GREEN;
+                    } else if (colorStr == "blue") {
+                        circleColor = GxEPD_BLACK; // 6-color displays don't have blue, use black
+                    } else if (colorStr == "black" || colorStr == "default") {
+                        circleColor = GxEPD_BLACK;
+                    }
+
+                    display.fillCircle(startX + (i * (circleRadius * 2 + circleSpacing)), y + 32, circleRadius, circleColor);
+                }
+            }
+#else
+            // On BW displays, draw a single black circle
             display.fillCircle(x + cellWidth / 2, y + 32, 3, GxEPD_BLACK);
+#endif
         }
 
         currentDay++;
@@ -352,14 +396,14 @@ String DisplayManager::formatEventDate(const String& eventDate, int currentYear,
     return dayName + " " + String(eventDay) + " " + String(MONTH_NAMES[eventMonth]) + " " + String(eventYear);
 }
 
-void DisplayManager::drawEventsSection(const std::vector<CalendarEvent>& events)
+void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events)
 {
     // Draw events in the top right section
     Serial.println("=== DrawEventsSection called ===");
     Serial.println("Total events received: " + String(events.size()));
     for (size_t i = 0; i < events.size() && i < 5; i++) {
-        Serial.println("Event " + String(i) + ": " + events[i].title + " on " + events[i].date +
-                      " isToday=" + String(events[i].isToday) + " isTomorrow=" + String(events[i].isTomorrow));
+        Serial.println("Event " + String(i) + ": " + events[i]->title + " on " + events[i]->date +
+                      " isToday=" + String(events[i]->isToday) + " isTomorrow=" + String(events[i]->isTomorrow));
     }
 
     int x = RIGHT_START_X + 20;
@@ -367,7 +411,7 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent>& events)
     const int maxY = WEATHER_START_Y - 10; // Stop 10px before weather section
 
     if (events.empty()) {
-        display.setFont(&Luna_ITC_Regular9pt7b);
+        display.setFont(&Montserrat_Regular_16pt8b);
         display.setCursor(x, y);
         display.print(LOC_NO_EVENTS);
         return;
@@ -387,14 +431,14 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent>& events)
     const int timeColumnWidth = 70; // Reduced from 85px
 
     // Process all events in chronological order
-    for (const auto& event : events) {
+    for (auto event : events) {
         // Check if we have space for at least one more date header + event (minimum 35px)
         if (y + 35 > maxY) {
             break; // No more space
         }
 
         // Get formatted date for this event
-        String dateHeader = formatEventDate(event.date, currentYear, currentMonth, currentDay);
+        String dateHeader = formatEventDate(event->date, currentYear, currentMonth, currentDay);
 
         // Debug output for date header
         Serial.println("Date header for event: '" + dateHeader + "' (last: '" + lastDateHeader + "')");
@@ -443,17 +487,17 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent>& events)
         // Time or "All Day" in smaller font
         display.setFont(&Ubuntu_R_9pt8b);
         String timeStr;
-        if (event.allDay) {
+        if (event->allDay) {
             timeStr = "--";
         } else {
-            timeStr = formatTime(event.startTime);
+            timeStr = formatTime(event->startTimeStr);
         }
         display.setCursor(x, y);
         display.print(timeStr);
 
         // Event title with smaller font
         display.setFont(&Ubuntu_R_9pt8b);
-        String title = event.title;
+        String title = event->title;
         int eventTextX = x + timeColumnWidth; // Reduced spacing
         int maxPixelWidth = DISPLAY_WIDTH - eventTextX - 10;
 
@@ -863,7 +907,7 @@ void DisplayManager::drawCalendarDay(int day, int col, int row, int x, int y,
     }
 }
 
-void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
+void DisplayManager::drawEventsList(const std::vector<CalendarEvent*>& events,
     int x, int y, int maxWidth, int maxHeight)
 {
     if (events.empty()) {
@@ -875,8 +919,8 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
     [[maybe_unused]]
     bool hasCurrentMonthEvents
         = false;
-    for (const auto& event : events) {
-        if (event.isToday || event.isTomorrow || event.dayOfMonth > 0) {
+    for (auto event : events) {
+        if (event->isToday || event->isTomorrow || event->dayOfMonth > 0) {
             hasCurrentMonthEvents = true;
             break;
         }
@@ -903,12 +947,12 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
     bool tomorrowShown = false;
     bool dayAfterShown = false;
 
-    for (const auto& event : events) {
+    for (auto event : events) {
         if (eventsShown >= maxEvents)
             break;
 
         // Add day header if needed
-        if (event.isToday && !todayShown) {
+        if (event->isToday && !todayShown) {
 #ifdef DISP_TYPE_6C
             display.setTextColor(GxEPD_RED);
 #endif
@@ -920,7 +964,7 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
 #endif
             currentY += 20;
             todayShown = true;
-        } else if (event.isTomorrow && !tomorrowShown) {
+        } else if (event->isTomorrow && !tomorrowShown) {
             if (todayShown)
                 currentY += 10; // Add spacing
 #ifdef DISP_TYPE_6C
@@ -934,7 +978,7 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
 #endif
             currentY += 20;
             tomorrowShown = true;
-        } else if (!event.isToday && !event.isTomorrow && !dayAfterShown) {
+        } else if (!event->isToday && !event->isTomorrow && !dayAfterShown) {
             if (todayShown || tomorrowShown)
                 currentY += 10; // Add spacing
 #ifdef DISP_TYPE_6C
@@ -944,9 +988,9 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
             display.setCursor(x, currentY);
 
             // Parse and display the date
-            if (event.date.length() >= 10) {
-                int month = event.date.substring(5, 7).toInt();
-                int day = event.date.substring(8, 10).toInt();
+            if (event->date.length() >= 10) {
+                int month = event->date.substring(5, 7).toInt();
+                int day = event->date.substring(8, 10).toInt();
                 display.print(String(MONTH_NAMES_SHORT[month]) + " " + String(day));
             }
 #ifdef DISP_TYPE_6C
@@ -969,7 +1013,7 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent>& events,
     }
 }
 
-void DisplayManager::drawEventCompact(const CalendarEvent& event, int x, int y, int maxWidth)
+void DisplayManager::drawEventCompact(const CalendarEvent* event, int x, int y, int maxWidth)
 {
 #ifdef DISP_TYPE_6C
     // Ensure text color is black for event content
@@ -980,23 +1024,23 @@ void DisplayManager::drawEventCompact(const CalendarEvent& event, int x, int y, 
     display.setFont(&Ubuntu_R_9pt8b); // Use default small font for time
     display.setCursor(x, y);
 
-    if (event.allDay) {
+    if (event->allDay) {
         display.print("--");  // Use dashes instead of "All Day" to save space
     } else {
-        display.print(formatTime(event.startTime));
+        display.print(formatTime(event->startTimeStr));
     }
 
     // Draw event title
     display.setFont(&Ubuntu_R_11pt8b);
     display.setCursor(x, y + 35);
-    String title = truncateText(event.title, maxWidth);
+    String title = truncateText(event->title, maxWidth);
     display.print(title);
 
     // Draw location if available
-    if (!event.location.isEmpty()) {
+    if (!event->location.isEmpty()) {
         display.setFont(nullptr); // Use default small font
         display.setCursor(x, y + 30);
-        String location = truncateText(event.location, maxWidth - 20);
+        String location = truncateText(event->location, maxWidth - 20);
         display.print(location);
     }
 
@@ -1162,15 +1206,18 @@ String DisplayManager::truncateText(const String& text, int maxWidth)
 }
 
 MonthCalendar DisplayManager::generateMonthCalendar(int year, int month,
-    const std::vector<CalendarEvent>& events)
+    const std::vector<CalendarEvent*>& events)
 {
     MonthCalendar calendar;
     calendar.year = year;
     calendar.month = month;
 
-    // Initialize hasEvent array
+    // Initialize hasEvent array and event colors
     for (int i = 0; i < 32; i++) {
         calendar.hasEvent[i] = false;
+        for (int j = 0; j < 3; j++) {
+            calendar.eventColors[i][j] = "";
+        }
     }
 
     // Calculate days in month
@@ -1201,15 +1248,36 @@ MonthCalendar DisplayManager::generateMonthCalendar(int year, int month,
     // Set today - will be set by caller since we may not have proper time sync
     calendar.today = 0; // Default to no highlight
 
-    // Mark days with events
-    for (const auto& event : events) {
-        if (event.date.length() >= 10) {
-            int eventYear = event.date.substring(0, 4).toInt();
-            int eventMonth = event.date.substring(5, 7).toInt();
-            int eventDay = event.date.substring(8, 10).toInt();
+    // Mark days with events and collect calendar colors (max 3 calendars per day)
+    for (auto event : events) {
+        if (event->date.length() >= 10) {
+            int eventYear = event->date.substring(0, 4).toInt();
+            int eventMonth = event->date.substring(5, 7).toInt();
+            int eventDay = event->date.substring(8, 10).toInt();
 
             if (eventYear == year && eventMonth == month && eventDay >= 1 && eventDay <= 31) {
                 calendar.hasEvent[eventDay] = true;
+
+                // Store calendar color for this day (up to 3 different colors)
+                if (!event->calendarColor.isEmpty()) {
+                    bool colorExists = false;
+                    for (int i = 0; i < 3; i++) {
+                        if (calendar.eventColors[eventDay][i] == event->calendarColor) {
+                            colorExists = true;
+                            break;
+                        }
+                    }
+
+                    if (!colorExists) {
+                        // Find first empty slot
+                        for (int i = 0; i < 3; i++) {
+                            if (calendar.eventColors[eventDay][i].isEmpty()) {
+                                calendar.eventColors[eventDay][i] = event->calendarColor;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1217,7 +1285,7 @@ MonthCalendar DisplayManager::generateMonthCalendar(int year, int month,
     return calendar;
 }
 
-void DisplayManager::showCalendar(const std::vector<CalendarEvent>& events,
+void DisplayManager::showCalendar(const std::vector<CalendarEvent*>& events,
     const String& currentDate,
     const String& currentTime,
     const WeatherData* weatherData,
@@ -1248,7 +1316,7 @@ void DisplayManager::showCalendar(const std::vector<CalendarEvent>& events,
         currentTime, weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage);
 }
 
-void DisplayManager::showModernCalendar(const std::vector<CalendarEvent>& events,
+void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& events,
     int currentDay,
     int currentMonth,
     int currentYear,

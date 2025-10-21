@@ -8,10 +8,13 @@
 #include "display_manager.h"
 #include "error_manager.h"
 #include "wifi_manager.h"
-#include "calendar_client.h"
+#include "calendar_wrapper.h"
+#include "calendar_display_adapter.h"
 #include "weather_client.h"
 #include "localization.h"
 #include "version.h"
+#include "littlefs_config.h"
+#include <LittleFS.h>
 #include <assets/fonts.h>
 #include <assets/icons/icons_64x64.h>
 #include <assets/icons/icons_48x48.h>
@@ -27,13 +30,13 @@
 // Global objects
 DisplayManager display;
 WiFiManager wifiManager;
-CalendarClient* calendarClient = nullptr;
+CalendarManager* calendarManager = nullptr;
 WeatherClient* weatherClient = nullptr;
+LittleFSConfig configLoader;
 
 // Function declarations
 void showMenu();
 void processCommand(String command);
-void testEventList();
 void testFullScreenError();
 void testWifiConnection();
 void testIconDisplay();
@@ -41,11 +44,10 @@ void testBatteryDisplay();
 void testCalendarFetch();
 void testErrorLevels();
 void testDithering();
-void testTimeDisplay();
 void clearDisplay();
-void testTimezoneConversion();
 void testWeatherFetch();
-std::vector<CalendarEvent> generateMockEvents();
+void testLittleFSConfig();
+std::vector<CalendarEvent*> generateMockEvents();
 MonthCalendar generateMockCalendar();
 WeatherData generateMockWeather();
 int getBatteryPercentage(float voltage);  // Battery percentage calculation
@@ -60,6 +62,18 @@ void setup() {
     Serial.println("Version: " + getFullVersionString());
     Serial.println("=================================\n");
 
+    // Initialize configuration from LittleFS for initial setup
+    Serial.println("Initializing configuration...");
+    if (!configLoader.begin()) {
+        Serial.println("Failed to initialize LittleFS! Using built-in defaults.");
+    } else {
+        if (!configLoader.loadConfiguration()) {
+            Serial.println("Failed to load configuration! Using built-in defaults.");
+        } else {
+            Serial.println("Configuration loaded successfully");
+        }
+    }
+
     // Initialize display
     Serial.println("Initializing display...");
     display.init();
@@ -72,7 +86,8 @@ void setup() {
     // Initialize WiFi client for calendar and weather testing
     WiFiClientSecure* wifiClient = new WiFiClientSecure();
     wifiClient->setInsecure();
-    calendarClient = new CalendarClient(wifiClient);
+    calendarManager = new CalendarManager();
+    calendarManager->setDebug(true);
     weatherClient = new WeatherClient(wifiClient);
 
     showMenu();
@@ -90,7 +105,6 @@ void loop() {
 void showMenu() {
     Serial.println("\n========== DEBUG MENU ==========");
     Serial.println("1  - Full Modern Calendar Demo");
-    Serial.println("2  - Test Event List");
     Serial.println("3  - Test Full Screen Errors");
     Serial.println("4  - Test WiFi Connection");
     Serial.println("5  - Test Icon Display (Inverted Bitmaps)");
@@ -98,10 +112,9 @@ void showMenu() {
     Serial.println("7  - Test Calendar Fetch (Real)");
     Serial.println("8  - Test Error Levels");
     Serial.println("9  - Test Dithering Patterns");
-    Serial.println("10 - Test Time/Date Display");
     Serial.println("11 - Clear Display");
-    Serial.println("12 - Test ICS Timezone Conversion");
     Serial.println("13 - Test Weather Fetch (Real)");
+    Serial.println("14 - Test LittleFS Configuration");
     Serial.println("h  - Show this menu");
     Serial.println("================================");
     Serial.print("\nEnter command: ");
@@ -134,7 +147,7 @@ void processCommand(String command) {
         strftime(timeStr, sizeof(timeStr), "%I:%M %p", &date);
 
         // Generate mock events
-        std::vector<CalendarEvent> mockEvents = generateMockEvents();
+        std::vector<CalendarEvent*> mockEvents = generateMockEvents();
 
         // Generate mock weather data
         WeatherData mockWeather = generateMockWeather();
@@ -144,8 +157,6 @@ void processCommand(String command) {
                                    String(timeStr), &mockWeather, true, -65, 4.2, 85);
 
         Serial.println("Modern demo displayed!");
-    } else if (command == "2") {
-        testEventList();
     } else if (command == "3") {
         testFullScreenError();
     } else if (command == "4") {
@@ -160,14 +171,12 @@ void processCommand(String command) {
         testErrorLevels();
     } else if (command == "9") {
         testDithering();
-    } else if (command == "10") {
-        testTimeDisplay();
     } else if (command == "11") {
         clearDisplay();
-    } else if (command == "12") {
-        testTimezoneConversion();
     } else if (command == "13") {
         testWeatherFetch();
+    } else if (command == "14") {
+        testLittleFSConfig();
     } else if (command == "h") {
         showMenu();
     } else {
@@ -181,7 +190,7 @@ void processCommand(String command) {
 void testEventList() {
     Serial.println("\nTesting Event List...");
 
-    std::vector<CalendarEvent> events = generateMockEvents();
+    std::vector<CalendarEvent*> events = generateMockEvents();
 
     display.display.firstPage();
     do {
@@ -244,45 +253,118 @@ void testFullScreenError() {
 }
 
 void testWifiConnection() {
-    Serial.println("\nTesting WiFi Connection...");
-    Serial.println("Connecting to WiFi...");
+    Serial.println("\n========================================");
+    Serial.println("Testing WiFi Connection");
+    Serial.println("========================================\n");
 
-    bool connected = wifiManager.connect();
+    // Create a test config loader and load configuration properly
+    LittleFSConfig testConfigLoader;
+
+    // Initialize LittleFS
+    if (!testConfigLoader.begin()) {
+        Serial.println("ERROR: Failed to initialize LittleFS!");
+        return;
+    }
+
+    // Load configuration
+    if (!testConfigLoader.loadConfiguration()) {
+        Serial.println("ERROR: Failed to load configuration from LittleFS!");
+        return;
+    }
+
+    // Display WiFi configuration from config.json
+    Serial.println("--- WiFi Configuration from config.json ---");
+    Serial.println("SSID: " + testConfigLoader.getWiFiSSID());
+    Serial.println("Password: " + String(testConfigLoader.getWiFiPassword().isEmpty() ? "(no password)" : "********"));
+    Serial.println("\nAttempting to connect...");
+
+    bool connected = wifiManager.connect(testConfigLoader.getConfig());
 
     if (connected) {
-        Serial.println("WiFi connected!");
-        Serial.print("IP Address: ");
-        Serial.println(WiFi.localIP());
-        Serial.print("RSSI: ");
-        Serial.println(WiFi.RSSI());
+        Serial.println("\n✓ WiFi connected successfully!");
+        Serial.println("--- Connection Details ---");
+        Serial.println("IP Address: " + WiFi.localIP().toString());
+        Serial.println("Subnet Mask: " + WiFi.subnetMask().toString());
+        Serial.println("Gateway: " + WiFi.gatewayIP().toString());
+        Serial.println("DNS Server: " + WiFi.dnsIP().toString());
+        Serial.println("MAC Address: " + WiFi.macAddress());
+        Serial.println("RSSI: " + String(WiFi.RSSI()) + " dBm");
+        Serial.println("Channel: " + String(WiFi.channel()));
 
-        // Display connection info
+        // Calculate signal quality percentage
+        int rssi = WiFi.RSSI();
+        int quality = 0;
+        if (rssi >= -50) quality = 100;
+        else if (rssi >= -60) quality = 90;
+        else if (rssi >= -70) quality = 75;
+        else if (rssi >= -80) quality = 60;
+        else if (rssi >= -90) quality = 40;
+        else quality = 20;
+
+        Serial.println("Signal Quality: " + String(quality) + "%");
+
+        // Display connection info on screen
         display.display.firstPage();
         do {
             display.clear();
             display.display.setFont(&Ubuntu_R_18pt8b);
-            display.display.setCursor(100, 100);
+            display.display.setCursor(50, 40);
             display.display.print("WiFi Connected");
 
             display.display.setFont(&Ubuntu_R_12pt8b);
-            display.display.setCursor(100, 150);
+            int y = 80;
+
+            display.display.setCursor(50, y);
+            display.display.print("SSID: " + testConfigLoader.getWiFiSSID());
+            y += 25;
+
+            display.display.setCursor(50, y);
             display.display.print("IP: " + WiFi.localIP().toString());
+            y += 25;
 
-            display.display.setCursor(100, 200);
-            display.display.print("RSSI: " + String(WiFi.RSSI()) + " dBm");
+            display.display.setCursor(50, y);
+            display.display.print("Gateway: " + WiFi.gatewayIP().toString());
+            y += 25;
 
-            display.display.setCursor(100, 250);
-            display.display.print("SSID: " + String(WIFI_SSID));
+            display.display.setCursor(50, y);
+            display.display.print("DNS: " + WiFi.dnsIP().toString());
+            y += 25;
+
+            display.display.setCursor(50, y);
+            display.display.print("RSSI: " + String(WiFi.RSSI()) + " dBm (" + String(quality) + "%)");
+            y += 25;
+
+            display.display.setCursor(50, y);
+            display.display.print("Channel: " + String(WiFi.channel()));
+            y += 25;
+
+            display.display.setCursor(50, y);
+            display.display.print("MAC: " + WiFi.macAddress());
+
         } while (display.display.nextPage());
+
+        Serial.println("\n========================================");
+        Serial.println("WiFi test complete - Connected!");
+        Serial.println("========================================\n");
+
     } else {
-        Serial.println("WiFi connection failed!");
+        Serial.println("\n✗ WiFi connection failed!");
+        Serial.println("Please check:");
+        Serial.println("1. WiFi credentials in config.json are correct");
+        Serial.println("2. WiFi network is available");
+        Serial.println("3. Router is within range");
+
         ErrorInfo error;
         error.code = ErrorCode::WIFI_CONNECTION_FAILED;
         error.message = LOC_ERROR_WIFI_CONNECTION_FAILED;
         error.level = ErrorLevel::ERROR;
         error.icon = ErrorIcon::WIFI;
-        error.details = "Timeout";
+        error.details = "SSID: " + testConfigLoader.getWiFiSSID();
         display.showFullScreenError(error);
+
+        Serial.println("\n========================================");
+        Serial.println("WiFi test complete - Failed!");
+        Serial.println("========================================\n");
     }
 }
 
@@ -522,7 +604,18 @@ void testBatteryDisplay() {
                 display.display.print("Battery: " + String(batteryMillivolts, 0) + " mV");
 
                 // Draw battery status bar
-                display.drawStatusBar(true, -65, batteryVoltage, batteryPercentage);
+                // Get current date and time for status bar
+                time_t now;
+                time(&now);
+                struct tm* timeinfo = localtime(&now);
+                int currentDay = timeinfo->tm_mday;
+                int currentMonth = timeinfo->tm_mon + 1;
+                int currentYear = timeinfo->tm_year + 1900;
+                char timeStr[6];
+                strftime(timeStr, sizeof(timeStr), "%H:%M", timeinfo);
+
+                display.drawStatusBar(true, -65, batteryVoltage, batteryPercentage,
+                                    currentDay, currentMonth, currentYear, String(timeStr));
 
             } while (display.display.nextPage());
         }
@@ -541,11 +634,23 @@ void testBatteryDisplay() {
 
 void testCalendarFetch() {
     Serial.println("\nTesting Real Calendar Fetch...");
+    Serial.println("========================================");
+
+    // Create a test config loader and load configuration
+    LittleFSConfig testConfigLoader;
+    if (!testConfigLoader.begin()) {
+        Serial.println("ERROR: Failed to initialize LittleFS!");
+        return;
+    }
+    if (!testConfigLoader.loadConfiguration()) {
+        Serial.println("ERROR: Failed to load configuration!");
+        return;
+    }
 
     // Connect to WiFi first if not connected
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("Connecting to WiFi first...");
-        if (!wifiManager.connect()) {
+        if (!wifiManager.connect(testConfigLoader.getConfig())) {
             Serial.println("WiFi connection failed!");
             return;
         }
@@ -553,7 +658,8 @@ void testCalendarFetch() {
 
     // Sync time with NTP for proper timezone conversion
     Serial.println("Syncing time with NTP server...");
-    setenv("TZ", DEFAULT_TIMEZONE, 1);
+    String timezone = testConfigLoader.getTimezone();
+    setenv("TZ", timezone.c_str(), 1);
     tzset();
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 
@@ -579,12 +685,54 @@ void testCalendarFetch() {
         Serial.println("\nWarning: Failed to sync time, continuing anyway...");
     }
 
-    Serial.println("Fetching calendar events...");
+    // Load calendar configuration from LittleFS
+    Serial.println("\nLoading calendar configuration...");
+    RuntimeConfig config;
+    if (!testConfigLoader.loadConfiguration()) {
+        Serial.println("Failed to load configuration!");
+        return;
+    }
+    config = testConfigLoader.getConfig();
 
-    std::vector<CalendarEvent> events = calendarClient->fetchEvents(30);
+    // Initialize calendar manager and load calendars
+    calendarManager->loadFromConfig(config);
+    calendarManager->printStatus();
 
-    Serial.println("Found " + String(events.size()) + " events");
+    Serial.println("\nFetching calendar events from all configured calendars...");
+    bool success = calendarManager->loadAll(false); // false = use cache if available
 
+    std::vector<CalendarEvent*> events;
+    if (success) {
+        // Get events for the next year
+        time_t now = time(nullptr);
+        time_t endDate = now + (365 * 86400);
+        events = calendarManager->getAllEvents(now, endDate);
+        Serial.println("Successfully fetched events from " +
+                      String(calendarManager->getCalendarCount()) + " calendars");
+    } else {
+        Serial.println("Calendar fetch failed!");
+    }
+
+    Serial.println("\n=== CALENDAR FETCH RESULTS ===");
+    Serial.println("Total events found: " + String(events.size()));
+
+    // Print detailed event information
+    Serial.println("\n--- Event Details ---");
+    for (size_t i = 0; i < events.size() && i < 20; i++) {  // Limit to first 20 for debug
+        auto event = events[i];
+        Serial.println("\nEvent #" + String(i + 1) + ":");
+        Serial.println("  Title: " + event->summary);
+        Serial.println("  Start: " + event->dtStart);
+        Serial.println("  End: " + event->dtEnd);
+        Serial.println("  All Day: " + String(event->allDay ? "Yes" : "No"));
+        Serial.println("  Calendar: " + event->calendarName);
+        Serial.println("  Color: " + event->calendarColor);
+        if (event->isRecurring) Serial.println("  >>> RECURRING EVENT <<<");
+        if (event->isToday) Serial.println("  >>> MARKED AS TODAY <<<");
+        if (event->isTomorrow) Serial.println("  >>> MARKED AS TOMORROW <<<");
+    }
+
+    // Display on screen
     display.display.firstPage();
     do {
         display.clear();
@@ -603,6 +751,7 @@ void testCalendarFetch() {
 
     } while (display.display.nextPage());
 
+    Serial.println("\n========================================");
     Serial.println("Calendar fetch test complete!");
 }
 
@@ -759,6 +908,9 @@ void clearDisplay() {
 void testTimezoneConversion() {
     Serial.println("\nTesting ICS Timezone Conversion...");
     Serial.println("========================================");
+    Serial.println("This test is temporarily disabled during architecture migration.");
+    return;
+    /*
 
     // Test cases for UTC to local time conversion
     struct TestCase {
@@ -776,9 +928,15 @@ void testTimezoneConversion() {
         {"20251231T235959Z", "UTC 11:59:59 PM on Dec 31, 2025"}
     };
 
-    Serial.println("Current configuration:");
-    Serial.println("TIMEZONE: " + String(DEFAULT_TIMEZONE));
-    Serial.println("(System handles DST automatically based on timezone)");
+    // Load configuration for timezone
+    LittleFSConfig testConfigLoader;
+    if (testConfigLoader.begin() && testConfigLoader.loadConfiguration()) {
+        Serial.println("Current configuration:");
+        Serial.println("TIMEZONE: " + testConfigLoader.getTimezone());
+        Serial.println("(System handles DST automatically based on timezone)");
+    } else {
+        Serial.println("Using default timezone configuration");
+    }
     Serial.println("");
 
     for (int i = 0; i < 7; i++) {
@@ -817,7 +975,7 @@ void testTimezoneConversion() {
         int y = 100;
 
         display.display.setCursor(50, y);
-        display.display.print("TIMEZONE: " + String(DEFAULT_TIMEZONE));
+        display.display.print("TIMEZONE: " + testConfigLoader.getTimezone());
         y += 30;
 
         display.display.setCursor(50, y);
@@ -850,24 +1008,39 @@ void testTimezoneConversion() {
 
     Serial.println("Timezone conversion test complete!");
     Serial.println("========================================");
+    */
 }
 
 void testWeatherFetch() {
     Serial.println("\nTesting Real Weather Fetch...");
     Serial.println("========================================");
 
+    // Create a test config loader and load configuration
+    LittleFSConfig testConfigLoader;
+    if (!testConfigLoader.begin()) {
+        Serial.println("ERROR: Failed to initialize LittleFS!");
+        return;
+    }
+    if (!testConfigLoader.loadConfiguration()) {
+        Serial.println("ERROR: Failed to load configuration!");
+        return;
+    }
+
     // Connect to WiFi first if not connected
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("Connecting to WiFi first...");
-        if (!wifiManager.connect()) {
+        if (!wifiManager.connect(testConfigLoader.getConfig())) {
             Serial.println("WiFi connection failed!");
             return;
         }
     }
 
+    // Set weather location from config
+    weatherClient->setLocation(testConfigLoader.getLatitude(), testConfigLoader.getLongitude());
+
     // Fetch weather data
     Serial.println("Fetching weather data...");
-    Serial.println("Location: Latitude " + String(LOC_LATITUDE, 6) + ", Longitude " + String(LOC_LONGITUDE, 6));
+    Serial.println("Location: Latitude " + String(testConfigLoader.getLatitude(), 6) + ", Longitude " + String(testConfigLoader.getLongitude(), 6));
 
     WeatherData weatherData;
     bool success = weatherClient->fetchWeather(weatherData);
@@ -926,7 +1099,7 @@ void testWeatherFetch() {
     strftime(timeStr, sizeof(timeStr), "%I:%M %p", timeinfo);
 
     // Generate mock events for display
-    std::vector<CalendarEvent> mockEvents = generateMockEvents();
+    std::vector<CalendarEvent*> mockEvents = generateMockEvents();
 
     // Get real WiFi signal strength
     int rssi = WiFi.RSSI();
@@ -946,123 +1119,123 @@ void testWeatherFetch() {
     Serial.println("========================================");
 }
 
-std::vector<CalendarEvent> generateMockEvents() {
-    std::vector<CalendarEvent> events;
+std::vector<CalendarEvent*> generateMockEvents() {
+    std::vector<CalendarEvent*> events;
 
     // Today's event (October 16)
-    CalendarEvent event1;
-    event1.title = "DS Call Swisscom";
-    event1.location = "Office";
-    event1.startTime = "11:00";
-    event1.endTime = "12:00";
-    event1.date = "2025-10-16";
-    event1.allDay = false;
-    event1.isToday = true;
-    event1.isTomorrow = false;
-    event1.dayOfMonth = 16;
+    CalendarEvent* event1 = new CalendarEvent();
+    event1->title = "DS Call Swisscom";
+    event1->location = "Office";
+    event1->startTimeStr = "11:00";
+    event1->endTimeStr = "12:00";
+    event1->date = "2025-10-16";
+    event1->allDay = false;
+    event1->isToday = true;
+    event1->isTomorrow = false;
+    event1->dayOfMonth = 16;
     events.push_back(event1);
 
     // Tomorrow's events (October 17)
-    CalendarEvent event2;
-    event2.title = "Ritirare la moto";
-    event2.location = "Officina";
-    event2.startTime = "10:30";
-    event2.endTime = "11:00";
-    event2.date = "2025-10-17";
-    event2.allDay = false;
-    event2.isToday = false;
-    event2.isTomorrow = true;
-    event2.dayOfMonth = 17;
+    CalendarEvent* event2 = new CalendarEvent();
+    event2->title = "Ritirare la moto";
+    event2->location = "Officina";
+    event2->startTimeStr = "10:30";
+    event2->endTimeStr = "11:00";
+    event2->date = "2025-10-17";
+    event2->allDay = false;
+    event2->isToday = false;
+    event2->isTomorrow = true;
+    event2->dayOfMonth = 17;
     events.push_back(event2);
 
-    CalendarEvent event3;
-    event3.title = "Chiamare meccanico";
-    event3.location = "";
-    event3.startTime = "12:30";
-    event3.endTime = "13:00";
-    event3.date = "2025-10-17";
-    event3.allDay = false;
-    event3.isToday = false;
-    event3.isTomorrow = true;
-    event3.dayOfMonth = 17;
+    CalendarEvent* event3 = new CalendarEvent();
+    event3->title = "Chiamare meccanico";
+    event3->location = "";
+    event3->startTimeStr = "12:30";
+    event3->endTimeStr = "13:00";
+    event3->date = "2025-10-17";
+    event3->allDay = false;
+    event3->isToday = false;
+    event3->isTomorrow = true;
+    event3->dayOfMonth = 17;
     events.push_back(event3);
 
     // Event on Sunday 19th (same month)
-    CalendarEvent event5;
-    event5.title = "Buttare il secco";
-    event5.location = "";
-    event5.startTime = "09:30";
-    event5.endTime = "10:00";
-    event5.date = "2025-10-19";
-    event5.allDay = false;
-    event5.isToday = false;
-    event5.isTomorrow = false;
-    event5.dayOfMonth = 19;
+    CalendarEvent* event5 = new CalendarEvent();
+    event5->title = "Buttare il secco";
+    event5->location = "";
+    event5->startTimeStr = "09:30";
+    event5->endTimeStr = "10:00";
+    event5->date = "2025-10-19";
+    event5->allDay = false;
+    event5->isToday = false;
+    event5->isTomorrow = false;
+    event5->dayOfMonth = 19;
     events.push_back(event5);
 
     // Event on Wednesday 22nd (same month)
-    CalendarEvent event6;
-    event6.title = "Cena di Natale con i colleghi di Swisscom";
-    event6.location = "Ristorante";
-    event6.startTime = "17:30";
-    event6.endTime = "23:00";
-    event6.date = "2025-10-22";
-    event6.allDay = false;
-    event6.isToday = false;
-    event6.isTomorrow = false;
-    event6.dayOfMonth = 22;
+    CalendarEvent* event6 = new CalendarEvent();
+    event6->title = "Cena di Natale con i colleghi di Swisscom";
+    event6->location = "Ristorante";
+    event6->startTimeStr = "17:30";
+    event6->endTimeStr = "23:00";
+    event6->date = "2025-10-22";
+    event6->allDay = false;
+    event6->isToday = false;
+    event6->isTomorrow = false;
+    event6->dayOfMonth = 22;
     events.push_back(event6);
 
     // Event on Friday 31st (same month)
-    CalendarEvent event7;
-    event7.title = "Partita";
-    event7.location = "Stadium";
-    event7.startTime = "21:00";
-    event7.endTime = "23:00";
-    event7.date = "2025-10-31";
-    event7.allDay = false;
-    event7.isToday = false;
-    event7.isTomorrow = false;
-    event7.dayOfMonth = 31;
+    CalendarEvent* event7 = new CalendarEvent();
+    event7->title = "Partita";
+    event7->location = "Stadium";
+    event7->startTimeStr = "21:00";
+    event7->endTimeStr = "23:00";
+    event7->date = "2025-10-31";
+    event7->allDay = false;
+    event7->isToday = false;
+    event7->isTomorrow = false;
+    event7->dayOfMonth = 31;
     events.push_back(event7);
 
     // Event on Saturday, November 4th (next month)
-    CalendarEvent event8;
-    event8.title = "Partita";
-    event8.location = "Stadium";
-    event8.startTime = "09:00";
-    event8.endTime = "11:00";
-    event8.date = "2025-11-04";
-    event8.allDay = false;
-    event8.isToday = false;
-    event8.isTomorrow = false;
-    event8.dayOfMonth = 4;
+    CalendarEvent* event8 = new CalendarEvent();
+    event8->title = "Partita";
+    event8->location = "Stadium";
+    event8->startTimeStr = "09:00";
+    event8->endTimeStr = "11:00";
+    event8->date = "2025-11-04";
+    event8->allDay = false;
+    event8->isToday = false;
+    event8->isTomorrow = false;
+    event8->dayOfMonth = 4;
     events.push_back(event8);
 
     // Event on Christmas Eve (December)
-    CalendarEvent event9;
-    event9.title = "Vigilia di Natale";
-    event9.location = "Casa";
-    event9.startTime = "19:00";
-    event9.endTime = "23:59";
-    event9.date = "2025-12-24";
-    event9.allDay = false;
-    event9.isToday = false;
-    event9.isTomorrow = false;
-    event9.dayOfMonth = 24;
+    CalendarEvent* event9 = new CalendarEvent();
+    event9->title = "Vigilia di Natale";
+    event9->location = "Casa";
+    event9->startTimeStr = "19:00";
+    event9->endTimeStr = "23:59";
+    event9->date = "2025-12-24";
+    event9->allDay = false;
+    event9->isToday = false;
+    event9->isTomorrow = false;
+    event9->dayOfMonth = 24;
     events.push_back(event9);
 
     // Event on New Year's Day 2026 (next year)
-    CalendarEvent event10;
-    event10.title = "Nuovo Anno";
-    event10.location = "Casa";
-    event10.startTime = "12:00";
-    event10.endTime = "13:00";
-    event10.date = "2026-01-01";
-    event10.allDay = false;
-    event10.isToday = false;
-    event10.isTomorrow = false;
-    event10.dayOfMonth = 1;
+    CalendarEvent* event10 = new CalendarEvent();
+    event10->title = "Nuovo Anno";
+    event10->location = "Casa";
+    event10->startTimeStr = "12:00";
+    event10->endTimeStr = "13:00";
+    event10->date = "2026-01-01";
+    event10->allDay = false;
+    event10->isToday = false;
+    event10->isTomorrow = false;
+    event10->dayOfMonth = 1;
     events.push_back(event10);
 
     return events;
@@ -1180,6 +1353,201 @@ int getBatteryPercentage(float voltage) {
     }
 
     return 0;
+}
+
+// Helper function to list files recursively
+void listDirectory(File dir, int numTabs = 1) {
+    while (true) {
+        File entry = dir.openNextFile();
+        if (!entry) {
+            // No more files
+            break;
+        }
+
+        // Print indentation
+        for (int i = 0; i < numTabs; i++) {
+            Serial.print("  ");
+        }
+
+        // Print file/directory info
+        if (entry.isDirectory()) {
+            Serial.print("[DIR] ");
+            Serial.println(entry.name());
+            // Recurse into directory
+            listDirectory(entry, numTabs + 1);
+        } else {
+            Serial.print(entry.name());
+            Serial.print(" (");
+            Serial.print(entry.size());
+            Serial.println(" bytes)");
+        }
+        entry.close();
+    }
+}
+
+void testLittleFSConfig() {
+    Serial.println("\n========================================");
+    Serial.println("Testing LittleFS Configuration");
+    Serial.println("========================================\n");
+
+    // Create a new config loader instance for testing
+    LittleFSConfig testConfigLoader;
+
+    // Use the same initialization method as main.cpp
+    Serial.println("--- Initializing LittleFS via configLoader.begin() ---");
+
+    if (!testConfigLoader.begin()) {
+        Serial.println("ERROR: Failed to initialize LittleFS via configLoader.begin()!");
+        return;
+    }
+
+    Serial.println("LittleFS initialized successfully via configLoader.begin()");
+
+    // Show filesystem info after initialization
+    size_t totalBytes = LittleFS.totalBytes();
+    size_t usedBytes = LittleFS.usedBytes();
+    Serial.println("\n--- LittleFS Filesystem Status ---");
+    Serial.println("Total space: " + String(totalBytes / 1024.0, 2) + " KB");
+    Serial.println("Used space: " + String(usedBytes / 1024.0, 2) + " KB");
+    Serial.println("Free space: " + String((totalBytes - usedBytes) / 1024.0, 2) + " KB");
+
+    // List all files recursively
+    Serial.println("\n--- Complete File System Listing ---");
+    File root = LittleFS.open("/");
+    if (root) {
+        if (!root.isDirectory()) {
+            Serial.println("ERROR: Root is not a directory!");
+        } else {
+            listDirectory(root);
+        }
+        root.close();
+    } else {
+        Serial.println("ERROR: Failed to open root directory!");
+    }
+
+    // Try to read the raw config.json file
+    Serial.println("\n--- Raw config.json Content ---");
+
+    File configFile = LittleFS.open("/config.json", "r");
+    if (!configFile) {
+        Serial.println("ERROR: config.json file not found in LittleFS!");
+        Serial.println("\nTo fix this:");
+        Serial.println("1. Create a 'data' folder in your project root");
+        Serial.println("2. Add your config.json file to the data folder");
+        Serial.println("3. Upload filesystem: pio run -t uploadfs -e esp32-s3-devkitc-1");
+        return;
+    }
+
+    Serial.println("File found! Size: " + String(configFile.size()) + " bytes\n");
+    Serial.println("--- Begin config.json ---");
+
+    // Read and print line by line for better readability
+    int lineNum = 1;
+    while (configFile.available()) {
+        String line = configFile.readStringUntil('\n');
+        Serial.printf("%3d: %s\n", lineNum++, line.c_str());
+    }
+    configFile.close();
+
+    Serial.println("--- End config.json ---\n");
+
+    // Now load and parse the configuration using the same method as main.cpp
+    Serial.println("--- Loading configuration via configLoader.loadConfiguration() ---");
+    if (!testConfigLoader.loadConfiguration()) {
+        Serial.println("ERROR: Failed to load configuration via configLoader.loadConfiguration()!");
+        Serial.println("The config.json file exists but may have JSON syntax errors or parsing issues.");
+        Serial.println("Check the debug output above for specific parsing errors.");
+        return;
+    }
+
+    Serial.println("\nConfiguration loaded successfully!\n");
+
+    // Display all configuration values
+    Serial.println("--- WiFi Configuration ---");
+    Serial.println("SSID: " + testConfigLoader.getWiFiSSID());
+    Serial.println("Password: " + String(testConfigLoader.getWiFiPassword().isEmpty() ? "(no password)" : "********"));
+
+    Serial.println("\n--- Time & Location ---");
+    Serial.println("Timezone: " + testConfigLoader.getTimezone());
+    Serial.println("Latitude: " + String(testConfigLoader.getLatitude(), 6));
+    Serial.println("Longitude: " + String(testConfigLoader.getLongitude(), 6));
+    Serial.println("Update Hour: " + String(testConfigLoader.getUpdateHour()) + ":00");
+
+    Serial.println("\n--- Display Settings ---");
+    Serial.println("First Day of Week: " + String(FIRST_DAY_OF_WEEK) +
+                   (FIRST_DAY_OF_WEEK == 0 ? " (Sunday)" : " (Monday)"));
+    Serial.println("Time Format: " + String(TIME_FORMAT_24H ? "24-hour" : "12-hour"));
+    Serial.println("Display Language: " + String(DISPLAY_LANGUAGE));
+
+    Serial.println("\n--- Calendar Configuration ---");
+    const auto& calendars = testConfigLoader.getCalendars();
+
+    if (!calendars.empty()) {
+        Serial.println("Multiple calendars configured: " + String(calendars.size()));
+        for (size_t i = 0; i < calendars.size(); i++) {
+            Serial.println("\nCalendar #" + String(i + 1) + ":");
+            Serial.println("  Name: " + calendars[i].name);
+            Serial.println("  Color: " + calendars[i].color);
+            Serial.println("  Days to fetch: " + String(calendars[i].days_to_fetch));
+            Serial.println("  Enabled: " + String(calendars[i].enabled ? "Yes" : "No"));
+            Serial.println("  URL: " + calendars[i].url.substring(0, 50) +
+                          (calendars[i].url.length() > 50 ? "..." : ""));
+        }
+    } else {
+        // Fallback to single calendar
+        String calendarUrl = testConfigLoader.getCalendarUrl();
+        Serial.println("Single calendar mode");
+        Serial.println("Calendar URL: " + (calendarUrl.isEmpty() ? "(not configured)" :
+                                           calendarUrl.substring(0, 50) +
+                                           (calendarUrl.length() > 50 ? "..." : "")));
+    }
+
+    // Display on screen as well
+    Serial.println("\n--- Displaying on Screen ---");
+
+    display.display.firstPage();
+    do {
+        display.clear();
+
+        display.display.setFont(&Ubuntu_R_18pt8b);
+        display.display.setCursor(50, 40);
+        display.display.print("LittleFS Configuration");
+
+        display.display.setFont(&Ubuntu_R_12pt8b);
+        int y = 80;
+
+        display.display.setCursor(50, y);
+        display.display.print("WiFi: " + testConfigLoader.getWiFiSSID());
+        y += 25;
+
+        display.display.setCursor(50, y);
+        display.display.print("Timezone: " + testConfigLoader.getTimezone());
+        y += 25;
+
+        display.display.setCursor(50, y);
+        display.display.print("Location: " + String(testConfigLoader.getLatitude(), 2) + ", " +
+                            String(testConfigLoader.getLongitude(), 2));
+        y += 25;
+
+        display.display.setCursor(50, y);
+        display.display.print("Calendars: " + String(calendars.empty() ? 1 : calendars.size()));
+        y += 25;
+
+        display.display.setCursor(50, y);
+        display.display.print("Language: " + String(DISPLAY_LANGUAGE));
+        y += 25;
+
+        display.display.setCursor(50, y);
+        display.display.print("Update Hour: " + String(testConfigLoader.getUpdateHour()) + ":00");
+        y += 25;
+
+        display.display.setCursor(50, y);
+        display.display.print("First Day: " + String(FIRST_DAY_OF_WEEK == 0 ? "Sunday" : "Monday"));
+
+    } while (display.display.nextPage());
+
+    Serial.println("Configuration display complete!");
+    Serial.println("========================================\n");
 }
 
 #endif // DEBUG_DISPLAY

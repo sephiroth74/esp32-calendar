@@ -4,6 +4,17 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <vector>
+#include "config.h"
+
+// Structure for individual calendar configuration
+struct CalendarConfig {
+    String name;        // Display name for the calendar
+    String url;         // ICS URL
+    String color;       // Optional: color code for this calendar's events
+    bool enabled;       // Whether this calendar is active
+    int days_to_fetch;  // How many days ahead to fetch for this calendar
+};
 
 struct RuntimeConfig {
     // WiFi settings
@@ -15,9 +26,8 @@ struct RuntimeConfig {
     float longitude;
     String location_name;
 
-    // Calendar settings
-    String calendar_url;
-    int days_to_fetch;
+    // Calendar settings - now supports multiple calendars
+    std::vector<CalendarConfig> calendars;
 
     // Display settings
     String timezone;
@@ -49,15 +59,28 @@ public:
     float getLatitude() const { return config.latitude; }
     float getLongitude() const { return config.longitude; }
     String getLocationName() const { return config.location_name; }
-    String getCalendarUrl() const { return config.calendar_url; }
-    int getDaysToFetch() const { return config.days_to_fetch; }
+
+    // Calendar getters - now returns vector of calendars
+    const std::vector<CalendarConfig>& getCalendars() const { return config.calendars; }
+    String getCalendarUrl() const {
+        // Backward compatibility - return first calendar URL if exists
+        return config.calendars.empty() ? "" : config.calendars[0].url;
+    }
+
+    // getDaysToFetch removed - days_to_fetch is now per-calendar in CalendarConfig
+
     String getTimezone() const { return config.timezone; }
     int getUpdateHour() const { return config.update_hour; }
 
     // Setters for runtime updates
     void setWiFiCredentials(const String& ssid, const String& password);
     void setLocation(float lat, float lon, const String& name = "");
-    void setCalendarUrl(const String& url);
+
+    // Calendar management
+    void addCalendar(const CalendarConfig& calendar);
+    void removeCalendar(int index);
+    void clearCalendars();
+    void setCalendarUrl(const String& url); // Backward compatibility - sets first calendar
 
     // Debug helper
     void printConfiguration();

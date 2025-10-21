@@ -1,14 +1,18 @@
+#ifndef DEBUG_DISPLAY
+
 #include <Arduino.h>
-#include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <SPI.h>
 #include <LittleFS.h>
 #include <time.h>
 #include "display_manager.h"
-#include "calendar_client.h"
+#include "calendar_wrapper.h"
+#include "calendar_display_adapter.h"
 #include "weather_client.h"
 #include "littlefs_config.h"
 #include "error_manager.h"
+#include "wifi_manager.h"
+#include "battery_monitor.h"
 #include "config.h"
 #include "version.h"
 
@@ -16,15 +20,13 @@
 DisplayManager displayMgr;
 LittleFSConfig configLoader;
 ErrorManager errorMgr;
+WiFiManager wifiManager;
+BatteryMonitor batteryMonitor;
 WeatherClient* weatherClient = nullptr;
-CalendarClient* calendarClient = nullptr;
+CalendarManager* calendarManager = nullptr;
 
 // Variables to track last error for retry logic
 ErrorCode lastError = ErrorCode::SUCCESS;
-
-// Battery monitoring
-float batteryVoltage = 0.0;
-int batteryPercentage = 0;
 
 // Button monitoring for configuration reset
 unsigned long buttonPressStart = 0;
@@ -33,9 +35,6 @@ bool configResetPending = false;
 
 // Forward declarations
 void performUpdate();
-bool syncTimeFromNTP();
-void updateBatteryStatus();
-int getBatteryPercentage(float voltage);
 void enterDeepSleep(int retryMinutes = -1);  // -1 means calculate next update hour
 void printWakeupReason();
 
@@ -185,22 +184,11 @@ void performUpdate() {
     // Get configuration
     const RuntimeConfig& config = configLoader.getConfig();
 
-    // Connect to WiFi using LittleFS configuration
+    // Connect to WiFi using WiFiManager
     Serial.println("\n--- WiFi Connection ---");
     Serial.println("Connecting to: " + config.wifi_ssid);
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(config.wifi_ssid.c_str(), config.wifi_password.c_str());
-
-    int timeout = 40; // 20 seconds
-    while (WiFi.status() != WL_CONNECTED && timeout > 0) {
-        delay(500);
-        Serial.print(".");
-        timeout--;
-    }
-    Serial.println();
-
-    if (WiFi.status() != WL_CONNECTED) {
+    if (!wifiManager.connect(configLoader)) {
         Serial.println("WiFi connection failed!");
         lastError = ErrorCode::WIFI_CONNECTION_FAILED;
         errorMgr.setError(lastError);
@@ -209,8 +197,8 @@ void performUpdate() {
     }
 
     Serial.println("WiFi connected!");
-    Serial.println("IP Address: " + WiFi.localIP().toString());
-    Serial.println("RSSI: " + String(WiFi.RSSI()) + " dBm");
+    Serial.println("IP Address: " + wifiManager.getIPAddress());
+    Serial.println("RSSI: " + String(wifiManager.getRSSI()) + " dBm");
 
     // Successful WiFi connection
     lastError = ErrorCode::SUCCESS;
@@ -227,15 +215,18 @@ void performUpdate() {
     weatherClient = new WeatherClient(client);
     weatherClient->setLocation(config.latitude, config.longitude);
 
-    calendarClient = new CalendarClient(client);
+    // Initialize calendar manager
+    calendarManager = new CalendarManager();
+    calendarManager->setDebug(true); // Enable debug output
 
     // Update battery status
     Serial.println("\n--- Battery Status ---");
-    updateBatteryStatus();
+    batteryMonitor.update();
+    batteryMonitor.printStatus();
 
     // Check battery level
-    if (batteryPercentage > 0 && batteryPercentage < 10) {
-        Serial.println("Battery critical: " + String(batteryPercentage) + "%");
+    if (batteryMonitor.isCritical()) {
+        Serial.println("Battery critical: " + String(batteryMonitor.getPercentage()) + "%");
         lastError = ErrorCode::BATTERY_LOW;
         errorMgr.setError(lastError);
         displayMgr.showFullScreenError(errorMgr.getCurrentError());
@@ -258,7 +249,7 @@ void performUpdate() {
 
     // Sync time from NTP
     Serial.println("\n--- Time Sync ---");
-    if (!syncTimeFromNTP()) {
+    if (!wifiManager.syncTimeFromNTP(config.timezone)) {
         Serial.println("Warning: NTP sync failed");
     }
 
@@ -271,124 +262,71 @@ void performUpdate() {
 
     // Fetch calendar events
     Serial.println("\n--- Calendar Update ---");
-    std::vector<CalendarEvent> events;
+    std::vector<CalendarEvent*> events;
 
-    // Use calendar URL from configuration
-    events = calendarClient->fetchICSEvents(config.calendar_url, config.days_to_fetch);
+    // Load calendar configuration
+    calendarManager->loadFromConfig(config);
 
-    if (!events.empty()) {
-        Serial.println("Fetched " + String(events.size()) + " events");
-        lastError = ErrorCode::SUCCESS;
+    // Load all calendars
+    bool calendarSuccess = calendarManager->loadAll(false); // false = use cache if available
 
-        // Filter past events
-        calendarClient->filterPastEvents(events);
+    if (calendarSuccess) {
+        // Get current time
+        time_t now = time(nullptr);
+        time_t endDate = now + (365 * 86400); // Get events for next year
 
-        // Limit events
-        calendarClient->limitEvents(events, MAX_EVENTS_TO_SHOW);
+        // Get merged events from all calendars
+        events = calendarManager->getAllEvents(now, endDate);
+
+        if (!events.empty()) {
+            Serial.println("Fetched " + String(events.size()) + " events from " +
+                         String(calendarManager->getCalendarCount()) + " calendars");
+            lastError = ErrorCode::SUCCESS;
+
+            // Only limit total events if we have too many
+            if (events.size() > MAX_EVENTS_TO_SHOW) {
+                events.resize(MAX_EVENTS_TO_SHOW);
+                Serial.println("Limited to " + String(MAX_EVENTS_TO_SHOW) + " events");
+            }
+        } else {
+            Serial.println("No events found in calendars");
+            lastError = ErrorCode::CALENDAR_FETCH_FAILED;
+            errorMgr.setError(lastError);
+        }
     } else {
-        Serial.println("Calendar fetch failed or no events");
+        Serial.println("Calendar fetch failed");
         lastError = ErrorCode::CALENDAR_FETCH_FAILED;
         errorMgr.setError(lastError);
+    }
+
+    // Print calendar status
+    calendarManager->printStatus();
+
+    // Prepare events for display (add compatibility fields)
+    if (!events.empty()) {
+        CalendarDisplayAdapter::prepareEventsForDisplay(events);
+        Serial.println("Events prepared for display");
     }
 
     // Update display
     Serial.println("\n--- Display Update ---");
     displayMgr.showCalendar(events, currentDate, currentTime,
                            weatherSuccess ? &weatherData : nullptr,
-                           WiFi.status() == WL_CONNECTED,
-                           WiFi.RSSI(),
-                           batteryVoltage,
-                           batteryPercentage);
+                           wifiManager.isConnected(),
+                           wifiManager.getRSSI(),
+                           batteryMonitor.getVoltage(),
+                           batteryMonitor.getPercentage());
 
     Serial.println("Display update complete");
 
-    // Cleanup
+    // Note: Events are managed by CalendarManager and ICSParser, no need to free them manually
+
+    // Cleanup clients
     delete weatherClient;
     weatherClient = nullptr;
-    delete calendarClient;
-    calendarClient = nullptr;
+    delete calendarManager;
+    calendarManager = nullptr;
     delete client;
-}
-
-bool syncTimeFromNTP() {
-    Serial.println("Configuring time with NTP...");
-
-    // Set timezone from configuration
-    const RuntimeConfig& config = configLoader.getConfig();
-    setenv("TZ", config.timezone.c_str(), 1);
-    tzset();
-
-    // Configure NTP
-    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-
-    // Wait for time to be set
-    int retry = 0;
-    const int retry_count = 20;
-    time_t now = time(nullptr);
-
-    while (now < 24 * 3600 && retry < retry_count) {
-        delay(500);
-        now = time(nullptr);
-        retry++;
-        Serial.print(".");
-    }
-    Serial.println();
-
-    if (now < 24 * 3600) {
-        Serial.println("Failed to sync time from NTP");
-        return false;
-    }
-
-    struct tm* timeinfo = localtime(&now);
-    Serial.println("Time synchronized: " + String(asctime(timeinfo)));
-    return true;
-}
-
-// LiPo discharge curve lookup table
-struct BatteryPoint {
-    float voltage;
-    int percentage;
-};
-
-const BatteryPoint lipoTable[] = {
-    {4.20, 100}, {4.15, 95}, {4.10, 90}, {4.05, 85}, {4.00, 80},
-    {3.95, 75}, {3.90, 70}, {3.85, 65}, {3.80, 60}, {3.75, 55},
-    {3.70, 50}, {3.65, 45}, {3.60, 40}, {3.55, 35}, {3.50, 30},
-    {3.45, 25}, {3.40, 20}, {3.35, 15}, {3.30, 10}, {3.25, 5}, {3.00, 0}
-};
-
-int getBatteryPercentage(float voltage) {
-    const int tableSize = sizeof(lipoTable) / sizeof(lipoTable[0]);
-
-    if (voltage >= lipoTable[0].voltage) return lipoTable[0].percentage;
-    if (voltage <= lipoTable[tableSize - 1].voltage) return lipoTable[tableSize - 1].percentage;
-
-    for (int i = 0; i < tableSize - 1; i++) {
-        if (voltage >= lipoTable[i + 1].voltage) {
-            float v1 = lipoTable[i].voltage;
-            float v2 = lipoTable[i + 1].voltage;
-            int p1 = lipoTable[i].percentage;
-            int p2 = lipoTable[i + 1].percentage;
-
-            float ratio = (voltage - v2) / (v1 - v2);
-            return p2 + (int)(ratio * (p1 - p2));
-        }
-    }
-
-    return 0;
-}
-
-void updateBatteryStatus() {
-    int adcValue = analogRead(BATTERY_PIN);
-    float measuredVoltage = (adcValue / 4095.0) * 3.3;
-    batteryVoltage = measuredVoltage * BATTERY_VOLTAGE_DIVIDER;
-    batteryPercentage = getBatteryPercentage(batteryVoltage);
-
-    Serial.print("Battery: ");
-    Serial.print(batteryVoltage, 2);
-    Serial.print("V (");
-    Serial.print(batteryPercentage);
-    Serial.println("%)");
 }
 
 void enterDeepSleep(int retryMinutes) {
@@ -456,8 +394,7 @@ void enterDeepSleep(int retryMinutes) {
     }
 
     // Disconnect WiFi
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
+    wifiManager.disconnect();
 
     Serial.println("Going to sleep...");
     Serial.flush();
@@ -493,3 +430,5 @@ void printWakeupReason() {
     }
     Serial.println("=======================\n");
 }
+
+#endif // DEBUG_DISPLAY

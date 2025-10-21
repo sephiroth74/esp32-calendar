@@ -146,6 +146,9 @@
 // Maximum number of events to show on the display
 #define MAX_EVENTS_TO_SHOW 10
 
+// Maximum number of calendars allowed (hardware/memory limitation)
+#define MAX_CALENDARS 3
+
 // Number of days ahead to fetch events
 // Lower values reduce data usage
 #define DAYS_TO_FETCH 30
@@ -246,7 +249,7 @@
 // Disable deep sleep for testing
 // When true, device stays awake to test button presses and configuration
 // Set to false for production use to enable battery-saving deep sleep
-#define DISABLE_DEEP_SLEEP false
+#define DISABLE_DEEP_SLEEP true
 
 // Configuration reset button hold time (milliseconds)
 // How long to hold the button to reset WiFi configuration during runtime

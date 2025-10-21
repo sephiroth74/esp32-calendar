@@ -8,8 +8,8 @@
 // PATCH: backwards-compatible bug fixes
 
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 3
-#define VERSION_PATCH 1
+#define VERSION_MINOR 6
+#define VERSION_PATCH 0
 
 // Build metadata (optional)
 #define VERSION_BUILD __DATE__ " " __TIME__
@@ -51,6 +51,9 @@
 #define FEATURE_SMART_ERROR_RETRY 1  // Intelligent retry intervals based on error type
 #define FEATURE_LITTLEFS_CONFIG 1  // Configuration stored in LittleFS filesystem
 #define FEATURE_BATTERY_SLEEP 1  // No wake on critical battery
+#define FEATURE_MULTIPLE_CALENDARS 1  // Support for fetching from multiple calendar sources
+#define FEATURE_LOCAL_ICS_FILES 1  // Support for local ICS files in LittleFS
+#define FEATURE_RECURRING_EVENTS 1  // Support for RRULE recurring events (birthdays, anniversaries)
 
 // Display version info function
 inline String getVersionString() {

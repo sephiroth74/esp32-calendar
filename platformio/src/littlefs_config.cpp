@@ -5,11 +5,18 @@ LittleFSConfig::LittleFSConfig() {
     // Initialize with default values from config.h
     config.latitude = LOC_LATITUDE;
     config.longitude = LOC_LONGITUDE;
-    config.calendar_url = DEFAULT_CALENDAR_URL;
-    config.days_to_fetch = DEFAULT_DAYS_TO_FETCH;
     config.timezone = DEFAULT_TIMEZONE;
     config.update_hour = DEFAULT_UPDATE_HOUR;
     config.valid = false;
+
+    // Initialize with default calendar for backward compatibility
+    CalendarConfig defaultCal;
+    defaultCal.name = "Default Calendar";
+    defaultCal.url = DEFAULT_CALENDAR_URL;
+    defaultCal.color = "default";
+    defaultCal.enabled = true;
+    defaultCal.days_to_fetch = DEFAULT_DAYS_TO_FETCH;
+    config.calendars.push_back(defaultCal);
 }
 
 bool LittleFSConfig::begin() {
@@ -54,7 +61,7 @@ bool LittleFSConfig::loadConfiguration() {
     size_t size = configFile.size();
     Serial.println("Config file size: " + String(size) + " bytes");
 
-    if (size > 2048) {
+    if (size > 10240) {  // Increased limit to 10KB
         Serial.println("Config file too large!");
         configFile.close();
         return false;
@@ -64,42 +71,141 @@ bool LittleFSConfig::loadConfiguration() {
     String jsonStr = configFile.readString();
     configFile.close();
 
-    // Parse JSON document
-    StaticJsonDocument<1024> doc;
+    // Debug: Show first 200 chars of JSON
+    Serial.println("JSON content preview: " + jsonStr.substring(0, 200) + "...");
+
+    // Use DynamicJsonDocument for better flexibility with nested structures
+    DynamicJsonDocument doc(8192);  // 8KB should be enough for complex configs
     DeserializationError error = deserializeJson(doc, jsonStr);
 
     if (error) {
         Serial.println("Failed to parse config file: " + String(error.c_str()));
+        Serial.println("Error code: " + String(error.code()));
+
+        // Detailed error reporting
+        if (error == DeserializationError::NoMemory) {
+            Serial.println("JSON document buffer too small! Increase DynamicJsonDocument size.");
+        } else if (error == DeserializationError::InvalidInput) {
+            Serial.println("Invalid JSON syntax in config file.");
+        }
         return false;
     }
 
+    Serial.println("JSON parsed successfully!");
+    Serial.println("JSON document memory usage: " + String(doc.memoryUsage()) + " bytes");
+
     // Extract WiFi settings
     if (doc.containsKey("wifi")) {
+        Serial.println("Found 'wifi' section");
         JsonObject wifi = doc["wifi"];
         config.wifi_ssid = wifi["ssid"] | String("");
         config.wifi_password = wifi["password"] | String("");
+        Serial.println("  SSID extracted: '" + config.wifi_ssid + "'");
+        Serial.println("  Password extracted: " + String(config.wifi_password.isEmpty() ? "(empty)" : "(set)"));
+    } else {
+        Serial.println("WARNING: 'wifi' section not found in JSON!");
     }
 
     // Extract location settings
     if (doc.containsKey("location")) {
+        Serial.println("Found 'location' section");
         JsonObject location = doc["location"];
         config.latitude = location["latitude"] | LOC_LATITUDE;
         config.longitude = location["longitude"] | LOC_LONGITUDE;
         config.location_name = location["name"] | String("Unknown");
+        Serial.println("  Latitude: " + String(config.latitude, 6));
+        Serial.println("  Longitude: " + String(config.longitude, 6));
+        Serial.println("  Name: " + config.location_name);
+    } else {
+        Serial.println("WARNING: 'location' section not found in JSON!");
     }
 
     // Extract calendar settings
-    if (doc.containsKey("calendar")) {
-        JsonObject calendar = doc["calendar"];
-        config.calendar_url = calendar["url"] | String(DEFAULT_CALENDAR_URL);
-        config.days_to_fetch = calendar["days_to_fetch"] | DEFAULT_DAYS_TO_FETCH;
+    config.calendars.clear(); // Clear default calendars
+
+    // Check for new format (calendars array) - limit to 3 calendars maximum
+    if (doc.containsKey("calendars")) {
+        Serial.println("Found 'calendars' section");
+
+        if (doc["calendars"].is<JsonArray>()) {
+            JsonArray calendars = doc["calendars"];
+            Serial.println("  Calendars array size: " + String(calendars.size()));
+
+            int calendarCount = 0;
+            for (JsonVariant cal : calendars) {
+                if (calendarCount >= 3) {
+                    Serial.println("  Warning: Maximum 3 calendars allowed. Ignoring additional calendars.");
+                    break;
+                }
+
+                CalendarConfig calConfig;
+                calConfig.name = cal["name"] | String("Unnamed Calendar");
+                calConfig.url = cal["url"] | String("");
+                calConfig.color = cal["color"] | String("default");
+                calConfig.enabled = cal["enabled"] | true;
+                calConfig.days_to_fetch = cal["days_to_fetch"] | DEFAULT_DAYS_TO_FETCH;
+
+                Serial.println("  Calendar " + String(calendarCount + 1) + ":");
+                Serial.println("    Name: " + calConfig.name);
+                Serial.println("    URL: " + (calConfig.url.isEmpty() ? "(empty)" : calConfig.url.substring(0, 50) + "..."));
+                Serial.println("    Color: " + calConfig.color);
+                Serial.println("    Enabled: " + String(calConfig.enabled));
+                Serial.println("    Days to fetch: " + String(calConfig.days_to_fetch));
+
+                if (!calConfig.url.isEmpty()) {
+                    config.calendars.push_back(calConfig);
+                    calendarCount++;
+                } else {
+                    Serial.println("    WARNING: Calendar has empty URL, skipping");
+                }
+            }
+            Serial.println("  Total calendars loaded: " + String(calendarCount));
+        } else {
+            Serial.println("  ERROR: 'calendars' is not an array!");
+        }
+    } else {
+        Serial.println("WARNING: 'calendars' section not found in JSON!");
+        // Backward compatibility: check for old single calendar format
+        if (doc.containsKey("calendar")) {
+            Serial.println("Found legacy 'calendar' section (single calendar)");
+            JsonObject calendar = doc["calendar"];
+            CalendarConfig calConfig;
+            calConfig.name = "Primary Calendar";
+            calConfig.url = calendar["url"] | String(DEFAULT_CALENDAR_URL);
+            calConfig.color = "default";
+            calConfig.enabled = true;
+            calConfig.days_to_fetch = calendar["days_to_fetch"] | DEFAULT_DAYS_TO_FETCH;
+
+            if (!calConfig.url.isEmpty()) {
+                config.calendars.push_back(calConfig);
+                Serial.println("  Legacy calendar loaded: " + calConfig.name);
+            }
+        }
+    }
+
+    // Ensure we have at least one calendar
+    if (config.calendars.empty()) {
+        CalendarConfig defaultCal;
+        defaultCal.name = "Default Calendar";
+        defaultCal.url = DEFAULT_CALENDAR_URL;
+        defaultCal.color = "default";
+        defaultCal.enabled = true;
+        defaultCal.days_to_fetch = DEFAULT_DAYS_TO_FETCH;
+        config.calendars.push_back(defaultCal);
     }
 
     // Extract display settings
     if (doc.containsKey("display")) {
+        Serial.println("Found 'display' section");
         JsonObject display = doc["display"];
         config.timezone = display["timezone"] | String(DEFAULT_TIMEZONE);
         config.update_hour = display["update_hour"] | DEFAULT_UPDATE_HOUR;
+        Serial.println("  Timezone: " + config.timezone);
+        Serial.println("  Update hour: " + String(config.update_hour));
+    } else {
+        Serial.println("WARNING: 'display' section not found in JSON!");
+        config.timezone = DEFAULT_TIMEZONE;
+        config.update_hour = DEFAULT_UPDATE_HOUR;
     }
 
     // Mark configuration as valid if we have at least WiFi credentials
@@ -116,8 +222,8 @@ bool LittleFSConfig::loadConfiguration() {
 }
 
 bool LittleFSConfig::saveConfiguration() {
-    // Create JSON document
-    StaticJsonDocument<1024> doc;
+    // Create JSON document - use DynamicJsonDocument for consistency
+    DynamicJsonDocument doc(2048);  // 2KB should be sufficient for saving
 
     // Add WiFi settings
     JsonObject wifi = doc.createNestedObject("wifi");
@@ -130,10 +236,16 @@ bool LittleFSConfig::saveConfiguration() {
     location["longitude"] = config.longitude;
     location["name"] = config.location_name;
 
-    // Add calendar settings
-    JsonObject calendar = doc.createNestedObject("calendar");
-    calendar["url"] = config.calendar_url;
-    calendar["days_to_fetch"] = config.days_to_fetch;
+    // Add calendars array
+    JsonArray calendars = doc.createNestedArray("calendars");
+    for (const auto& cal : config.calendars) {
+        JsonObject calObj = calendars.createNestedObject();
+        calObj["name"] = cal.name;
+        calObj["url"] = cal.url;
+        calObj["color"] = cal.color;
+        calObj["enabled"] = cal.enabled;
+        calObj["days_to_fetch"] = cal.days_to_fetch;
+    }
 
     // Add display settings
     JsonObject display = doc.createNestedObject("display");
@@ -171,11 +283,18 @@ void LittleFSConfig::resetConfiguration() {
     config = RuntimeConfig();
     config.latitude = LOC_LATITUDE;
     config.longitude = LOC_LONGITUDE;
-    config.calendar_url = DEFAULT_CALENDAR_URL;
-    config.days_to_fetch = DEFAULT_DAYS_TO_FETCH;
     config.timezone = DEFAULT_TIMEZONE;
     config.update_hour = DEFAULT_UPDATE_HOUR;
     config.valid = false;
+
+    // Add default calendar
+    CalendarConfig defaultCal;
+    defaultCal.name = "Default Calendar";
+    defaultCal.url = DEFAULT_CALENDAR_URL;
+    defaultCal.color = "default";
+    defaultCal.enabled = true;
+    defaultCal.days_to_fetch = DEFAULT_DAYS_TO_FETCH;
+    config.calendars.push_back(defaultCal);
 
     Serial.println("Configuration reset to defaults");
 }
@@ -195,7 +314,35 @@ void LittleFSConfig::setLocation(float lat, float lon, const String& name) {
 }
 
 void LittleFSConfig::setCalendarUrl(const String& url) {
-    config.calendar_url = url;
+    // Backward compatibility - sets first calendar URL
+    if (config.calendars.empty()) {
+        CalendarConfig cal;
+        cal.name = "Primary Calendar";
+        cal.url = url;
+        cal.color = "default";
+        cal.enabled = true;
+        config.calendars.push_back(cal);
+    } else {
+        config.calendars[0].url = url;
+    }
+}
+
+void LittleFSConfig::addCalendar(const CalendarConfig& calendar) {
+    if (config.calendars.size() >= 3) {
+        Serial.println("Error: Maximum 3 calendars allowed");
+        return;
+    }
+    config.calendars.push_back(calendar);
+}
+
+void LittleFSConfig::removeCalendar(int index) {
+    if (index >= 0 && index < config.calendars.size()) {
+        config.calendars.erase(config.calendars.begin() + index);
+    }
+}
+
+void LittleFSConfig::clearCalendars() {
+    config.calendars.clear();
 }
 
 void LittleFSConfig::printConfiguration() {
@@ -209,9 +356,14 @@ void LittleFSConfig::printConfiguration() {
     Serial.println("  Latitude: " + String(config.latitude, 6));
     Serial.println("  Longitude: " + String(config.longitude, 6));
 
-    Serial.println("Calendar:");
-    Serial.println("  URL: " + config.calendar_url);
-    Serial.println("  Days to fetch: " + String(config.days_to_fetch));
+    Serial.println("Calendars: " + String(config.calendars.size()));
+    for (size_t i = 0; i < config.calendars.size(); i++) {
+        Serial.println("  [" + String(i) + "] " + config.calendars[i].name);
+        Serial.println("      URL: " + config.calendars[i].url);
+        Serial.println("      Color: " + config.calendars[i].color);
+        Serial.println("      Enabled: " + String(config.calendars[i].enabled ? "Yes" : "No"));
+        Serial.println("      Days to fetch: " + String(config.calendars[i].days_to_fetch));
+    }
 
     Serial.println("Display:");
     Serial.println("  Timezone: " + config.timezone);
