@@ -103,6 +103,17 @@ bool ICSParser::loadFromFile(const String& filepath) {
 
 bool ICSParser::loadFromString(const String& icsData) {
     clear();
+
+    // Check if string is too large (>30KB) and might cause issues
+    if (icsData.length() > 30000) {
+        if (debug) {
+            Serial.println("Warning: Large ICS file (" + String(icsData.length()) + " bytes), using chunked parsing");
+        }
+        // For large strings, we need to process differently
+        // Create a stream-like interface from the string
+        return parseInChunks(icsData);
+    }
+
     return parse(icsData);
 }
 
@@ -114,12 +125,8 @@ bool ICSParser::loadFromStream(Stream* stream) {
         return false;
     }
 
-    String icsData = "";
-    while (stream->available()) {
-        icsData += stream->readString();
-    }
-
-    return parse(icsData);
+    // Use streaming parser directly for large files
+    return parseStreamLarge(stream);
 }
 
 bool ICSParser::parse(const String& icsData) {
@@ -429,7 +436,6 @@ std::vector<CalendarEvent*> ICSParser::expandRecurringEvent(CalendarEvent* event
 
         if (eventYear < searchYear) {
             // Advance to the search year or later
-            int yearsToAdvance = searchYear - eventYear;
 
             // Create a new time for the occurrence in the search year
             struct tm newTm = *eventTm;
@@ -778,4 +784,248 @@ void ICSParser::printMemoryInfo() const {
     Serial.println("Free heap: " + String(ESP.getFreeHeap() / 1024) + " KB");
     #endif
 #endif
+}
+
+bool ICSParser::parseInChunks(const String& icsData) {
+    // For large files, we process line by line without unfolding the entire file
+    // This prevents memory issues with large ICS files
+
+    if (debug) {
+        Serial.println("=== Parsing ICS in chunks (large file mode) ===");
+        Serial.println("Data size: " + String(icsData.length()) + " bytes");
+    }
+
+    // First, scan for header information without unfolding
+    int headerEnd = icsData.indexOf("BEGIN:VEVENT");
+    if (headerEnd == -1) {
+        headerEnd = icsData.indexOf("END:VCALENDAR");
+    }
+
+    if (headerEnd > 0) {
+        String headerSection = icsData.substring(0, headerEnd);
+        // Unfold just the header section
+        String unfoldedHeader = unfoldLines(headerSection);
+        if (!parseHeader(unfoldedHeader)) {
+            return false;
+        }
+        if (!validateHeader()) {
+            return false;
+        }
+    }
+
+    // Now parse events one by one
+    int pos = 0;
+    int eventCount = 0;
+    const int MAX_EVENT_SIZE = 8192; // Maximum size of a single event block
+
+    while (pos < icsData.length()) {
+        // Find the next event
+        int beginPos = icsData.indexOf("BEGIN:VEVENT", pos);
+        if (beginPos == -1) break;
+
+        int endPos = icsData.indexOf("END:VEVENT", beginPos);
+        if (endPos == -1) {
+            setError(ICSParseError::INVALID_FORMAT, "Unclosed VEVENT block");
+            return false;
+        }
+
+        // Include "END:VEVENT" in the substring
+        endPos += 10;
+
+        // Check if event is too large
+        int eventSize = endPos - beginPos;
+        if (eventSize > MAX_EVENT_SIZE) {
+            if (debug) {
+                Serial.println("Warning: Skipping oversized event (" + String(eventSize) + " bytes)");
+            }
+            pos = endPos;
+            continue;
+        }
+
+        // Extract and unfold just this event
+        String eventData = icsData.substring(beginPos, endPos);
+        String unfoldedEvent = unfoldLines(eventData);
+
+        // Parse the event
+        if (parseEvent(unfoldedEvent)) {
+            eventCount++;
+            if (debug && (eventCount % 10 == 0)) {
+                Serial.println("Parsed " + String(eventCount) + " events...");
+            }
+        } else {
+            if (debug) {
+                Serial.println("Warning: Failed to parse event at position " + String(beginPos));
+            }
+        }
+
+        pos = endPos;
+
+        // Yield periodically to avoid watchdog reset
+        if (eventCount % 5 == 0) {
+            delay(1);
+        }
+    }
+
+    if (debug) {
+        Serial.println("Finished parsing: " + String(eventCount) + " events found");
+    }
+
+    valid = true;
+    return true;
+}
+
+bool ICSParser::parseStreamLarge(Stream* stream) {
+    if (!stream) {
+        setError(ICSParseError::STREAM_READ_ERROR, "Invalid stream");
+        return false;
+    }
+
+    if (debug) {
+        Serial.println("=== Parsing ICS from stream ===");
+    }
+
+    clear();
+
+    // State machine for parsing
+    enum ParseState {
+        LOOKING_FOR_CALENDAR,
+        IN_HEADER,
+        IN_EVENT,
+        DONE
+    };
+
+    ParseState state = LOOKING_FOR_CALENDAR;
+    String currentLine = "";
+    String eventBuffer = "";
+    String headerBuffer = "";
+    bool eof = false;
+    int eventCount = 0;
+
+    while (!eof && state != DONE) {
+        currentLine = readLineFromStream(stream, eof);
+
+        if (currentLine.isEmpty() && !eof) {
+            continue;
+        }
+
+        switch (state) {
+            case LOOKING_FOR_CALENDAR:
+                if (currentLine.indexOf("BEGIN:VCALENDAR") != -1) {
+                    headerBuffer = currentLine + "\n";
+                    state = IN_HEADER;
+                }
+                break;
+
+            case IN_HEADER:
+                headerBuffer += currentLine + "\n";
+
+                if (currentLine.indexOf("BEGIN:VEVENT") != -1) {
+                    // Parse header
+                    String unfoldedHeader = unfoldLines(headerBuffer);
+                    if (!parseHeader(unfoldedHeader)) {
+                        return false;
+                    }
+                    if (!validateHeader()) {
+                        return false;
+                    }
+
+                    // Start collecting event
+                    eventBuffer = currentLine + "\n";
+                    state = IN_EVENT;
+                } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
+                    // No events found
+                    state = DONE;
+                }
+                break;
+
+            case IN_EVENT:
+                eventBuffer += currentLine + "\n";
+
+                if (currentLine.indexOf("END:VEVENT") != -1) {
+                    // Process the complete event
+                    String unfoldedEvent = unfoldLines(eventBuffer);
+                    if (parseEvent(unfoldedEvent)) {
+                        eventCount++;
+                        if (debug && (eventCount % 10 == 0)) {
+                            Serial.println("Parsed " + String(eventCount) + " events...");
+                        }
+                    }
+
+                    // Clear event buffer and look for next event
+                    eventBuffer = "";
+                    state = IN_HEADER;
+
+                    // Yield periodically
+                    if (eventCount % 5 == 0) {
+                        delay(1);
+                    }
+                } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
+                    state = DONE;
+                }
+                break;
+
+            case DONE:
+                // Already finished, nothing to do
+                break;
+        }
+
+        // Prevent buffer overflow
+        if (eventBuffer.length() > 8192) {
+            if (debug) {
+                Serial.println("Warning: Event buffer overflow, skipping event");
+            }
+            eventBuffer = "";
+            state = IN_HEADER;
+        }
+    }
+
+    if (debug) {
+        Serial.println("Stream parsing complete: " + String(eventCount) + " events found");
+    }
+
+    valid = true;
+    return true;
+}
+
+String ICSParser::readLineFromStream(Stream* stream, bool& eof) {
+    String line = "";
+    eof = false;
+
+    if (!stream || !stream->available()) {
+        eof = true;
+        return line;
+    }
+
+    // Read until we hit a newline or run out of data
+    while (stream->available()) {
+        char c = stream->read();
+
+        if (c == '\r') {
+            // Possible line ending, check for \n
+            if (stream->available() && stream->peek() == '\n') {
+                stream->read(); // Consume the \n
+            }
+            break;
+        } else if (c == '\n') {
+            break;
+        } else {
+            line += c;
+        }
+
+        // Prevent line from getting too long
+        if (line.length() > 1024) {
+            break;
+        }
+    }
+
+    if (!stream->available() && line.isEmpty()) {
+        eof = true;
+    }
+
+    return line;
+}
+
+bool ICSParser::processEventBlock(const String& eventBlock) {
+    // This is just a wrapper around parseEvent for compatibility
+    return parseEvent(eventBlock);
 }

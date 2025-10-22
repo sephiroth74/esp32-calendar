@@ -2,11 +2,14 @@
 
 A feature-rich calendar display using ESP32 (S3/C6) and Waveshare/Good Display 7.5" e-paper displays (B/W or 6-color) with split-screen layout, comprehensive error handling, and multiple language support.
 
-**Version 1.3.0** - Once-daily updates, intelligent error recovery, and secure configuration!
+**Version 1.6.1** - Streaming ICS parser, multiple calendars, and robust test framework!
 
-## What's New in v1.3.0
+## What's New in v1.6.1
 
-- 📅 **Once-Daily Updates**: Calendar refreshes once per day for maximum battery life
+- 🔄 **Streaming ICS Parser**: Handles large calendar files (165KB+) without memory issues
+- 📚 **Multiple Calendars**: Support for up to 3 calendar sources with color coding
+- 🧪 **Robust Test Framework**: Comprehensive unit tests for embedded and native environments
+- 🔋 **Battery Improvements**: Deep sleep on configuration errors prevents battery drain
 - 🔐 **Secure Configuration**: WiFi credentials and location data now in separate, git-ignored file
 - 🔄 **Smart Error Recovery**: Automatic retry with intelligent intervals based on error type
 - 🔋 **Critical Battery Handling**: No wake on low battery to prevent damage
@@ -390,7 +393,7 @@ Typical resource usage (ESP32-S3 with 4MB flash):
 
 ## Version Information
 
-Current version: **1.0.0**
+Current version: **1.6.1**
 
 The project uses semantic versioning (MAJOR.MINOR.PATCH):
 - **MAJOR**: Incompatible API changes

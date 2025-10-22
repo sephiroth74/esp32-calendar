@@ -1,13 +1,14 @@
 #include "calendar_fetcher.h"
 #include <WiFi.h>
 
-CalendarFetcher::CalendarFetcher() : timeout(30000), debug(false) {
+CalendarFetcher::CalendarFetcher() : streamClient(nullptr), timeout(30000), debug(false) {
     // Initialize HTTP client settings
     http.setReuse(false);
     http.setTimeout(timeout);
 }
 
 CalendarFetcher::~CalendarFetcher() {
+    endStream();
     if (http.connected()) {
         http.end();
     }
@@ -225,4 +226,125 @@ bool CalendarFetcher::isCacheValid(const String& filename, unsigned long maxAgeS
     time(&now);
 
     return (now - modTime) < maxAgeSeconds;
+}
+
+Stream* CalendarFetcher::fetchStream(const String& url) {
+    endStream(); // Clean up any existing stream
+
+    if (debug) {
+        Serial.println("=== Calendar Fetcher (Stream) ===");
+        Serial.println("Fetching stream from: " + url);
+    }
+
+    if (isLocalUrl(url)) {
+        String path = getLocalPath(url);
+
+        // Initialize LittleFS if needed
+        if (!LittleFS.begin(false)) {
+            if (debug) Serial.println("Error: Failed to mount LittleFS");
+            return nullptr;
+        }
+
+        // Check if file exists
+        if (!LittleFS.exists(path)) {
+            if (debug) Serial.println("Error: File not found: " + path);
+            return nullptr;
+        }
+
+        // Open the file
+        fileStream = LittleFS.open(path, "r");
+        if (!fileStream) {
+            if (debug) Serial.println("Error: Failed to open file: " + path);
+            return nullptr;
+        }
+
+        if (debug) Serial.printf("Opened local file stream: %s (%d bytes)\n", path.c_str(), fileStream.size());
+        return &fileStream;
+
+    } else {
+        // Check WiFi connection
+        if (WiFi.status() != WL_CONNECTED) {
+            if (debug) Serial.println("Error: WiFi not connected");
+            return nullptr;
+        }
+
+        // Create a new WiFi client
+        streamClient = new WiFiClient();
+        if (!streamClient) {
+            if (debug) Serial.println("Error: Failed to allocate WiFi client");
+            return nullptr;
+        }
+
+        // Start HTTP request with the WiFi client
+        if (debug) Serial.println("Starting HTTP stream request...");
+
+        if (!http.begin(*streamClient, url)) {
+            if (debug) Serial.println("Error: Failed to begin HTTP request");
+            delete streamClient;
+            streamClient = nullptr;
+            return nullptr;
+        }
+
+        http.setTimeout(timeout);
+        http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+
+        // Add headers
+        http.addHeader("User-Agent", "ESP32-Calendar/1.0");
+        http.addHeader("Accept", "text/calendar");
+
+        // Perform GET request
+        int httpCode = http.GET();
+
+        if (httpCode <= 0) {
+            if (debug) Serial.println("Error: HTTP request failed: " + http.errorToString(httpCode));
+            http.end();
+            delete streamClient;
+            streamClient = nullptr;
+            return nullptr;
+        }
+
+        if (debug) Serial.printf("HTTP response code: %d\n", httpCode);
+
+        if (httpCode != HTTP_CODE_OK) {
+            if (debug) Serial.println("Error: HTTP error: " + String(httpCode));
+            http.end();
+            delete streamClient;
+            streamClient = nullptr;
+            return nullptr;
+        }
+
+        // Get the stream
+        Stream* stream = http.getStreamPtr();
+        if (!stream) {
+            if (debug) Serial.println("Error: Failed to get HTTP stream");
+            http.end();
+            delete streamClient;
+            streamClient = nullptr;
+            return nullptr;
+        }
+
+        if (debug) Serial.println("HTTP stream opened successfully");
+        return stream;
+    }
+}
+
+void CalendarFetcher::endStream() {
+    // Close file stream if open
+    if (fileStream) {
+        fileStream.close();
+    }
+
+    // Close HTTP stream if open
+    if (http.connected()) {
+        http.end();
+    }
+
+    // Clean up WiFi client
+    if (streamClient) {
+        if (streamClient->connected()) {
+            streamClient->stop();
+        }
+        delete streamClient;
+        streamClient = nullptr;
+    }
 }

@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <LittleFS.h>
+#include <WiFiClient.h>
 
 // Result structure for fetch operations
 struct FetchResult {
@@ -19,6 +20,8 @@ struct FetchResult {
 class CalendarFetcher {
 private:
     HTTPClient http;
+    WiFiClient* streamClient;
+    File fileStream;
     int timeout;
     bool debug;
 
@@ -38,6 +41,10 @@ public:
 
     // Main fetch function - automatically determines local vs remote
     FetchResult fetch(const String& url);
+
+    // Stream-based fetching for large files
+    Stream* fetchStream(const String& url);
+    void endStream();
 
     // Utility functions
     static String getFilenameFromUrl(const String& url);

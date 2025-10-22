@@ -5,6 +5,45 @@ All notable changes to the ESP32 E-Paper Calendar project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2025-10-22
+
+### Added
+- **Streaming ICS Parser** - Implemented streaming approach for parsing large ICS files
+  - `parseInChunks()` method for processing large String data in chunks
+  - `parseStreamLarge()` for direct stream parsing with state machine
+  - `fetchStream()` method in CalendarFetcher for HTTP and file streaming
+  - Prevents memory overflow when parsing files larger than 30KB
+  - Successfully handles Google Calendar files up to 165KB+
+- **Unified Test Framework** - Fixed embedded test infrastructure
+  - Created `test_main.cpp` as single entry point for all embedded tests
+  - Added `run_tests.sh` script for automated test execution
+  - Created comprehensive `TEST_INSTRUCTIONS.md` documentation
+  - Resolved multiple definition conflicts in Unity test framework
+
+### Changed
+- CalendarWrapper now automatically uses streaming for remote URLs
+- CalendarFetcher supports both traditional fetch and streaming modes
+- ICSParser `parseRRule` method made public for test accessibility
+- Test configuration updated to properly handle source file inclusion
+
+### Fixed
+- **Critical Bug**: ICS parser skipping thousands of events in large files
+  - Parser was jumping from line 27 to line 4113 in 165KB files
+  - Root cause: Arduino String memory limitations with large data
+  - Solution: Event-by-event parsing without loading entire file into memory
+- **Test Framework**: Multiple definition errors for setup() and loop()
+  - Conflicting definitions between test files and source files
+  - Solution: Unified test runner with automatic file management
+- Compiler warnings in PSRAM test file (unused variable)
+- Calendar count validation to prevent exceeding MAX_CALENDARS limit
+- Infinite restart loop on configuration errors (now uses deep sleep)
+
+### Performance
+- Memory usage significantly reduced when parsing large ICS files
+- Events parsed individually with 8KB buffer limit per event
+- Periodic yielding (delay) to prevent watchdog resets
+- Streaming approach eliminates String memory exhaustion
+
 ## [1.6.0] - 2025-10-21
 
 ### Added

@@ -50,13 +50,7 @@ const char* TEST_CONFIG_JSON = R"({
   }
 })";
 
-void setUp(void) {
-    // Setup code before each test
-}
-
-void tearDown(void) {
-    // Cleanup code after each test
-}
+// setUp and tearDown are now defined in test_main.cpp
 
 void test_littlefs_initialization() {
     Serial.println("\n=== Testing LittleFS Initialization ===");
@@ -293,27 +287,8 @@ void test_backward_compatibility() {
     Serial.println("✓ Backward compatibility with old format maintained");
 }
 
-void setup() {
-    delay(2000);
-    Serial.begin(115200);
-    Serial.println("\n\n========================================");
-    Serial.println("ESP32 Configuration Loader Tests");
-    Serial.println("========================================");
-
-    UNITY_BEGIN();
-
-    RUN_TEST(test_littlefs_initialization);
-    RUN_TEST(test_default_configuration);
-    RUN_TEST(test_save_and_load_configuration);
-    RUN_TEST(test_multiple_calendars);
-    RUN_TEST(test_local_calendar_url);
-    RUN_TEST(test_calendar_management);
-    RUN_TEST(test_config_save);
-    RUN_TEST(test_backward_compatibility);
-
-    UNITY_END();
-}
-
-void loop() {
-    // Nothing to do here
+// Setup function for configuration tests (called from test_main.cpp)
+void setup_config_tests() {
+    // Any specific setup needed for config tests
+    Serial.println("Initializing configuration tests...");
 }

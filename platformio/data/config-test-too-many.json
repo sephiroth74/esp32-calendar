@@ -1,0 +1,52 @@
+{
+  "wifi": {
+    "ssid": "TestWiFi",
+    "password": "TestPassword"
+  },
+  "calendars": [
+    {
+      "name": "Calendar 1",
+      "url": "local://calendar1.ics",
+      "enabled": true,
+      "days_to_fetch": 30,
+      "color": "red"
+    },
+    {
+      "name": "Calendar 2",
+      "url": "local://calendar2.ics",
+      "enabled": true,
+      "days_to_fetch": 30,
+      "color": "blue"
+    },
+    {
+      "name": "Calendar 3",
+      "url": "local://calendar3.ics",
+      "enabled": true,
+      "days_to_fetch": 30,
+      "color": "green"
+    },
+    {
+      "name": "Calendar 4 - Should be skipped",
+      "url": "local://calendar4.ics",
+      "enabled": true,
+      "days_to_fetch": 30,
+      "color": "yellow"
+    },
+    {
+      "name": "Calendar 5 - Should be skipped",
+      "url": "local://calendar5.ics",
+      "enabled": true,
+      "days_to_fetch": 30,
+      "color": "purple"
+    }
+  ],
+  "location": {
+    "name": "Test Location",
+    "latitude": 47.3769,
+    "longitude": 8.5417
+  },
+  "display": {
+    "timezone": "CET-1CEST,M3.5.0/2,M10.5.0/3",
+    "update_hour": 8
+  }
+}

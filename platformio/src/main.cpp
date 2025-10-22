@@ -1,4 +1,4 @@
-#ifndef DEBUG_DISPLAY
+#if !defined(DEBUG_DISPLAY) && !defined(PIO_UNIT_TESTING)
 
 #include <Arduino.h>
 #include <WiFiClientSecure.h>

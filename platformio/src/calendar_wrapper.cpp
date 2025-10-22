@@ -48,21 +48,65 @@ bool CalendarWrapper::load(bool forceRefresh) {
         return false;
     }
 
-    String icsData;
+    // Check if this is a remote URL that might be large
+    bool isRemoteUrl = !config.url.startsWith("local://") &&
+                      !config.url.startsWith("file://") &&
+                      !config.url.startsWith("/");
 
     // Check cache first (unless force refresh)
-    if (!forceRefresh && isCacheValid()) {
+    if (!forceRefresh && isRemoteUrl && isCacheValid()) {
         String cacheFile = getCacheFilename();
-        icsData = CalendarFetcher::loadFromCache(cacheFile);
+
+        // For cached files, we can load them directly as they should be manageable size
+        String icsData = CalendarFetcher::loadFromCache(cacheFile);
 
         if (!icsData.isEmpty()) {
             if (debug) Serial.println("Loaded from cache: " + cacheFile);
+
+            // Parse the cached data
+            if (!parser.loadFromString(icsData)) {
+                if (debug) Serial.println("Parse failed: " + parser.getLastError());
+                loaded = false;
+                return false;
+            }
+
+            loaded = true;
+            lastFetchTime = time(nullptr);
+            return true;
         }
     }
 
-    // If no cached data, fetch from source
-    if (icsData.isEmpty()) {
-        if (debug) Serial.println("Fetching from source...");
+    // For remote URLs, use streaming to avoid memory issues with large files
+    if (isRemoteUrl || config.url.indexOf("holidays") != -1) {
+        if (debug) Serial.println("Using streaming approach for remote/large file");
+
+        // Get a stream from the fetcher
+        Stream* stream = fetcher.fetchStream(config.url);
+
+        if (!stream) {
+            if (debug) Serial.println("Failed to get stream");
+            loaded = false;
+            return false;
+        }
+
+        // Parse directly from stream
+        bool parseSuccess = parser.loadFromStream(stream);
+
+        // Clean up the stream
+        fetcher.endStream();
+
+        if (!parseSuccess) {
+            if (debug) Serial.println("Parse failed: " + parser.getLastError());
+            loaded = false;
+            return false;
+        }
+
+        // Note: We don't cache when using streaming as the data is too large
+        // The next fetch will stream again
+
+    } else {
+        // For local files, use the traditional approach
+        if (debug) Serial.println("Fetching local file...");
 
         FetchResult result = fetcher.fetch(config.url);
 
@@ -72,26 +116,14 @@ bool CalendarWrapper::load(bool forceRefresh) {
             return false;
         }
 
-        icsData = result.data;
+        // Parse the ICS data
+        if (debug) Serial.println("Parsing ICS data...");
 
-        // Cache the data if it's from a remote source
-        if (!config.url.startsWith("local://") &&
-            !config.url.startsWith("file://") &&
-            !config.url.startsWith("/")) {
-            String cacheFile = getCacheFilename();
-            if (CalendarFetcher::cacheToFile(icsData, cacheFile)) {
-                if (debug) Serial.println("Cached to: " + cacheFile);
-            }
+        if (!parser.loadFromString(result.data)) {
+            if (debug) Serial.println("Parse failed: " + parser.getLastError());
+            loaded = false;
+            return false;
         }
-    }
-
-    // Parse the ICS data
-    if (debug) Serial.println("Parsing ICS data...");
-
-    if (!parser.loadFromString(icsData)) {
-        if (debug) Serial.println("Parse failed: " + parser.getLastError());
-        loaded = false;
-        return false;
     }
 
     loaded = true;

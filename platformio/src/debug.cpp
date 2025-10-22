@@ -1,4 +1,4 @@
-#ifdef DEBUG_DISPLAY
+#if defined(DEBUG_DISPLAY) && !defined(PIO_UNIT_TESTING)
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -703,9 +703,9 @@ void testCalendarFetch() {
 
     std::vector<CalendarEvent*> events;
     if (success) {
-        // Get events for the next year
+        // Get events for the next month
         time_t now = time(nullptr);
-        time_t endDate = now + (365 * 86400);
+        time_t endDate = now + (31 * 86400);
         events = calendarManager->getAllEvents(now, endDate);
         Serial.println("Successfully fetched events from " +
                       String(calendarManager->getCalendarCount()) + " calendars");

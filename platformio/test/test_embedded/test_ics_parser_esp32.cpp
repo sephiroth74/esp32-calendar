@@ -42,13 +42,7 @@ RRULE:FREQ=YEARLY
 END:VEVENT
 END:VCALENDAR)";
 
-void setUp(void) {
-    // Setup code before each test
-}
-
-void tearDown(void) {
-    // Cleanup code after each test
-}
+// setUp and tearDown are now defined in test_main.cpp
 
 void test_ics_parser_initialization() {
     Serial.println("\n=== Testing ICS Parser Initialization ===");
@@ -365,37 +359,14 @@ void test_clear_and_reload() {
     Serial.println("✓ Clear and reload works correctly");
 }
 
-void setup() {
-    delay(2000);
-    Serial.begin(115200);
-    Serial.println("\n\n========================================");
-    Serial.println("ESP32 ICS Parser Tests");
-    Serial.println("========================================");
-
+// Setup function for ICS parser tests (called from test_main.cpp)
+void setup_ics_parser_tests() {
     // Print memory info
+    Serial.println("Initializing ICS Parser tests...");
     Serial.printf("Total heap: %d bytes\n", ESP.getHeapSize());
     Serial.printf("Free heap: %d bytes\n", ESP.getFreeHeap());
     if (ESP.getPsramSize() > 0) {
         Serial.printf("PSRAM size: %d bytes\n", ESP.getPsramSize());
         Serial.printf("Free PSRAM: %d bytes\n", ESP.getFreePsram());
     }
-
-    UNITY_BEGIN();
-
-    RUN_TEST(test_ics_parser_initialization);
-    RUN_TEST(test_parse_simple_calendar);
-    RUN_TEST(test_parse_events);
-    RUN_TEST(test_date_range_filtering);
-    RUN_TEST(test_memory_management);
-    RUN_TEST(test_load_from_file);
-    RUN_TEST(test_rrule_parsing);
-    RUN_TEST(test_folded_lines);
-    RUN_TEST(test_timezone_support);
-    RUN_TEST(test_clear_and_reload);
-
-    UNITY_END();
-}
-
-void loop() {
-    // Nothing to do here
 }

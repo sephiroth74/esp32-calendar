@@ -150,12 +150,9 @@ void test_memory_cleanup() {
     Serial.println("✓ Memory cleanup verified");
 }
 
-void setup() {
-    delay(2000);
-    Serial.begin(115200);
-    Serial.println("\n\n========================================");
-    Serial.println("ESP32 PSRAM Usage Tests");
-    Serial.println("========================================");
+// Setup function for PSRAM tests (called from test_main.cpp)
+void setup_psram_tests() {
+    Serial.println("Initializing PSRAM tests...");
 
     // Print system info
     Serial.printf("Total heap: %d KB\n", ESP.getHeapSize() / 1024);
@@ -172,16 +169,4 @@ void setup() {
 #else
     Serial.println("PSRAM support is NOT ENABLED in build");
 #endif
-
-    UNITY_BEGIN();
-
-    RUN_TEST(test_psram_allocation);
-    RUN_TEST(test_large_calendar_psram);
-    RUN_TEST(test_memory_cleanup);
-
-    UNITY_END();
-}
-
-void loop() {
-    // Nothing to do here
 }

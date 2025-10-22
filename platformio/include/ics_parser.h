@@ -72,6 +72,9 @@ public:
     // Memory info
     void printMemoryInfo() const;
 
+    // RRULE parsing helper (public for testing)
+    bool parseRRule(const String& rrule, String& freq, int& interval, int& count, String& until) const;
+
     // Testing support - make these public for unit tests
     #ifdef NATIVE_TEST
     public:
@@ -95,7 +98,12 @@ public:
     bool isEventInRange(CalendarEvent* event, time_t startDate, time_t endDate) const;
     std::vector<CalendarEvent*> expandRecurringEvent(CalendarEvent* event, time_t startDate, time_t endDate) const;
     time_t calculateNextOccurrence(CalendarEvent* event, time_t after, const String& rrule) const;
-    bool parseRRule(const String& rrule, String& freq, int& interval, int& count, String& until) const;
+
+    // Streaming parse helpers for large files
+    bool parseInChunks(const String& icsData);
+    bool parseStreamLarge(Stream* stream);
+    String readLineFromStream(Stream* stream, bool& eof);
+    bool processEventBlock(const String& eventBlock);
 
     // Calendar properties
     String version;
