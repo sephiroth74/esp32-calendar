@@ -8,8 +8,8 @@
 // PATCH: backwards-compatible bug fixes
 
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 6
-#define VERSION_PATCH 1
+#define VERSION_MINOR 7
+#define VERSION_PATCH 4
 
 // Build metadata (optional)
 #define VERSION_BUILD __DATE__ " " __TIME__

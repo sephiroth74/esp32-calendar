@@ -10,7 +10,7 @@ public:
     static String convertAccents(const String& text);
 
     // Alias for convertAccents (removes accented characters)
-    static String removeAccents(const String& text) { return convertAccents(text); }
+    static String removeAccents(const String& text);
 
     // Truncate string to specified length with ellipsis
     static String truncate(const String& text, size_t maxLength, const String& suffix = "...");

@@ -5,6 +5,114 @@ All notable changes to the ESP32 E-Paper Calendar project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.4] - 2025-10-25
+
+### Changed
+- **Sunrise/Sunset Icons** - Replaced text arrows with proper weather icons
+  - Now uses wi_sunrise_16x16 bitmap for sunrise indicator
+  - Now uses wi_sunset_16x16 bitmap for sunset indicator
+  - Icons positioned at Y=10, text at Y=20 for better alignment
+  - Improved visual consistency with other weather elements
+
+## [1.7.3] - 2025-10-25
+
+### Fixed
+- **Sunrise/Sunset Visibility** - Fixed display issues in header
+  - Added explicit black text color for sunrise/sunset times
+  - Adjusted position to Y=25 for better visibility
+  - Added arrow indicators (↑ for sunrise, ↓ for sunset)
+  - Increased horizontal padding to 15px from edges
+
+### Changed
+- **Header Layout** - Fine-tuned positioning
+  - Moved day number up 6 pixels (Y position from 10 to 4)
+  - Better vertical balance with month text
+- **Weather Section** - Adjusted positioning
+  - Moved weather row down 6 pixels for better spacing
+  - Adjusted separator line position to maintain visual balance
+
+## [1.7.2] - 2025-10-25
+
+### Added
+- **Sunrise/Sunset Display in Header** - Shows sun times in header corners
+  - Sunrise time displayed at top-left corner of header
+  - Sunset time displayed at top-right corner of header
+  - New FONT_SUNRISE_SUNSET configuration for customizable font
+  - Automatically extracts times from weather data when available
+- **Events/Weather Separator** - Visual separator between sections
+  - Horizontal line between events list and weather forecast
+  - 15px spacing above weather section for cleaner layout
+
+### Changed
+- Updated drawModernHeader to accept WeatherData parameter
+- Improved header layout with sun times integration
+
+### Fixed
+- Removed duplicate FONT_SUNRISE_SUNSET definition
+- Fixed compilation warnings
+
+## [1.7.1] - 2025-10-25
+
+### Changed
+- **Weather Section Layout** - Simplified weather display
+  - Removed sunrise/sunset row for cleaner appearance
+  - Decreased weather icon size from 64x64 to 48x48
+  - Moved main temperature display down and closer to icon
+  - Reduced spacing between weather icon and hourly forecast
+- **Header Layout Adjustments** - Improved header spacing
+  - Moved day number text up 20px for better balance
+  - Moved month/year text up 40px to be closer to day number
+  - Adjusted separator line position using font metrics
+
+### Fixed
+- Fixed compilation errors with nullptr font references
+- Removed unused variable warnings
+
+## [1.7.0] - 2025-10-25
+
+### Added
+- **Configurable Font System** - Fonts can now be configured for each display element
+  - Each calendar element can use a different font (header, calendar, events, weather, status, etc.)
+  - Comprehensive font configuration in config.h with 20+ font defines
+  - Improved layout flexibility with font-based calculations
+- **Font Metrics System** - Dynamic positioning based on actual font dimensions
+  - `getFontHeight()` - Calculate font height from font data
+  - `getFontBaseline()` - Calculate baseline position for proper alignment
+  - `getTextWidth()` - Calculate actual text width for centering
+  - `calculateYPosition()` - Calculate next Y position based on font metrics
+  - `drawTextWithMetrics()` - Draw text with automatic centering and metrics
+- **StringUtils Class** - Dedicated string manipulation utilities
+  - `convertAccents()` - Convert Unicode accented characters to ASCII
+  - `removeAccents()` - Alias for convertAccents
+  - `truncate()` - Truncate strings with ellipsis
+  - `trim()` - Remove leading/trailing whitespace
+  - `replaceAll()` - Replace all occurrences of substring
+  - `startsWith()` / `endsWith()` - String boundary checks
+  - `toTitleCase()` - Convert to title case
+  - Comprehensive unit tests for all methods
+
+### Changed
+- Migrated from ICSParser to CalendarStreamParser for all calendar operations
+- Improved RRULE expansion for all recurring event types (YEARLY, MONTHLY, WEEKLY, DAILY)
+- Event filtering now happens during parsing for better memory efficiency
+- Removed debug logging added for troubleshooting
+- **Display Manager Refactoring** - All hardcoded fonts replaced with configurable defines
+  - Replaced Luna_ITC_Std_Bold32pt7b with FONT_HEADER_DAY_NUMBER
+  - Replaced Ubuntu_R_12pt8b with FONT_EVENT_DATE_HEADER
+  - Replaced all inline font references with configuration macros
+  - Updated drawModernHeader to use font metrics for dynamic positioning
+  - Updated drawEventsSection to use font metrics for proper text centering
+
+### Fixed
+- Personal Calendar events not displaying (non-recurring events were being filtered incorrectly)
+- Birthday events not showing (FREQ=YEARLY events now properly expand to current year)
+- Holiday events with recurring rules now display correctly
+- "Nessun Evento" text now properly centered both horizontally and vertically
+
+### Removed
+- ICSParser completely removed in favor of CalendarStreamParser
+- Removed temporary debug logging used for issue diagnosis
+
 ## [1.6.1] - 2025-10-22
 
 ### Added

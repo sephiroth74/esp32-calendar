@@ -66,6 +66,10 @@ String StringUtils::convertAccents(const String& text) {
     return result;
 }
 
+String StringUtils::removeAccents(const String& text) {
+    return convertAccents(text);  // Alias for convertAccents
+}
+
 String StringUtils::truncate(const String& text, size_t maxLength, const String& suffix) {
     if (text.length() <= maxLength) {
         return text;

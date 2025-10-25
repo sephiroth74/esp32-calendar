@@ -95,7 +95,7 @@ private:
 
     // Helper methods
     void drawHeader(const String& currentDate, const String& currentTime);
-    void drawModernHeader(int currentDay, const String& monthYear, const String& currentTime);
+    void drawModernHeader(int currentDay, const String& monthYear, const String& currentTime, const WeatherData* weatherData = nullptr);
     void drawMonthCalendar(const MonthCalendar& calendar, int x, int y,
                           const std::vector<CalendarEvent*>& events);
     void drawCompactCalendar(const MonthCalendar& calendar,
@@ -139,6 +139,14 @@ private:
     void drawErrorIcon(int x, int y, int size);
     void drawInfoIcon(int x, int y, int size);
     void drawIcon(ErrorIcon icon, int x, int y, int size);
+
+    // Font metrics helper functions
+    int16_t getFontHeight(const GFXfont* font);
+    int16_t getFontBaseline(const GFXfont* font);
+    int16_t getTextWidth(const String& text, const GFXfont* font);
+    int16_t calculateYPosition(int16_t baseY, const GFXfont* font, int16_t spacing = 0);
+    void drawTextWithMetrics(const String& text, int16_t x, int16_t y, const GFXfont* font,
+                             bool centerX = false, bool centerY = false, int16_t maxWidth = 0);
 
 public:
     DisplayManager();

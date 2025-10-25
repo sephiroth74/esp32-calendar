@@ -93,6 +93,48 @@
 #endif
 
 // =============================================================================
+// FONT CONFIGURATION
+// =============================================================================
+// Configure fonts for each display element
+// Available font families: Ubuntu_R, Luna_ITC_Regular, Luna_ITC_Std_Bold,
+//                         Montserrat_Regular, Lato_Regular, Roboto_Regular, etc.
+// Available sizes: 4pt, 5pt, 6pt, 7pt, 8pt, 9pt, 10pt, 11pt, 12pt, 14pt, 16pt,
+//                 18pt, 20pt, 22pt, 24pt, 26pt, 32pt (not all sizes for all fonts)
+
+// Calendar Header Fonts
+#define FONT_HEADER_DAY_NUMBER Luna_ITC_Std_Bold32pt7b   // Large day number in header
+#define FONT_HEADER_MONTH_YEAR Luna_ITC_Regular26pt7b    // Month and year text
+#define FONT_SUNRISE_SUNSET Ubuntu_R_7pt8b               // Sunrise/sunset times in header
+
+// Calendar Grid Fonts
+#define FONT_CALENDAR_DAY_LABELS Luna_ITC_Std_Bold9pt7b  // Day of week labels (M, T, W, etc.)
+#define FONT_CALENDAR_DAY_NUMBERS Luna_ITC_Std_Bold12pt7b // Day numbers in calendar grid
+#define FONT_CALENDAR_OUTSIDE_MONTH Luna_ITC_Regular12pt7b // Previous/next month days
+
+// Events Section Fonts
+#define FONT_EVENT_DATE_HEADER Luna_ITC_Std_Bold12pt7b // Date headers (Today, Tomorrow, etc.)
+#define FONT_EVENT_TIME Ubuntu_R_9pt8b                    // Event time display
+#define FONT_EVENT_TITLE Ubuntu_R_9pt8b                   // Event title text
+#define FONT_EVENT_LOCATION Ubuntu_R_7pt8b                // Event location (if shown)
+#define FONT_EVENT_DETAILS Ubuntu_R_9pt8b                 // Event details and more events text
+#define FONT_NO_EVENTS Luna_ITC_Regular14pt7b             // "No Events" message
+
+// Weather Section Fonts
+#define FONT_WEATHER_TEMP_MAIN Montserrat_Regular_14pt8b  // Main temperature display
+#define FONT_WEATHER_TEMP_HOURLY Montserrat_Regular_9pt8b // Hourly forecast temps
+#define FONT_WEATHER_TIME Ubuntu_R_9pt8b                  // Sunrise/sunset times
+#define FONT_WEATHER_MESSAGE Luna_ITC_Regular9pt7b        // Weather status messages
+
+// Error Display Fonts
+#define FONT_ERROR_TITLE Luna_ITC_Std_Bold18pt7b         // Error title
+#define FONT_ERROR_MESSAGE Luna_ITC_Regular12pt7b        // Error message text
+#define FONT_ERROR_DETAILS Ubuntu_R_9pt8b                // Error details/codes
+
+// Legacy compatibility (deprecated - use new font defines above)
+#define EVENT_BODY_FONT FONT_EVENT_TITLE
+#define EVENT_HEADER_FONT FONT_EVENT_DATE_HEADER
+
+// =============================================================================
 // ESP32 PIN CONFIGURATION
 // =============================================================================
 

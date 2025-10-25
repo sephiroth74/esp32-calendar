@@ -12,11 +12,6 @@
 #include <assets/icons/icons_32x32.h>
 #include <assets/icons/icons_16x16.h>
 
-#define LARGE_FONT &Ubuntu_R_24pt8b
-#define MEDIUM_FONT &Ubuntu_R_18pt8b
-#define SMALL_FONT &Ubuntu_R_12pt8b
-#define XSMALL_FONT &Ubuntu_R_9pt8b
-
 DisplayManager::DisplayManager()
     : display(GxEPD2_DRIVER_CLASS(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY))
 {
@@ -153,11 +148,11 @@ bool DisplayManager::nextPage()
 void DisplayManager::drawHeader(const String& currentDate, const String& currentTime)
 {
     // Draw header with date and time
-    display.setFont(&Ubuntu_R_18pt8b);
+    display.setFont(&FONT_HEADER_MONTH_YEAR);
     display.setCursor(20, 35);
     display.print(currentDate);
 
-    display.setFont(&Ubuntu_R_12pt8b);
+    display.setFont(&FONT_EVENT_TITLE);
     display.setCursor(DISPLAY_WIDTH - 150, 35);
     display.print(currentTime);
 
@@ -166,22 +161,54 @@ void DisplayManager::drawHeader(const String& currentDate, const String& current
     display.drawLine(0, HEADER_HEIGHT + 1, DISPLAY_WIDTH, HEADER_HEIGHT + 1, GxEPD_BLACK);
 }
 
-void DisplayManager::drawModernHeader(int currentDay, const String& monthYear, const String& currentTime)
+void DisplayManager::drawModernHeader(int currentDay, const String& monthYear, const String& currentTime, const WeatherData* weatherData)
 {
     // Header for left side only (within 400px width) - centered
     // Get day string
     String dayStr = (currentDay > 0 && currentDay <= 31) ? String(currentDay) : "--";
 
-    // Calculate approximate text widths for centering
-    // Day number is large (32pt), approximately 25-30px per digit
-    int dayWidth = dayStr.length() * 28;
-    // Month/year text (26pt), approximately 20px per character
-    int monthYearWidth = monthYear.length() * 20;
+    // Draw sunrise and sunset at corners if weather data is available
+    if (weatherData && !weatherData->dailyForecast.empty()) {
+        const WeatherDay& today = weatherData->dailyForecast[0];
+        display.setFont(&FONT_SUNRISE_SUNSET);
+        display.setTextColor(GxEPD_BLACK);  // Ensure text is black
 
-    // Center the day number
-    display.setFont(&Luna_ITC_Std_Bold32pt7b);
+        // Draw sunrise at top-left corner with icon
+        if (today.sunrise.length() >= 16) {
+            String sunriseTime = today.sunrise.substring(11, 16);  // Extract HH:MM
+            // Draw sunrise icon
+            display.drawInvertedBitmap(10, 10, wi_sunrise_16x16, 16, 16, GxEPD_BLACK);
+            // Draw sunrise time next to icon
+            display.setCursor(30, 20);  // Position text next to icon
+            display.print(sunriseTime);
+        }
+
+        // Draw sunset at top-right corner with icon
+        if (today.sunset.length() >= 16) {
+            String sunsetTime = today.sunset.substring(11, 16);  // Extract HH:MM
+            int16_t textWidth = getTextWidth(sunsetTime, &FONT_SUNRISE_SUNSET);
+            // Calculate position for right alignment
+            int iconX = LEFT_WIDTH - textWidth - 30;  // Account for icon and text width
+            // Draw sunset icon
+            display.drawInvertedBitmap(iconX, 10, wi_sunset_16x16, 16, 16, GxEPD_BLACK);
+            // Draw sunset time next to icon
+            display.setCursor(iconX + 20, 20);  // Position text next to icon
+            display.print(sunsetTime);
+        }
+    }
+
+    // Use font metrics for accurate centering
+    int16_t dayWidth = getTextWidth(dayStr, &FONT_HEADER_DAY_NUMBER);
+    int16_t monthYearWidth = getTextWidth(monthYear, &FONT_HEADER_MONTH_YEAR);
+
+    // Calculate vertical positions using font metrics
+    int16_t dayBaseline = getFontBaseline(&FONT_HEADER_DAY_NUMBER);
+    int16_t dayY = 4 + dayBaseline;  // Moved up 6 more pixels (was 10, now 4)
+
+    // Center and draw the day number
+    display.setFont(&FONT_HEADER_DAY_NUMBER);
     int dayX = (LEFT_WIDTH - dayWidth) / 2;
-    display.setCursor(dayX, 50);  // Centered vertically in header
+    display.setCursor(dayX, dayY);
 
 #ifdef DISP_TYPE_6C
     // Use configured color for day number on 6-color displays
@@ -192,14 +219,19 @@ void DisplayManager::drawModernHeader(int currentDay, const String& monthYear, c
     display.print(dayStr);
 #endif
 
-    // Center the month and year below day - moved down 10 pixels
-    display.setFont(&Luna_ITC_Regular26pt7b);
+    // Calculate position for month/year - moved up 40px total
+    // Instead of using calculateYPosition, manually position for exact control
+    int16_t monthYearY = dayY + getFontHeight(&FONT_HEADER_DAY_NUMBER) - 30;  // Moved up significantly
+
+    // Center and draw the month and year
+    display.setFont(&FONT_HEADER_MONTH_YEAR);
     int monthYearX = (LEFT_WIDTH - monthYearWidth) / 2;
-    display.setCursor(monthYearX, 95);  // Moved down 10 pixels (was 85)
+    display.setCursor(monthYearX, monthYearY);
     display.print(monthYear);
 
-    // Horizontal separator under header - moved down 10 pixels
-    display.drawLine(10, HEADER_HEIGHT + 5, LEFT_WIDTH - 10, HEADER_HEIGHT + 5, GxEPD_BLACK);
+    // Position separator using font metrics
+    int16_t separatorY = calculateYPosition(monthYearY, &FONT_HEADER_MONTH_YEAR, 15);
+    display.drawLine(10, separatorY, LEFT_WIDTH - 10, separatorY, GxEPD_BLACK);
 }
 
 void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar,
@@ -211,7 +243,7 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar,
     int cellWidth = (LEFT_WIDTH - (2 * CALENDAR_MARGIN)) / 7; // Fit within left side
 
     // Draw day labels with Luna ITC Bold using localized strings
-    display.setFont(&Luna_ITC_Std_Bold9pt7b);
+    display.setFont(&FONT_CALENDAR_DAY_LABELS);
 
 #ifdef DISP_TYPE_6C
     // Use configured color for day labels on 6-color displays
@@ -261,7 +293,7 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar,
         int y = startY + (row * CELL_HEIGHT);
 
         // Previous month days without background
-        display.setFont(&Luna_ITC_Regular12pt7b);
+        display.setFont(&FONT_CALENDAR_OUTSIDE_MONTH);
         String dayStr = String(prevMonthDay);
         int16_t x1, y1;
         uint16_t w, h;
@@ -308,7 +340,7 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar,
     }
 
     // Draw current month days with bold font
-    display.setFont(&Luna_ITC_Std_Bold12pt7b);
+    display.setFont(&FONT_CALENDAR_DAY_NUMBERS);
     int currentDay = 1;
     col = calendar.firstDayOfWeek;
 
@@ -450,7 +482,7 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar,
         int y = startY + (row * CELL_HEIGHT);
 
         // Next month days without background
-        display.setFont(&Luna_ITC_Regular12pt7b);
+        display.setFont(&FONT_CALENDAR_OUTSIDE_MONTH);
         String dayStr = String(nextMonthDay);
         int16_t x1, y1;
         uint16_t w, h;
@@ -577,23 +609,22 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
     const int maxY = WEATHER_START_Y - 10; // Stop 10px before weather section
 
     if (events.empty()) {
-        // Center "Nessun Evento" text both horizontally and vertically in the events box
-        display.setFont(&Luna_ITC_Regular14pt7b);
+        // Use font metrics for proper centering
+        String noEventsText = String(LOC_NO_EVENTS);
+        int16_t textWidth = getTextWidth(noEventsText, &FONT_NO_EVENTS);
+        int16_t baseline = getFontBaseline(&FONT_NO_EVENTS);
 
-        // Calculate text dimensions
-        int16_t tbx, tby; uint16_t tbw, tbh;
-        display.getTextBounds(LOC_NO_EVENTS, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        // Calculate box dimensions (from right column start to display edge, and from events header to weather section)
+        // Calculate box dimensions
         int boxWidth = display.width() - RIGHT_START_X;
-        int boxHeight = WEATHER_START_Y - HEADER_HEIGHT; // From header to weather section
+        int boxHeight = WEATHER_START_Y - HEADER_HEIGHT;
 
-        // Center horizontally and vertically
-        int textX = RIGHT_START_X + (boxWidth - tbw) / 2;
-        int textY = HEADER_HEIGHT + (boxHeight / 2) - (tbh / 2);
+        // Center using font metrics
+        int textX = RIGHT_START_X + (boxWidth - textWidth) / 2;
+        int textY = HEADER_HEIGHT + (boxHeight / 2) + (baseline / 2);
 
+        display.setFont(&FONT_NO_EVENTS);
         display.setCursor(textX, textY);
-        display.print(LOC_NO_EVENTS);
+        display.print(noEventsText);
         return;
     }
 
@@ -634,7 +665,7 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
             if (y + 35 > maxY) break;
 
             // Draw date header
-            display.setFont(&Luna_ITC_Std_Bold12pt7b);
+            display.setFont(&FONT_EVENT_DATE_HEADER);
             display.setCursor(x, y);
 
             DEBUG_VERBOSE_PRINTLN("Drawing date header at y=" + String(y) + ": " + dateHeader);
@@ -662,7 +693,7 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
         if (y + 20 > maxY) break;
 
         // Time or "All Day" in smaller font
-        display.setFont(&Ubuntu_R_9pt8b);
+        display.setFont(&FONT_EVENT_TIME);
         String timeStr;
         if (event->allDay) {
             timeStr = "--";
@@ -673,7 +704,7 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
         display.print(timeStr);
 
         // Event title with smaller font
-        display.setFont(&Ubuntu_R_9pt8b);
+        display.setFont(&FONT_EVENT_TITLE);
         String title = StringUtils::convertAccents(event->title);
         int eventTextX = x + timeColumnWidth; // Reduced spacing
         int maxPixelWidth = DISPLAY_WIDTH - eventTextX - 10;
@@ -759,52 +790,31 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
 
         eventCount++;
     }
-
-    // If there are more events that couldn't be displayed, show a summary
-    if (eventCount < events.size() && y + 15 <= maxY) {
-        int remaining = events.size() - eventCount;
-        display.setFont(&Ubuntu_R_9pt8b);
-        display.setCursor(x, y + 5);
-        display.print("+" + String(remaining) + " " + LOC_MORE_EVENTS);
-    }
 }
 
 void DisplayManager::drawWeatherPlaceholder()
 {
     // Draw placeholder for weather forecast in bottom right
     int x = RIGHT_START_X + 20;
-    int y = WEATHER_START_Y;
+    int y = WEATHER_START_Y + 6;  // Move down 6 pixels
 
-    // Display placeholder weather icon (64x64 to match actual weather display)
+    // Display placeholder weather icon (48x48)
 #ifdef DISP_TYPE_6C
     // Use red for weather icon on 6-color displays
-    display.drawInvertedBitmap(x + 10, y - 25, wi_na_64x64, 64, 64, COLOR_WEATHER_ICON);
+    display.drawInvertedBitmap(x + 10, y - 20, wi_na_48x48, 48, 48, COLOR_WEATHER_ICON);
 #else
-    display.drawInvertedBitmap(x + 10, y - 25, wi_na_64x64, 64, 64, GxEPD_BLACK);
+    display.drawInvertedBitmap(x + 10, y - 20, wi_na_48x48, 48, 48, GxEPD_BLACK);
 #endif
 
-    // Display placeholder temperatures (using larger Montserrat font)
-    display.setFont(&Montserrat_Regular_16pt8b);
-    display.setCursor(x + 105, y + 10);
+    // Display placeholder temperatures (moved down and adjusted for 48px icon)
+    display.setFont(&FONT_WEATHER_TEMP_MAIN);
+    display.setCursor(x + 70, y + 15);  // Moved closer to icon and down
     display.print("--\260 / --\260");
 
-    // Placeholder sunrise/sunset (moved higher to match actual display)
-    display.setFont(&Ubuntu_R_9pt8b);
-
-    // Sunrise icon and placeholder
-    display.drawInvertedBitmap(x + 105, y + 25, wi_sunrise_16x16, 16, 16, GxEPD_BLACK);
-    display.setCursor(x + 125, y + 37);
-    display.print("--:--");
-
-    // Sunset icon and placeholder
-    display.drawInvertedBitmap(x + 180, y + 25, wi_sunset_16x16, 16, 16, GxEPD_BLACK);
-    display.setCursor(x + 200, y + 37);
-    display.print("--:--");
-
-    y += 50;  // Reduced spacing (was 60, now 50)
+    y += 40;  // Reduced spacing after removing sunrise/sunset
 
     // Placeholder text
-    display.setFont(&Luna_ITC_Regular9pt7b);
+    display.setFont(&FONT_WEATHER_MESSAGE);
     display.setCursor(x, y + 20);
     display.print(LOC_WEATHER_COMING_SOON);
 }
@@ -813,52 +823,39 @@ void DisplayManager::drawWeatherForecast(const WeatherData& weatherData)
 {
     // Draw weather forecast at bottom of right section
     int x = RIGHT_START_X + 20;  // Align with events section
-    int y = WEATHER_START_Y;
+    int y = WEATHER_START_Y + 6;  // Move down 6 pixels
 
-    // Display today's weather icon and min/max temperatures instead of title
+    // Display today's weather icon and min/max temperatures
     if (!weatherData.dailyForecast.empty()) {
         const WeatherDay& today = weatherData.dailyForecast[0];
 
-        // Draw smaller weather icon for today (64x64 instead of 96x96)
+        // Draw weather icon for today (48x48)
         WeatherClient tempClient(nullptr);
-        const uint8_t* todayIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 64);
+        const uint8_t* todayIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 48);
         if (todayIcon) {
-            // Position icon centered between temperature and sunrise/sunset info
-            int iconX = x + 10;  // Slightly offset from left
-            int iconY = y - 25;  // Adjusted for smaller icon
+            // Position icon
+            int iconX = x;  // Slightly offset from left
+            int iconY = y - 20;  // Adjusted for 48px icon
 #ifdef DISP_TYPE_6C
             // Use red for weather icon on 6-color displays
-            display.drawInvertedBitmap(iconX, iconY, todayIcon, 64, 64, COLOR_WEATHER_ICON);
+            display.drawInvertedBitmap(iconX, iconY, todayIcon, 48, 48, COLOR_WEATHER_ICON);
 #else
-            display.drawInvertedBitmap(iconX, iconY, todayIcon, 64, 64, GxEPD_BLACK);
+            display.drawInvertedBitmap(iconX, iconY, todayIcon, 48, 48, GxEPD_BLACK);
 #endif
         }
 
-        // Display min/max temperatures to the right of icon
-        display.setFont(&Montserrat_Regular_14pt8b);
+        // Display min/max temperatures to the right of icon (moved down)
+        display.setFont(&FONT_WEATHER_TEMP_MAIN);
         String tempRange = String(int(today.tempMin)) + "\260 / " + String(int(today.tempMax)) + "\260";
-        display.setCursor(x + 85, y + 4);  // Adjusted for smaller icon
+        display.setCursor(x + 70, y + 15);  // Moved closer to icon and down
         display.print(tempRange);
-
-        // Add sunrise/sunset with icons below temperature
-        display.setFont(&Ubuntu_R_9pt8b);
-
-        // Sunrise icon and time
-        display.drawInvertedBitmap(x + 85, y + 15, wi_sunrise_16x16, 16, 16, GxEPD_BLACK);
-        display.setCursor(x + 105, y + 27);
-        display.print(today.sunrise.substring(11, 16));
-
-        // Sunset icon and time
-        display.drawInvertedBitmap(x + 160, y + 15, wi_sunset_16x16, 16, 16, GxEPD_BLACK);
-        display.setCursor(x + 180, y + 27);
-        display.print(today.sunset.substring(11, 16));
     }
 
-    y += 50;  // Reduced space after icon and sun info (was 60, now 50)
+    y += 40;  // Reduced spacing after removing sunrise/sunset
 
     // Check if we have hourly data
     if (weatherData.hourlyForecast.empty()) {
-        display.setFont(&Luna_ITC_Regular9pt7b);
+        display.setFont(&FONT_WEATHER_MESSAGE);
         display.setCursor(x, y + 20);
         display.print(LOC_NO_WEATHER_DATA);
         return;
@@ -903,7 +900,7 @@ void DisplayManager::drawWeatherForecast(const WeatherData& weatherData)
         }
 
         // Display temperature (smaller font)
-        display.setFont(&Montserrat_Regular_9pt8b);
+        display.setFont(&FONT_WEATHER_TEMP_HOURLY);
         String tempStr = String(int(hour.temperature)) + "\260";
         display.getTextBounds(tempStr, 0, 0, &x1, &y1, &w, &h);
         display.setCursor(itemX + (itemWidth - w) / 2, iconY + iconSize + 15);
@@ -928,9 +925,9 @@ void DisplayManager::drawMonthCalendar(const MonthCalendar& calendar, int x, int
     const int MONTH_HEADER_HEIGHT = 40;
 
     // Draw month and year header
-    display.setFont(&Ubuntu_R_12pt8b);
+    display.setFont(&FONT_EVENT_TITLE);
     String monthYear = String(MONTH_NAMES[calendar.month]) + " " + String(calendar.year);
-    centerText(monthYear, x, y + 25, CALENDAR_WIDTH - 20, &Ubuntu_R_12pt8b);
+    centerText(monthYear, x, y + 25, CALENDAR_WIDTH - 20, &FONT_EVENT_TITLE);
 
     // Draw day labels (moved 20 pixels lower)
     drawDayLabels(x, y + MONTH_HEADER_HEIGHT);
@@ -1034,7 +1031,7 @@ void DisplayManager::drawDayLabels(int x, int y)
     // Local constants for old layout compatibility
     const int OLD_OLD_CELL_WIDTH = 54;
 
-    display.setFont(&Ubuntu_R_9pt8b); // Using 8pt font for day labels
+    display.setFont(&FONT_EVENT_TITLE); // Using event font for day labels
 
     for (int i = 0; i < 7; i++) {
         // Adjust day index based on first day of week setting
@@ -1092,7 +1089,7 @@ void DisplayManager::drawCalendarDay(int day, int col, int row, int x, int y,
     }
 
     // Draw day number centered in cell
-    display.setFont(&Ubuntu_R_12pt8b);
+    display.setFont(&FONT_CALENDAR_DAY_NUMBERS);
     String dayStr = String(day);
     int16_t x1, y1;
     uint16_t w, h;
@@ -1140,7 +1137,7 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent*>& events,
         }
     }
 
-    display.setFont(&Ubuntu_R_12pt8b);
+    display.setFont(&FONT_EVENT_DATE_HEADER);
     display.setCursor(x, y);
 
     // if (!hasCurrentMonthEvents && !events.empty()) {
@@ -1170,7 +1167,7 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent*>& events,
 #ifdef DISP_TYPE_6C
             display.setTextColor(GxEPD_RED);
 #endif
-            display.setFont(&Ubuntu_R_12pt8b);
+            display.setFont(&FONT_EVENT_DATE_HEADER);
             display.setCursor(x, currentY);
             display.print(LOC_TODAY);
 #ifdef DISP_TYPE_6C
@@ -1184,7 +1181,7 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent*>& events,
 #ifdef DISP_TYPE_6C
             display.setTextColor(COLOR_EVENT_TOMORROW_HEADER);  // Use orange for better visibility
 #endif
-            display.setFont(&Ubuntu_R_12pt8b);
+            display.setFont(&FONT_EVENT_DATE_HEADER);
             display.setCursor(x, currentY);
             display.print(LOC_TOMORROW);
 #ifdef DISP_TYPE_6C
@@ -1198,7 +1195,7 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent*>& events,
 #ifdef DISP_TYPE_6C
             display.setTextColor(COLOR_EVENT_TOMORROW_HEADER);  // Use orange for all date headers for visibility
 #endif
-            display.setFont(&Ubuntu_R_12pt8b);
+            display.setFont(&FONT_EVENT_DATE_HEADER);
             display.setCursor(x, currentY);
 
             // Parse and display the date
@@ -1221,7 +1218,7 @@ void DisplayManager::drawEventsList(const std::vector<CalendarEvent*>& events,
 
     // Show if there are more events
     if (events.size() > eventsShown) {
-        display.setFont(&Ubuntu_R_9pt8b);
+        display.setFont(&FONT_EVENT_DETAILS);
         display.setCursor(x, currentY + 10);
         display.print("+" + String(events.size() - eventsShown) + " " + LOC_MORE_EVENTS);
     }
@@ -1235,7 +1232,7 @@ void DisplayManager::drawEventCompact(const CalendarEvent* event, int x, int y, 
 #endif
 
     // Draw time or "All Day"
-    display.setFont(&Ubuntu_R_9pt8b); // Use default small font for time
+    display.setFont(&FONT_EVENT_TIME);
     display.setCursor(x, y);
 
     if (event->allDay) {
@@ -1245,14 +1242,14 @@ void DisplayManager::drawEventCompact(const CalendarEvent* event, int x, int y, 
     }
 
     // Draw event title
-    display.setFont(&Ubuntu_R_11pt8b);
+    display.setFont(&FONT_EVENT_TITLE);
     display.setCursor(x, y + 35);
     String title = truncateText(event->title, maxWidth);
     display.print(title);
 
     // Draw location if available
     if (!event->location.isEmpty()) {
-        display.setFont(nullptr); // Use default small font
+        display.setFont(&FONT_EVENT_LOCATION);
         display.setCursor(x, y + 30);
         String location = truncateText(event->location, maxWidth - 20);
         display.print(location);
@@ -1264,11 +1261,11 @@ void DisplayManager::drawEventCompact(const CalendarEvent* event, int x, int y, 
 
 void DisplayManager::drawNoEvents(int x, int y)
 {
-    display.setFont(&Ubuntu_R_12pt8b);
+    display.setFont(&FONT_NO_EVENTS);
     display.setCursor(x, y);
     display.print(LOC_NO_EVENTS);
 
-    display.setFont(&Ubuntu_R_9pt8b);
+    display.setFont(&FONT_EVENT_DETAILS);
     display.setCursor(x, y + 40);
     display.print(LOC_ENJOY_FREE_DAY);
 }
@@ -1277,6 +1274,7 @@ void DisplayManager::drawStatusBar(bool wifiConnected, int rssi,
     float batteryVoltage, int batteryPercentage,
     int currentDay, int currentMonth, int currentYear, const String& currentTime)
 {
+    display.setFont(nullptr);   // Use default font for status bar
     int y = DISPLAY_HEIGHT; // Position for status bar at bottom edge
 
     // WiFi status with icon and RSSI text (bottom right)
@@ -1300,7 +1298,6 @@ void DisplayManager::drawStatusBar(bool wifiConnected, int rssi,
         }
 
         // Display RSSI value as text
-        display.setFont(nullptr); // Use default font
         display.setCursor(x + iconSize + 5, y - 8);
         display.print(String(rssi) + "dBm");
     } else {
@@ -1308,7 +1305,6 @@ void DisplayManager::drawStatusBar(bool wifiConnected, int rssi,
         display.drawInvertedBitmap(x, y - iconSize, wifi_x_16x16, 16, 16, GxEPD_BLACK);
 
         // Show "No WiFi" text
-        display.setFont(nullptr);
         display.setCursor(x + iconSize + 5, y - 8);
         display.print("No WiFi");
     }
@@ -1351,7 +1347,6 @@ void DisplayManager::drawStatusBar(bool wifiConnected, int rssi,
     }
 
     // Date/time and version info (center area)
-    display.setFont(nullptr); // Use default small font
 
     // Format date and time string
     String dateTimeStr = String(currentDay) + "/" + String(currentMonth) + "/" + String(currentYear) + " " + currentTime;
@@ -1568,13 +1563,18 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
 
         // LEFT SIDE
         // Draw header with large day number
-        drawModernHeader(currentDay, monthYear, currentTime);
+        drawModernHeader(currentDay, monthYear, currentTime, weatherData);
         // Draw calendar below header
         drawCompactCalendar(monthCal, events);
 
         // RIGHT SIDE
         // Draw events section at top
         drawEventsSection(events);
+
+        // Draw separator between events and weather with 5px padding
+        int separatorY = WEATHER_START_Y - 9;  // Adjusted for moved weather section (was 15, now 9)
+        display.drawLine(RIGHT_START_X + 10, separatorY, DISPLAY_WIDTH - 10, separatorY, GxEPD_BLACK);
+
         // Draw weather section at bottom
         if (weatherData && !weatherData->hourlyForecast.empty()) {
             drawWeatherForecast(*weatherData);
@@ -1594,11 +1594,11 @@ void DisplayManager::showMessage(const String& title, const String& message)
     display.firstPage();
     do {
         clear();
-        display.setFont(&Luna_ITC_Std_Bold26pt7b);
-        centerText(title, 0, 100, DISPLAY_WIDTH, &Luna_ITC_Std_Bold26pt7b);
+        display.setFont(&FONT_ERROR_TITLE);
+        centerText(title, 0, 100, DISPLAY_WIDTH, &FONT_ERROR_TITLE);
 
-        display.setFont(&Luna_ITC_Regular12pt7b);
-        centerText(message, 0, 200, DISPLAY_WIDTH, &Luna_ITC_Regular12pt7b);
+        display.setFont(&FONT_ERROR_MESSAGE);
+        centerText(message, 0, 200, DISPLAY_WIDTH, &FONT_ERROR_MESSAGE);
     } while (display.nextPage());
 }
 
@@ -1613,11 +1613,11 @@ void DisplayManager::showError(const String& error)
 
 void DisplayManager::drawError(const String& error)
 {
-    display.setFont(&Luna_ITC_Std_Bold18pt7b);
-    centerText(LOC_ERROR, 0, DISPLAY_HEIGHT / 2 - 40, DISPLAY_WIDTH, &Luna_ITC_Std_Bold18pt7b);
+    display.setFont(&FONT_ERROR_TITLE);
+    centerText(LOC_ERROR, 0, DISPLAY_HEIGHT / 2 - 40, DISPLAY_WIDTH, &FONT_ERROR_TITLE);
 
-    display.setFont(&Luna_ITC_Regular12pt7b);
-    centerText(error, 0, DISPLAY_HEIGHT / 2, DISPLAY_WIDTH, &Luna_ITC_Regular12pt7b);
+    display.setFont(&FONT_ERROR_MESSAGE);
+    centerText(error, 0, DISPLAY_HEIGHT / 2, DISPLAY_WIDTH, &FONT_ERROR_MESSAGE);
 }
 
 void DisplayManager::drawPreviousNextMonthDay(int day, int col, int row, int x, int y,
@@ -1635,7 +1635,7 @@ void DisplayManager::drawPreviousNextMonthDay(int day, int col, int row, int x, 
                         GxEPD_WHITE, GxEPD_BLACK, DitherLevel::DITHER_20);
 
     // Draw day number centered in cell (gray for previous/next month)
-    display.setFont(&Ubuntu_R_9pt8b);
+    display.setFont(&FONT_CALENDAR_OUTSIDE_MONTH);
     String dayStr = String(day);
     int16_t x1, y1;
     uint16_t w, h;
@@ -1755,6 +1755,96 @@ void DisplayManager::test()
     Serial.println("Testing display...");
     showMessage(LOC_E_PAPER_CALENDAR, LOC_DISPLAY_TEST_SUCCESSFUL);
     delay(2000);
+}
+
+// ============================================================================
+// Font Metrics Helper Functions
+// ============================================================================
+
+int16_t DisplayManager::getFontHeight(const GFXfont* font)
+{
+    if (!font) {
+        // Default font height (usually 8 pixels)
+        return 8;
+    }
+
+    // Calculate total font height from ascent and descent
+    return font->yAdvance;
+}
+
+int16_t DisplayManager::getFontBaseline(const GFXfont* font)
+{
+    if (!font) {
+        // Default font baseline
+        return 7;
+    }
+
+    // The baseline is typically the negative of the minimum y offset
+    int16_t minY = 0;
+    for (uint8_t i = font->first; i <= font->last; i++) {
+        GFXglyph *glyph = &(font->glyph[i - font->first]);
+        if (glyph->yOffset < minY) {
+            minY = glyph->yOffset;
+        }
+    }
+    return -minY;
+}
+
+int16_t DisplayManager::getTextWidth(const String& text, const GFXfont* font)
+{
+    // Temporarily set font to calculate bounds
+    display.setFont(font);
+
+    int16_t x1, y1;
+    uint16_t w, h;
+    display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+
+    // Note: Cannot restore old font as GxEPD2 doesn't provide getFont()
+    // Caller is responsible for setting font back if needed
+    return w;
+}
+
+int16_t DisplayManager::calculateYPosition(int16_t baseY, const GFXfont* font, int16_t spacing)
+{
+    // Calculate next Y position based on font height and spacing
+    int16_t fontHeight = getFontHeight(font);
+    return baseY + fontHeight + spacing;
+}
+
+void DisplayManager::drawTextWithMetrics(const String& text, int16_t x, int16_t y,
+                                        const GFXfont* font, bool centerX, bool centerY,
+                                        int16_t maxWidth)
+{
+    display.setFont(font);
+
+    int16_t drawX = x;
+    int16_t drawY = y;
+
+    if (centerX || centerY) {
+        int16_t x1, y1;
+        uint16_t w, h;
+        display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+
+        if (centerX) {
+            if (maxWidth > 0) {
+                drawX = x + (maxWidth - w) / 2;
+            } else {
+                drawX = x - w / 2;
+            }
+        }
+
+        if (centerY) {
+            // Center vertically using baseline
+            int16_t baseline = getFontBaseline(font);
+            drawY = y + baseline / 2;
+        }
+    }
+
+    display.setCursor(drawX, drawY);
+    display.print(text);
+
+    // Note: Cannot restore old font as GxEPD2 doesn't provide getFont()
+    // Caller is responsible for setting font back if needed
 }
 
 // Icon drawing functions - simple geometric representations for e-paper display
@@ -2052,7 +2142,7 @@ void DisplayManager::showFullScreenError(const ErrorInfo& error)
         }
 
         // Draw error level text
-        display.setFont(&Ubuntu_R_12pt8b);
+        display.setFont(&FONT_ERROR_MESSAGE);
         String levelText;
         switch (error.level) {
         case ErrorLevel::INFO:
@@ -2068,16 +2158,16 @@ void DisplayManager::showFullScreenError(const ErrorInfo& error)
             levelText = LOC_ERROR_LEVEL_CRITICAL;
             break;
         }
-        centerText(levelText, 0, iconY + iconSize + 40, DISPLAY_WIDTH, MEDIUM_FONT);
+        centerText(levelText, 0, iconY + iconSize + 40, DISPLAY_WIDTH, &FONT_ERROR_MESSAGE);
 
         // Draw main error message
-        display.setFont(&Ubuntu_R_18pt8b);
-        centerText(error.message, 0, iconY + iconSize + 90, DISPLAY_WIDTH, &Ubuntu_R_18pt8b);
+        display.setFont(&FONT_ERROR_TITLE);
+        centerText(error.message, 0, iconY + iconSize + 90, DISPLAY_WIDTH, &FONT_ERROR_TITLE);
 
         // Draw error details if available
         if (error.details.length() > 0) {
-            display.setFont(&Ubuntu_R_9pt8b);
-            centerText(error.details, 0, iconY + iconSize + 130, DISPLAY_WIDTH, &Ubuntu_R_9pt8b);
+            display.setFont(&FONT_ERROR_DETAILS);
+            centerText(error.details, 0, iconY + iconSize + 130, DISPLAY_WIDTH, &FONT_ERROR_DETAILS);
         }
 
         // Draw error code at bottom
@@ -2088,7 +2178,7 @@ void DisplayManager::showFullScreenError(const ErrorInfo& error)
 
         // Draw retry info if applicable
         if (error.recoverable && error.maxRetries > 0) {
-            display.setFont(&Ubuntu_R_9pt8b);
+            display.setFont(&FONT_ERROR_DETAILS);
             String retryText = LOC_ERROR_RETRYING;
             retryText += " (" + String(error.retryCount) + "/" + String(error.maxRetries) + ")";
             display.setCursor(20, DISPLAY_HEIGHT - 20);
@@ -2096,7 +2186,7 @@ void DisplayManager::showFullScreenError(const ErrorInfo& error)
         }
 
         // Draw action hint
-        display.setFont(&Ubuntu_R_9pt8b);
+        display.setFont(&FONT_ERROR_DETAILS);
         String actionText;
         if (!error.recoverable) {
             actionText = LOC_ERROR_CHECK_SETTINGS;
