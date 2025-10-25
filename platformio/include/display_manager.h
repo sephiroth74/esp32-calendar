@@ -32,6 +32,21 @@
 // Forward declaration - CalendarEvent is now defined in calendar_event.h
 class CalendarEvent;
 
+// Enum for dither percentage levels
+enum class DitherLevel {
+    NONE = 0,         // No dithering (solid fill)
+    DITHER_10 = 10,   // 10% dithering (very light)
+    DITHER_20 = 20,   // 20% dithering (light gray)
+    DITHER_25 = 25,   // 25% dithering
+    DITHER_30 = 30,   // 30% dithering
+    DITHER_40 = 40,   // 40% dithering
+    DITHER_50 = 50,   // 50% dithering (medium gray)
+    DITHER_60 = 60,   // 60% dithering
+    DITHER_70 = 70,   // 70% dithering
+    DITHER_75 = 75,   // 75% dithering (dark gray)
+    SOLID = 100      // Solid fill (100%)
+};
+
 struct MonthCalendar {
     int year;
     int month;
@@ -57,37 +72,43 @@ public:
 private:
 #endif
     // Vertical split layout constants
-    static const int SPLIT_X = 400;                // Split screen at middle
+    static const int SPLIT_X = 400; // Split screen at middle
 
     // Left side - Header and Calendar
-    static const int LEFT_WIDTH = 400;             // Left half of screen
-    static const int HEADER_HEIGHT = 120;          // Header with large day number and month/year
-    static const int CALENDAR_START_Y = HEADER_HEIGHT + 20;  // Moved down 10 pixels (was +10)
-    static const int CALENDAR_HEIGHT = 360;        // Adjusted for moved calendar
+    static const int LEFT_WIDTH = 400; // Left half of screen
+    static const int HEADER_HEIGHT = 120; // Header with large day number and month/year
+    static const int CALENDAR_START_Y = HEADER_HEIGHT + 20; // Moved down 10 pixels (was +10)
+    static const int CALENDAR_HEIGHT = 360; // Adjusted for moved calendar
 
     // Right side - Events and Weather
-    static const int RIGHT_WIDTH = 400;            // Right half of screen
-    static const int RIGHT_START_X = SPLIT_X;      // Start of right side
-    static const int EVENTS_HEIGHT = 340;          // More space for events
-    static const int WEATHER_START_Y = DISPLAY_HEIGHT - 150; // Bottom position above status bar (moved up 10px)
-    static const int WEATHER_HEIGHT = 100;         // Compact weather section
+    static const int RIGHT_WIDTH = 400; // Right half of screen
+    static const int RIGHT_START_X = SPLIT_X; // Start of right side
+    static const int EVENTS_HEIGHT = 340; // More space for events
+    static const int WEATHER_START_Y = DISPLAY_HEIGHT - 130; // Bottom position above status bar (moved down after removing precipitation)
+    static const int WEATHER_HEIGHT = 100; // Compact weather section
 
     // Calendar grid dimensions for left side
-    static const int CALENDAR_MARGIN = 20;         // Margins on sides
-    static const int CELL_WIDTH = 50;              // (380/7) ≈ 50 pixels per day
-    static const int CELL_HEIGHT = 45;             // Height of calendar cells
-    static const int DAY_LABEL_HEIGHT = 25;        // Height for day labels
+    static const int CALENDAR_MARGIN = 20; // Margins on sides
+    static const int CELL_WIDTH = 50; // (380/7) ≈ 50 pixels per day
+    static const int CELL_HEIGHT = 45; // Height of calendar cells
+    static const int DAY_LABEL_HEIGHT = 25; // Height for day labels
 
     // Helper methods
     void drawHeader(const String& currentDate, const String& currentTime);
     void drawModernHeader(int currentDay, const String& monthYear, const String& currentTime);
-    void drawMonthCalendar(const MonthCalendar& calendar, int x, int y);
-    void drawCompactCalendar(const MonthCalendar& calendar);
+    void drawMonthCalendar(const MonthCalendar& calendar, int x, int y,
+                          const std::vector<CalendarEvent*>& events);
+    void drawCompactCalendar(const MonthCalendar& calendar,
+                            const std::vector<CalendarEvent*>& events);
     void drawCalendarGrid(int x, int y);
     void drawCalendarDay(int day, int col, int row, int x, int y, bool hasEvent, bool isToday);
-    void drawPreviousNextMonthDay(int day, int col, int row, int x, int y);
+    void drawPreviousNextMonthDay(int day, int col, int row, int x, int y,
+                                  int month, int year, bool hasEvent = false);
     void drawDayLabels(int x, int y);
-    void applyFloydSteinbergDithering(int x, int y, int width, int height, float grayLevel);
+    void drawDitheredRectangle(int x, int y, int width, int height,
+                               uint16_t bgColor, uint16_t fgColor, DitherLevel ditherLevel);
+    void applyDithering(int x, int y, int width, int height,
+                       uint16_t bgColor, uint16_t fgColor, float ditherPercent);
     int getDaysInMonth(int year, int month);
     void drawEventsList(const std::vector<CalendarEvent*>& events, int x, int y, int maxWidth, int maxHeight);
     String formatEventDate(const String& eventDate, int currentYear, int currentMonth, int currentDay);
@@ -99,7 +120,7 @@ private:
     void drawNoEvents(int x, int y);
     void drawError(const String& error);
     void drawStatusBar(bool wifiConnected, int rssi, float batteryVoltage, int batteryPercentage,
-                      int currentDay, int currentMonth, int currentYear, const String& currentTime);
+        int currentDay, int currentMonth, int currentYear, const String& currentTime);
     void centerText(const String& text, int x, int y, int width, const GFXfont* font);
     String formatTime(const String& timeStr);
     String truncateText(const String& text, int maxWidth);
@@ -123,28 +144,51 @@ public:
     DisplayManager();
     void init();
     void clear();
+    void displayScreen();
+    bool nextPage();
+    uint16_t pages();
+    uint16_t pageHeight();
+    void setRotation(uint8_t rotation);
+    void setFullWindow();
+    void fillScreen(uint16_t color);
+    void setCursor(int16_t x, int16_t y);
+    void setFont(const GFXfont* f);
+    void setTextColor(uint16_t c);
+    size_t print(const String& s);
+    size_t print(const char str[]);
+    size_t print(char c);
+    void getTextBounds(const char* string, int16_t x, int16_t y, int16_t* x1, int16_t* y1, uint16_t* w, uint16_t* h);
+    void getTextBounds(const __FlashStringHelper* s, int16_t x, int16_t y, int16_t* x1, int16_t* y1, uint16_t* w, uint16_t* h);
+    void getTextBounds(const String& str, int16_t x, int16_t y, int16_t* x1, int16_t* y1, uint16_t* w, uint16_t* h);
+    void firstPage();
+    size_t print(const Printable& x);
+    int16_t width(void);
+    int16_t height(void);
+    void refresh(bool partial_update_mode = false);
     void showCalendar(const std::vector<CalendarEvent*>& events,
-                     const String& currentDate,
-                     const String& currentTime,
-                     const WeatherData* weatherData = nullptr,
-                     bool wifiConnected = true,
-                     int rssi = 0,
-                     float batteryVoltage = 0.0,
-                     int batteryPercentage = 0);
+        const String& currentDate,
+        const String& currentTime,
+        const WeatherData* weatherData = nullptr,
+        bool wifiConnected = true,
+        int rssi = 0,
+        float batteryVoltage = 0.0,
+        int batteryPercentage = 0);
     void showModernCalendar(const std::vector<CalendarEvent*>& events,
-                           int currentDay,
-                           int currentMonth,
-                           int currentYear,
-                           const String& currentTime,
-                           const WeatherData* weatherData = nullptr,
-                           bool wifiConnected = true,
-                           int rssi = 0,
-                           float batteryVoltage = 0.0,
-                           int batteryPercentage = 0);
+        int currentDay,
+        int currentMonth,
+        int currentYear,
+        const String& currentTime,
+        const WeatherData* weatherData = nullptr,
+        bool wifiConnected = true,
+        int rssi = 0,
+        float batteryVoltage = 0.0,
+        int batteryPercentage = 0);
     void showMessage(const String& title, const String& message);
     void showError(const String& error);
     void showFullScreenError(const ErrorInfo& error);
     void powerDown();
+    void powerOff();
+    void end();
     void test();
 };
 

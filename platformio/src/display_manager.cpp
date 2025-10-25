@@ -1,6 +1,8 @@
 #include "display_manager.h"
 #include "localization.h"
 #include "version.h"
+#include "debug_config.h"
+#include "string_utils.h"
 #include <SPI.h>
 #include <assets/fonts.h>
 #include <assets/icons/icons.h>
@@ -22,22 +24,130 @@ DisplayManager::DisplayManager()
 
 void DisplayManager::init()
 {
-    Serial.println("Initializing display...");
+    DEBUG_INFO_PRINTLN("Initializing display...");
 
-    SPI.end();
+    DEBUG_INFO_PRINTLN("Configuring SPI for EPD...");
+    DEBUG_INFO_PRINTF("SCK: %d, MOSI: %d, CS: %d\n", EPD_SCK, EPD_MOSI, EPD_CS);
+    // SPI.end();
     SPI.begin(EPD_SCK, -1, EPD_MOSI, EPD_CS); // remap SPI for EPD, -1 for MISO (not used)
 
-    display.init(115200);
-    display.setRotation(0);
-    display.setTextColor(GxEPD_BLACK);
-    display.setFullWindow();
-    Serial.println("Display initialized!");
+    // display.init(115200);
+    display.init(115200, true, 2, false); // default 10ms reset pulse, e.g. for bare panels with DESPI-C02
+    DEBUG_INFO_PRINTLN("Display initialized!");
 }
 
 void DisplayManager::clear()
 {
-    Serial.println("Clearing display...");
-    display.fillScreen(GxEPD_WHITE);
+    DEBUG_VERBOSE_PRINTLN("Clearing display...");
+    // display.fillScreen(GxEPD_WHITE);
+    display.clearScreen();
+}
+
+uint16_t DisplayManager::pages()
+{
+    return display.pages();
+}
+
+uint16_t DisplayManager::pageHeight()
+{
+    return display.pageHeight();
+}
+
+void DisplayManager::setRotation(uint8_t rotation)
+{
+    display.setRotation(rotation);
+}
+
+void DisplayManager::setFont(const GFXfont *f)
+{
+    display.setFont(f);
+}
+
+int16_t DisplayManager::width(void)
+{
+    return display.width();
+}
+
+int16_t DisplayManager::height(void)
+{
+    return display.height();
+}
+
+void DisplayManager::setFullWindow()
+{
+    display.setFullWindow();
+}
+
+void DisplayManager::fillScreen(uint16_t color)
+{
+    display.fillScreen(color);
+}
+
+void DisplayManager::setCursor(int16_t x, int16_t y)
+{
+    display.setCursor(x, y);
+}
+
+size_t DisplayManager::print(const String& s)
+{
+    return display.print(s);
+}
+
+size_t DisplayManager::print(const char str[])
+{
+    return display.print(str);
+}
+
+size_t DisplayManager::print(char c)
+{
+    return display.print(c);
+}
+
+size_t DisplayManager::print(const Printable& x)
+{
+    return display.print(x);
+}
+
+void DisplayManager::firstPage()
+{
+    display.firstPage();
+}
+
+void DisplayManager::setTextColor(uint16_t c)
+{
+    display.setTextColor(c);
+}
+
+void DisplayManager::getTextBounds(const char* string, int16_t x, int16_t y, int16_t* x1, int16_t* y1, uint16_t* w, uint16_t* h)
+{
+    display.getTextBounds(string, x, y, x1, y1, w, h);
+}
+
+void DisplayManager::getTextBounds(const __FlashStringHelper* s, int16_t x, int16_t y, int16_t* x1, int16_t* y1, uint16_t* w, uint16_t* h)
+{
+    display.getTextBounds(s, x, y, x1, y1, w, h);
+}
+
+void DisplayManager::getTextBounds(const String& str, int16_t x, int16_t y, int16_t* x1, int16_t* y1, uint16_t* w, uint16_t* h)
+{
+    display.getTextBounds(str, x, y, x1, y1, w, h);
+}
+
+void DisplayManager::displayScreen()
+{
+    DEBUG_VERBOSE_PRINTLN("Refreshing display...");
+    display.display();
+}
+
+void DisplayManager::refresh(bool partial_update_mode)
+{
+    DEBUG_VERBOSE_PRINTLN("Refreshing display...");
+    display.refresh(partial_update_mode);
+}
+
+bool DisplayManager::nextPage()
+{
+    return display.nextPage();
 }
 
 void DisplayManager::drawHeader(const String& currentDate, const String& currentTime)
@@ -92,7 +202,8 @@ void DisplayManager::drawModernHeader(int currentDay, const String& monthYear, c
     display.drawLine(10, HEADER_HEIGHT + 5, LEFT_WIDTH - 10, HEADER_HEIGHT + 5, GxEPD_BLACK);
 }
 
-void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar)
+void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar,
+                                        const std::vector<CalendarEvent*>& events)
 {
     // Draw calendar on left side only
     int startX = CALENDAR_MARGIN;
@@ -166,6 +277,33 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar)
         display.print(dayStr);
 #endif
 
+        // Check if this day in the previous month has an event
+        bool hasEvent = false;
+        for (auto event : events) {
+            if (event->date.length() >= 10) {
+                int eventYear = event->date.substring(0, 4).toInt();
+                int eventMonth = event->date.substring(5, 7).toInt();
+                int eventDay = event->date.substring(8, 10).toInt();
+
+                // Month is 1-based in the date string, prevMonth is 0-based
+                if (eventYear == prevYear && eventMonth == (prevMonth + 1) && eventDay == prevMonthDay) {
+                    hasEvent = true;
+                    break;
+                }
+            }
+        }
+
+        // Draw event indicator if there's an event
+        if (hasEvent) {
+#ifdef DISP_TYPE_6C
+            // On 6-color displays, use a colored indicator
+            display.fillCircle(x + cellWidth / 2, y + 32, 3, COLOR_CALENDAR_OUTSIDE_MONTH);
+#else
+            // On BW displays, draw a black circle
+            display.fillCircle(x + cellWidth / 2, y + 32, 3, GxEPD_BLACK);
+#endif
+        }
+
         prevMonthDay++;
     }
 
@@ -189,21 +327,14 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar)
         }
         if (isWeekend) {
 #ifdef DISP_TYPE_6C
-            // Fill weekend cells with 50% yellow on 6-color displays
-            // First fill with white (background)
-            display.fillRect(x, y, cellWidth, CELL_HEIGHT, GxEPD_WHITE);
-            // Then draw a dithered pattern with yellow (50% density)
-            for (int dy = 0; dy < CELL_HEIGHT; dy++) {
-                for (int dx = 0; dx < cellWidth; dx++) {
-                    // 50% pattern: checkerboard pattern
-                    if ((dx + dy) % 2 == 0) {
-                        display.drawPixel(x + dx, y + dy, COLOR_CALENDAR_WEEKEND_BG);
-                    }
-                }
-            }
+            // Use the new dithered rectangle method with config-defined dithering level
+            drawDitheredRectangle(x, y, cellWidth, CELL_HEIGHT,
+                                GxEPD_WHITE, COLOR_CALENDAR_WEEKEND_BG,
+                                static_cast<DitherLevel>(DITHER_CALENDAR_WEEKEND));
 #else
             // Use dithering for B/W displays
-            applyFloydSteinbergDithering(x, y, cellWidth, CELL_HEIGHT, 0.10);
+            drawDitheredRectangle(x, y, cellWidth, CELL_HEIGHT,
+                                GxEPD_WHITE, GxEPD_BLACK, DitherLevel::DITHER_10);
 #endif
         }
 
@@ -299,6 +430,13 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar)
     }
 
     // Draw remaining days from next month
+    int nextMonth = calendar.month + 1;
+    int nextYear = calendar.year;
+    if (nextMonth > 12) {
+        nextMonth = 1;
+        nextYear++;
+    }
+
     int nextMonthDay = 1;
     while (row < 6 || (row == 5 && col > 0)) {
         if (col >= 7) {
@@ -328,6 +466,32 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar)
         display.print(dayStr);
 #endif
 
+        // Check if this day in the next month has an event
+        bool hasEvent = false;
+        for (auto event : events) {
+            if (event->date.length() >= 10) {
+                int eventYear = event->date.substring(0, 4).toInt();
+                int eventMonth = event->date.substring(5, 7).toInt();
+                int eventDay = event->date.substring(8, 10).toInt();
+
+                if (eventYear == nextYear && eventMonth == nextMonth && eventDay == nextMonthDay) {
+                    hasEvent = true;
+                    break;
+                }
+            }
+        }
+
+        // Draw event indicator if there's an event
+        if (hasEvent) {
+#ifdef DISP_TYPE_6C
+            // On 6-color displays, use a colored indicator
+            display.fillCircle(x + cellWidth / 2, y + 32, 3, COLOR_CALENDAR_OUTSIDE_MONTH);
+#else
+            // On BW displays, draw a black circle
+            display.fillCircle(x + cellWidth / 2, y + 32, 3, GxEPD_BLACK);
+#endif
+        }
+
         nextMonthDay++;
         col++;
     }
@@ -342,12 +506,12 @@ String DisplayManager::formatEventDate(const String& eventDate, int currentYear,
     int eventMonth = eventDate.substring(5, 7).toInt();
     int eventDay = eventDate.substring(8, 10).toInt();
 
-    Serial.println("formatEventDate: Event date " + String(eventYear) + "-" + String(eventMonth) + "-" + String(eventDay) +
+    DEBUG_VERBOSE_PRINTLN("formatEventDate: Event date " + String(eventYear) + "-" + String(eventMonth) + "-" + String(eventDay) +
                    " vs Current " + String(currentYear) + "-" + String(currentMonth) + "-" + String(currentDay));
 
     // Check if today
     if (eventYear == currentYear && eventMonth == currentMonth && eventDay == currentDay) {
-        Serial.println("  -> Returning TODAY: " + String(LOC_TODAY));
+        DEBUG_VERBOSE_PRINTLN("  -> Returning TODAY: " + String(LOC_TODAY));
         return String(LOC_TODAY);
     }
 
@@ -357,13 +521,13 @@ String DisplayManager::formatEventDate(const String& eventDate, int currentYear,
     time_t tomorrow = now + 86400; // Add 24 hours
     struct tm* tomorrowInfo = localtime(&tomorrow);
 
-    Serial.println("  Tomorrow check: " + String(tomorrowInfo->tm_year + 1900) + "-" +
+    DEBUG_VERBOSE_PRINTLN("  Tomorrow check: " + String(tomorrowInfo->tm_year + 1900) + "-" +
                    String(tomorrowInfo->tm_mon + 1) + "-" + String(tomorrowInfo->tm_mday));
 
     if (eventYear == tomorrowInfo->tm_year + 1900 &&
         eventMonth == tomorrowInfo->tm_mon + 1 &&
         eventDay == tomorrowInfo->tm_mday) {
-        Serial.println("  -> Returning TOMORROW: " + String(LOC_TOMORROW));
+        DEBUG_VERBOSE_PRINTLN("  -> Returning TOMORROW: " + String(LOC_TOMORROW));
         return String(LOC_TOMORROW);
     }
 
@@ -399,11 +563,13 @@ String DisplayManager::formatEventDate(const String& eventDate, int currentYear,
 void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events)
 {
     // Draw events in the top right section
-    Serial.println("=== DrawEventsSection called ===");
-    Serial.println("Total events received: " + String(events.size()));
-    for (size_t i = 0; i < events.size() && i < 5; i++) {
-        Serial.println("Event " + String(i) + ": " + events[i]->title + " on " + events[i]->date +
-                      " isToday=" + String(events[i]->isToday) + " isTomorrow=" + String(events[i]->isTomorrow));
+    DEBUG_VERBOSE_PRINTLN("=== DrawEventsSection called ===");
+    DEBUG_VERBOSE_PRINTLN("Total events received: " + String(events.size()));
+    if (DEBUG_LEVEL >= DEBUG_VERBOSE) {
+        for (size_t i = 0; i < events.size() && i < 5; i++) {
+            DEBUG_VERBOSE_PRINTLN("Event " + String(i) + ": " + events[i]->title + " on " + events[i]->date +
+                          " isToday=" + String(events[i]->isToday) + " isTomorrow=" + String(events[i]->isTomorrow));
+        }
     }
 
     int x = RIGHT_START_X + 20;
@@ -411,8 +577,22 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
     const int maxY = WEATHER_START_Y - 10; // Stop 10px before weather section
 
     if (events.empty()) {
-        display.setFont(&Montserrat_Regular_16pt8b);
-        display.setCursor(x, y);
+        // Center "Nessun Evento" text both horizontally and vertically in the events box
+        display.setFont(&Luna_ITC_Regular14pt7b);
+
+        // Calculate text dimensions
+        int16_t tbx, tby; uint16_t tbw, tbh;
+        display.getTextBounds(LOC_NO_EVENTS, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        // Calculate box dimensions (from right column start to display edge, and from events header to weather section)
+        int boxWidth = display.width() - RIGHT_START_X;
+        int boxHeight = WEATHER_START_Y - HEADER_HEIGHT; // From header to weather section
+
+        // Center horizontally and vertically
+        int textX = RIGHT_START_X + (boxWidth - tbw) / 2;
+        int textY = HEADER_HEIGHT + (boxHeight / 2) - (tbh / 2);
+
+        display.setCursor(textX, textY);
         display.print(LOC_NO_EVENTS);
         return;
     }
@@ -441,7 +621,7 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
         String dateHeader = formatEventDate(event->date, currentYear, currentMonth, currentDay);
 
         // Debug output for date header
-        Serial.println("Date header for event: '" + dateHeader + "' (last: '" + lastDateHeader + "')");
+        DEBUG_VERBOSE_PRINTLN("Date header for event: '" + dateHeader + "' (last: '" + lastDateHeader + "')");
 
         // If this is a new date, show the date header
         if (dateHeader != lastDateHeader) {
@@ -457,19 +637,16 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
             display.setFont(&Luna_ITC_Std_Bold12pt7b);
             display.setCursor(x, y);
 
-            Serial.println("Drawing date header at y=" + String(y) + ": " + dateHeader);
+            DEBUG_VERBOSE_PRINTLN("Drawing date header at y=" + String(y) + ": " + dateHeader);
 
 #ifdef DISP_TYPE_6C
-            // Use red for "Today" and "Tomorrow", black for other dates for visibility
-            if (dateHeader.indexOf("Oggi") >= 0 || dateHeader.indexOf("Today") >= 0) {
+            // Use proper date comparison instead of string matching
+            if (event->isToday) {
                 display.setTextColor(GxEPD_RED);  // Red for today
-                Serial.println("Using RED color for Today header");
-            } else if (dateHeader.indexOf("Domani") >= 0 || dateHeader.indexOf("Tomorrow") >= 0) {
+            } else if (event->isTomorrow) {
                 display.setTextColor(GxEPD_RED);  // Red for tomorrow
-                Serial.println("Using RED color for Tomorrow header");
             } else {
-                display.setTextColor(GxEPD_BLACK);  // Changed to BLACK for better visibility (was orange)
-                Serial.println("Using BLACK color for other date headers");
+                display.setTextColor(GxEPD_BLACK);  // Black for other dates
             }
             display.print(dateHeader);
             display.setTextColor(GxEPD_BLACK); // Reset to black
@@ -497,7 +674,7 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
 
         // Event title with smaller font
         display.setFont(&Ubuntu_R_9pt8b);
-        String title = event->title;
+        String title = StringUtils::convertAccents(event->title);
         int eventTextX = x + timeColumnWidth; // Reduced spacing
         int maxPixelWidth = DISPLAY_WIDTH - eventTextX - 10;
 
@@ -598,12 +775,12 @@ void DisplayManager::drawWeatherPlaceholder()
     int x = RIGHT_START_X + 20;
     int y = WEATHER_START_Y;
 
-    // Display placeholder weather icon (96x96 to match actual weather display)
+    // Display placeholder weather icon (64x64 to match actual weather display)
 #ifdef DISP_TYPE_6C
     // Use red for weather icon on 6-color displays
-    display.drawInvertedBitmap(x, y - 35, wi_na_96x96, 96, 96, COLOR_WEATHER_ICON);
+    display.drawInvertedBitmap(x + 10, y - 25, wi_na_64x64, 64, 64, COLOR_WEATHER_ICON);
 #else
-    display.drawInvertedBitmap(x, y - 35, wi_na_96x96, 96, 96, GxEPD_BLACK);
+    display.drawInvertedBitmap(x + 10, y - 25, wi_na_64x64, 64, 64, GxEPD_BLACK);
 #endif
 
     // Display placeholder temperatures (using larger Montserrat font)
@@ -642,36 +819,38 @@ void DisplayManager::drawWeatherForecast(const WeatherData& weatherData)
     if (!weatherData.dailyForecast.empty()) {
         const WeatherDay& today = weatherData.dailyForecast[0];
 
-        // Draw large weather icon for today (96x96)
+        // Draw smaller weather icon for today (64x64 instead of 96x96)
         WeatherClient tempClient(nullptr);
-        const uint8_t* todayIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 96);
+        const uint8_t* todayIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 64);
         if (todayIcon) {
-            // Position icon higher and centered
+            // Position icon centered between temperature and sunrise/sunset info
+            int iconX = x + 10;  // Slightly offset from left
+            int iconY = y - 25;  // Adjusted for smaller icon
 #ifdef DISP_TYPE_6C
             // Use red for weather icon on 6-color displays
-            display.drawInvertedBitmap(x, y - 35, todayIcon, 96, 96, COLOR_WEATHER_ICON);
+            display.drawInvertedBitmap(iconX, iconY, todayIcon, 64, 64, COLOR_WEATHER_ICON);
 #else
-            display.drawInvertedBitmap(x, y - 35, todayIcon, 96, 96, GxEPD_BLACK);
+            display.drawInvertedBitmap(iconX, iconY, todayIcon, 64, 64, GxEPD_BLACK);
 #endif
         }
 
-        // Display min/max temperatures next to icon (vertically centered with icon)
-        display.setFont(&Montserrat_Regular_16pt8b);
+        // Display min/max temperatures to the right of icon
+        display.setFont(&Montserrat_Regular_14pt8b);
         String tempRange = String(int(today.tempMin)) + "\260 / " + String(int(today.tempMax)) + "\260";
-        display.setCursor(x + 105, y + 10);  // Moved right to accommodate larger icon
+        display.setCursor(x + 85, y + 4);  // Adjusted for smaller icon
         display.print(tempRange);
 
-        // Add sunrise/sunset with icons (moved higher)
+        // Add sunrise/sunset with icons below temperature
         display.setFont(&Ubuntu_R_9pt8b);
 
         // Sunrise icon and time
-        display.drawInvertedBitmap(x + 105, y + 25, wi_sunrise_16x16, 16, 16, GxEPD_BLACK);
-        display.setCursor(x + 125, y + 37);
+        display.drawInvertedBitmap(x + 85, y + 15, wi_sunrise_16x16, 16, 16, GxEPD_BLACK);
+        display.setCursor(x + 105, y + 27);
         display.print(today.sunrise.substring(11, 16));
 
         // Sunset icon and time
-        display.drawInvertedBitmap(x + 180, y + 25, wi_sunset_16x16, 16, 16, GxEPD_BLACK);
-        display.setCursor(x + 200, y + 37);
+        display.drawInvertedBitmap(x + 160, y + 15, wi_sunset_16x16, 16, 16, GxEPD_BLACK);
+        display.setCursor(x + 180, y + 27);
         display.print(today.sunset.substring(11, 16));
     }
 
@@ -730,14 +909,7 @@ void DisplayManager::drawWeatherForecast(const WeatherData& weatherData)
         display.setCursor(itemX + (itemWidth - w) / 2, iconY + iconSize + 15);
         display.print(tempStr);
 
-        // Display precipitation probability if > 0 (smaller font)
-        if (hour.precipitationProbability > 0) {
-            display.setFont(nullptr); // Use default small font
-            String rainStr = String(hour.precipitationProbability) + "%";
-            display.getTextBounds(rainStr, 0, 0, &x1, &y1, &w, &h);
-            display.setCursor(itemX + (itemWidth - w) / 2, iconY + iconSize + 28);
-            display.print(rainStr);
-        }
+        // Precipitation percentage removed to save space
     }
 }
 
@@ -748,7 +920,8 @@ void DisplayManager::drawDivider()
     display.drawLine(SPLIT_X, 0, SPLIT_X, DISPLAY_HEIGHT - 40, GxEPD_BLACK);
 }
 
-void DisplayManager::drawMonthCalendar(const MonthCalendar& calendar, int x, int y)
+void DisplayManager::drawMonthCalendar(const MonthCalendar& calendar, int x, int y,
+                                      const std::vector<CalendarEvent*>& events)
 {
     // Local constants for old layout compatibility
     const int CALENDAR_WIDTH = 400;
@@ -780,7 +953,24 @@ void DisplayManager::drawMonthCalendar(const MonthCalendar& calendar, int x, int
     int prevMonthDay = daysInPrevMonth - calendar.firstDayOfWeek + 1;
 
     for (col = 0; col < calendar.firstDayOfWeek; col++) {
-        drawPreviousNextMonthDay(prevMonthDay, col, row, x, y + MONTH_HEADER_HEIGHT + 45);
+        // Check if this day in the previous month has an event
+        bool hasEvent = false;
+        for (auto event : events) {
+            if (event->date.length() >= 10) {
+                int eventYear = event->date.substring(0, 4).toInt();
+                int eventMonth = event->date.substring(5, 7).toInt();
+                int eventDay = event->date.substring(8, 10).toInt();
+
+                // Month is 1-based in the date string
+                if (eventYear == prevYear && eventMonth == (prevMonth + 1) && eventDay == prevMonthDay) {
+                    hasEvent = true;
+                    break;
+                }
+            }
+        }
+
+        drawPreviousNextMonthDay(prevMonthDay, col, row, x, y + MONTH_HEADER_HEIGHT + 45,
+                               prevMonth + 1, prevYear, hasEvent);
         prevMonthDay++;
     }
 
@@ -804,10 +994,33 @@ void DisplayManager::drawMonthCalendar(const MonthCalendar& calendar, int x, int
     }
 
     // Draw next month days (in gray) to fill remaining cells
+    int nextMonth = calendar.month + 1;
+    int nextYear = calendar.year;
+    if (nextMonth > 12) {
+        nextMonth = 1;
+        nextYear++;
+    }
+
     int nextMonthDay = 1;
     while (row < 6) { // Always show 6 rows for consistency
         while (col < 7) {
-            drawPreviousNextMonthDay(nextMonthDay, col, row, x, y + MONTH_HEADER_HEIGHT + 45);
+            // Check if this day in the next month has an event
+            bool hasEvent = false;
+            for (auto event : events) {
+                if (event->date.length() >= 10) {
+                    int eventYear = event->date.substring(0, 4).toInt();
+                    int eventMonth = event->date.substring(5, 7).toInt();
+                    int eventDay = event->date.substring(8, 10).toInt();
+
+                    if (eventYear == nextYear && eventMonth == nextMonth && eventDay == nextMonthDay) {
+                        hasEvent = true;
+                        break;
+                    }
+                }
+            }
+
+            drawPreviousNextMonthDay(nextMonthDay, col, row, x, y + MONTH_HEADER_HEIGHT + 45,
+                                   nextMonth, nextYear, hasEvent);
             nextMonthDay++;
             col++;
         }
@@ -866,8 +1079,9 @@ void DisplayManager::drawCalendarDay(int day, int col, int row, int x, int y,
     int actualDayOfWeek = (col + FIRST_DAY_OF_WEEK) % 7;
     bool isWeekend = (actualDayOfWeek == 0 || actualDayOfWeek == 6); // Sunday = 0, Saturday = 6
     if (isWeekend && !isToday) {
-        // Apply Floyd-Steinberg dithering pattern for 25% gray effect
-        applyFloydSteinbergDithering(cellX + 1, cellY + 1, OLD_CELL_WIDTH - 2, OLD_CELL_HEIGHT - 2, 0.25);
+        // Apply dithering pattern for weekend cells
+        drawDitheredRectangle(cellX + 1, cellY + 1, OLD_CELL_WIDTH - 2, OLD_CELL_HEIGHT - 2,
+                            GxEPD_WHITE, GxEPD_BLACK, DitherLevel::DITHER_25);
     }
 
     // Highlight today with a border outline
@@ -1346,7 +1560,8 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
 
     display.firstPage();
     do {
-        clear();
+        // clear();
+        fillScreen(GxEPD_WHITE);
 
         // Draw vertical divider between left and right sides
         drawDivider();
@@ -1355,7 +1570,7 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
         // Draw header with large day number
         drawModernHeader(currentDay, monthYear, currentTime);
         // Draw calendar below header
-        drawCompactCalendar(monthCal);
+        drawCompactCalendar(monthCal, events);
 
         // RIGHT SIDE
         // Draw events section at top
@@ -1405,7 +1620,8 @@ void DisplayManager::drawError(const String& error)
     centerText(error, 0, DISPLAY_HEIGHT / 2, DISPLAY_WIDTH, &Luna_ITC_Regular12pt7b);
 }
 
-void DisplayManager::drawPreviousNextMonthDay(int day, int col, int row, int x, int y)
+void DisplayManager::drawPreviousNextMonthDay(int day, int col, int row, int x, int y,
+                                             int month, int year, bool hasEvent)
 {
     // Local constants for old layout compatibility
     const int OLD_CELL_WIDTH = 54;
@@ -1414,8 +1630,9 @@ void DisplayManager::drawPreviousNextMonthDay(int day, int col, int row, int x, 
     int cellX = x + (col * OLD_CELL_WIDTH);
     int cellY = y + (row * OLD_CELL_HEIGHT);
 
-    // Apply 20% gray dithering for previous/next month days
-    applyFloydSteinbergDithering(cellX + 1, cellY + 1, OLD_CELL_WIDTH - 2, OLD_CELL_HEIGHT - 2, 0.20);
+    // Apply dithering for previous/next month days
+    drawDitheredRectangle(cellX + 1, cellY + 1, OLD_CELL_WIDTH - 2, OLD_CELL_HEIGHT - 2,
+                        GxEPD_WHITE, GxEPD_BLACK, DitherLevel::DITHER_20);
 
     // Draw day number centered in cell (gray for previous/next month)
     display.setFont(&Ubuntu_R_9pt8b);
@@ -1430,6 +1647,29 @@ void DisplayManager::drawPreviousNextMonthDay(int day, int col, int row, int x, 
 
     display.setCursor(textX, textY);
     display.print(dayStr);
+
+    // Draw event indicator if there's an event for this day
+    if (hasEvent) {
+        // Draw a small triangle or circle to indicate an event
+#ifdef DISP_TYPE_6C
+        // On 6-color displays, use a colored indicator
+        int circleRadius = 3;
+        int circleX = cellX + OLD_CELL_WIDTH / 2;
+        int circleY = cellY + OLD_CELL_HEIGHT - 8;
+        display.fillCircle(circleX, circleY, circleRadius, COLOR_CALENDAR_OUTSIDE_MONTH);
+#else
+        // On B/W displays, draw a small triangle
+        int triangleSize = 8;
+        int triangleX = cellX + OLD_CELL_WIDTH - triangleSize - 3;
+        int triangleY = cellY + 3;
+
+        display.fillTriangle(
+            triangleX, triangleY, // Top-left
+            triangleX + triangleSize, triangleY, // Top-right
+            triangleX + triangleSize, triangleY + triangleSize, // Bottom-right
+            GxEPD_BLACK);
+#endif
+    }
 }
 
 int DisplayManager::getDaysInMonth(int year, int month)
@@ -1449,14 +1689,29 @@ int DisplayManager::getDaysInMonth(int year, int month)
     return days;
 }
 
-void DisplayManager::applyFloydSteinbergDithering(int x, int y, int width, int height, float grayLevel)
+void DisplayManager::drawDitheredRectangle(int x, int y, int width, int height,
+                                          uint16_t bgColor, uint16_t fgColor, DitherLevel ditherLevel)
 {
-    // Floyd-Steinberg dithering for e-paper displays
-    // For 25% gray (0.25), we create a dithered pattern
-    // The algorithm distributes error to create perceived grayscale
+    // First fill with background color
+    if (bgColor != GxEPD_WHITE) {
+        display.fillRect(x, y, width, height, bgColor);
+    }
 
-    // Simple ordered dithering pattern for 25% gray
-    // Using a 4x4 Bayer matrix optimized for 25% threshold
+    // Apply dithering if not solid or none
+    if (ditherLevel != DitherLevel::NONE && ditherLevel != DitherLevel::SOLID) {
+        float ditherPercent = static_cast<float>(ditherLevel) / 100.0f;
+        applyDithering(x, y, width, height, bgColor, fgColor, ditherPercent);
+    } else if (ditherLevel == DitherLevel::SOLID) {
+        // Solid fill with foreground color
+        display.fillRect(x, y, width, height, fgColor);
+    }
+}
+
+void DisplayManager::applyDithering(int x, int y, int width, int height,
+                                   uint16_t bgColor, uint16_t fgColor, float ditherPercent)
+{
+    // Ordered dithering using Bayer matrix for consistent e-paper results
+    // Using a 4x4 Bayer matrix for smooth gradients
     const uint8_t ditherMatrix[4][4] = {
         { 0, 8, 2, 10 },
         { 12, 4, 14, 6 },
@@ -1470,11 +1725,11 @@ void DisplayManager::applyFloydSteinbergDithering(int x, int y, int width, int h
             // Use ordered dithering for more consistent results on e-paper
             int matrixX = dx % 4;
             int matrixY = dy % 4;
-            float threshold = ditherMatrix[matrixY][matrixX] / 15.0;
+            float threshold = ditherMatrix[matrixY][matrixX] / 15.0f;
 
-            // For 25% gray, draw pixel if threshold is below gray level
-            if (grayLevel > threshold) {
-                display.drawPixel(x + dx, y + dy, GxEPD_BLACK);
+            // Draw foreground pixel if dither percent is greater than threshold
+            if (ditherPercent > threshold) {
+                display.drawPixel(x + dx, y + dy, fgColor);
             }
         }
     }
@@ -1483,6 +1738,16 @@ void DisplayManager::applyFloydSteinbergDithering(int x, int y, int width, int h
 void DisplayManager::powerDown()
 {
     display.hibernate();
+}
+
+void DisplayManager::powerOff()
+{
+    display.powerOff();
+}
+
+void DisplayManager::end()
+{
+    display.end();
 }
 
 void DisplayManager::test()

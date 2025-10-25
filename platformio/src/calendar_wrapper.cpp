@@ -1,4 +1,5 @@
 #include "calendar_wrapper.h"
+#include "debug_config.h"
 #include <algorithm>
 
 // CalendarWrapper implementation
@@ -8,132 +9,107 @@ CalendarWrapper::CalendarWrapper()
 }
 
 CalendarWrapper::~CalendarWrapper() {
-    // Parser will clean up its own events
+    clearCache();
+}
+
+void CalendarWrapper::clearCache() {
+    for (auto event : cachedEvents) {
+        if (event) {
+            delete event;
+        }
+    }
+    cachedEvents.clear();
 }
 
 String CalendarWrapper::getCacheFilename() const {
-    // Use the fetcher's utility to get a cache filename
-    return CalendarFetcher::getFilenameFromUrl(config.url);
+    // Generate a simple cache filename from the URL
+    String filename = config.url;
+    filename.replace("://", "_");
+    filename.replace("/", "_");
+    filename.replace(".", "_");
+
+    // Truncate if too long
+    if (filename.length() > 30) {
+        filename = filename.substring(0, 30);
+    }
+
+    return "/cache/" + filename + ".ics";
 }
 
 bool CalendarWrapper::isCacheValid() const {
-    // Cache is valid for 1 hour (3600 seconds)
-    const unsigned long CACHE_DURATION = 3600;
-
-    // Check if cache file exists and is recent
-    String cacheFile = getCacheFilename();
-    return CalendarFetcher::isCacheValid(cacheFile, CACHE_DURATION);
+    // For now, don't use caching with the stream parser
+    // The stream parser handles its own optimization
+    return false;
 }
 
 bool CalendarWrapper::load(bool forceRefresh) {
     if (debug) {
-        Serial.println("=== CalendarWrapper::load ===");
-        Serial.println("Calendar: " + config.name);
-        Serial.println("URL: " + config.url);
-        Serial.println("Enabled: " + String(config.enabled ? "Yes" : "No"));
-        Serial.println("Days to fetch: " + String(config.days_to_fetch));
+        DEBUG_VERBOSE_PRINTLN("=== CalendarWrapper::load ===");
+        DEBUG_VERBOSE_PRINTLN("Calendar: " + config.name);
+        DEBUG_VERBOSE_PRINTLN("URL: " + config.url);
+        DEBUG_VERBOSE_PRINTLN("Enabled: " + String(config.enabled ? "Yes" : "No"));
+        DEBUG_VERBOSE_PRINTLN("Days to fetch: " + String(config.days_to_fetch));
     }
+
+    // Clear previous events
+    clearCache();
+    loaded = false;
 
     // Check if calendar is enabled
     if (!config.enabled) {
-        if (debug) Serial.println("Calendar is disabled, skipping");
-        loaded = false;
+        if (debug) DEBUG_VERBOSE_PRINTLN("Calendar is disabled, skipping");
         return true; // Not an error, just disabled
     }
 
     // Check if URL is configured
     if (config.url.isEmpty()) {
-        if (debug) Serial.println("Error: No URL configured");
-        loaded = false;
+        if (debug) DEBUG_ERROR_PRINTLN("Error: No URL configured");
+        lastError = "No URL configured";
         return false;
     }
 
-    // Check if this is a remote URL that might be large
-    bool isRemoteUrl = !config.url.startsWith("local://") &&
-                      !config.url.startsWith("file://") &&
-                      !config.url.startsWith("/");
+    // Configure parser with calendar metadata
+    parser.setCalendarName(config.name);
+    parser.setDebug(debug);
 
-    // Check cache first (unless force refresh)
-    if (!forceRefresh && isRemoteUrl && isCacheValid()) {
-        String cacheFile = getCacheFilename();
-
-        // For cached files, we can load them directly as they should be manageable size
-        String icsData = CalendarFetcher::loadFromCache(cacheFile);
-
-        if (!icsData.isEmpty()) {
-            if (debug) Serial.println("Loaded from cache: " + cacheFile);
-
-            // Parse the cached data
-            if (!parser.loadFromString(icsData)) {
-                if (debug) Serial.println("Parse failed: " + parser.getLastError());
-                loaded = false;
-                return false;
-            }
-
-            loaded = true;
-            lastFetchTime = time(nullptr);
-            return true;
-        }
-    }
-
-    // For remote URLs, use streaming to avoid memory issues with large files
-    if (isRemoteUrl || config.url.indexOf("holidays") != -1) {
-        if (debug) Serial.println("Using streaming approach for remote/large file");
-
-        // Get a stream from the fetcher
-        Stream* stream = fetcher.fetchStream(config.url);
-
-        if (!stream) {
-            if (debug) Serial.println("Failed to get stream");
-            loaded = false;
-            return false;
-        }
-
-        // Parse directly from stream
-        bool parseSuccess = parser.loadFromStream(stream);
-
-        // Clean up the stream
-        fetcher.endStream();
-
-        if (!parseSuccess) {
-            if (debug) Serial.println("Parse failed: " + parser.getLastError());
-            loaded = false;
-            return false;
-        }
-
-        // Note: We don't cache when using streaming as the data is too large
-        // The next fetch will stream again
-
-    } else {
-        // For local files, use the traditional approach
-        if (debug) Serial.println("Fetching local file...");
-
-        FetchResult result = fetcher.fetch(config.url);
-
-        if (!result.success) {
-            if (debug) Serial.println("Fetch failed: " + result.error);
-            loaded = false;
-            return false;
-        }
-
-        // Parse the ICS data
-        if (debug) Serial.println("Parsing ICS data...");
-
-        if (!parser.loadFromString(result.data)) {
-            if (debug) Serial.println("Parse failed: " + parser.getLastError());
-            loaded = false;
-            return false;
-        }
-    }
-
-    loaded = true;
-    lastFetchTime = time(nullptr);
+    // Get date range for fetching events
+    time_t now = time(nullptr);
+    time_t endDate = now + (config.days_to_fetch * 86400); // days_to_fetch days from now
 
     if (debug) {
-        Serial.println("Successfully loaded calendar");
-        Serial.println("Events found: " + String(parser.getEventCount()));
-        Serial.println("Calendar name: " + parser.getCalendarName());
+        DEBUG_INFO_PRINTLN("Fetching events from now to " + String(config.days_to_fetch) + " days ahead");
     }
+
+    // Fetch events using the stream parser
+    FilteredEvents* result = parser.fetchEventsInRange(config.url, now, endDate, 500); // Max 500 events
+
+    if (!result) {
+        lastError = "Failed to fetch events";
+        if (debug) DEBUG_ERROR_PRINTLN("Failed to fetch events - null result");
+        return false;
+    }
+
+    if (!result->success) {
+        lastError = result->error;
+        if (debug) DEBUG_ERROR_PRINTLN("Failed to fetch events: " + result->error);
+        delete result;
+        return false;
+    }
+
+    // Move events from result to our cache
+    cachedEvents = std::move(result->events);
+    result->events.clear(); // Prevent double deletion
+
+    if (debug) {
+        DEBUG_INFO_PRINTLN("Successfully loaded calendar");
+        DEBUG_INFO_PRINTLN("Total events parsed: " + String(result->totalParsed));
+        DEBUG_INFO_PRINTLN("Events in range: " + String(result->totalFiltered));
+        DEBUG_INFO_PRINTLN("Cached events: " + String(cachedEvents.size()));
+    }
+
+    delete result;
+    loaded = true;
+    lastFetchTime = time(nullptr);
 
     return true;
 }
@@ -143,29 +119,30 @@ std::vector<CalendarEvent*> CalendarWrapper::getEvents(time_t startDate, time_t 
         return std::vector<CalendarEvent*>();
     }
 
-    // Apply days_to_fetch limit
-    time_t now = time(nullptr);
-    time_t maxEndDate = now + (config.days_to_fetch * 86400); // days to seconds
+    std::vector<CalendarEvent*> result;
 
-    // Use the earlier of the requested end date or the days_to_fetch limit
-    if (endDate > maxEndDate) {
-        endDate = maxEndDate;
-    }
-
-    // Get events from parser
-    std::vector<CalendarEvent*> events = parser.getEventsInRange(startDate, endDate);
-
-    // Add calendar metadata to each event
-    for (auto event : events) {
+    // Filter cached events by date range
+    for (auto event : cachedEvents) {
         if (event) {
-            // Store calendar name and color in the event
-            // This helps the display manager show which calendar an event belongs to
-            event->calendarName = config.name;
-            event->calendarColor = config.color;
+            // Check if event is in range
+            time_t eventStart = event->startTime;
+            time_t eventEnd = event->endTime;
+
+            if (eventEnd == 0) {
+                eventEnd = eventStart;
+            }
+
+            // Check if event overlaps with the date range
+            if ((eventStart <= endDate) && (eventEnd >= startDate)) {
+                // Add calendar metadata to each event
+                event->calendarName = config.name;
+                event->calendarColor = config.color;
+                result.push_back(event);
+            }
         }
     }
 
-    return events;
+    return result;
 }
 
 std::vector<CalendarEvent*> CalendarWrapper::getAllEvents() {
@@ -173,11 +150,42 @@ std::vector<CalendarEvent*> CalendarWrapper::getAllEvents() {
         return std::vector<CalendarEvent*>();
     }
 
-    // Get events for the configured days_to_fetch period
-    time_t now = time(nullptr);
-    time_t endDate = now + (config.days_to_fetch * 86400);
+    // Return all cached events with metadata
+    for (auto event : cachedEvents) {
+        if (event) {
+            event->calendarName = config.name;
+            event->calendarColor = config.color;
+        }
+    }
 
-    return getEvents(now, endDate);
+    return cachedEvents;
+}
+
+size_t CalendarWrapper::getEventCountInRange(time_t startDate, time_t endDate) const {
+    if (!loaded) {
+        return 0;
+    }
+
+    size_t count = 0;
+
+    // Count cached events in range
+    for (auto event : cachedEvents) {
+        if (event) {
+            time_t eventStart = event->startTime;
+            time_t eventEnd = event->endTime;
+
+            if (eventEnd == 0) {
+                eventEnd = eventStart;
+            }
+
+            // Check if event overlaps with the date range
+            if ((eventStart <= endDate) && (eventEnd >= startDate)) {
+                count++;
+            }
+        }
+    }
+
+    return count;
 }
 
 // CalendarManager implementation
@@ -198,8 +206,8 @@ void CalendarManager::clear() {
 
 bool CalendarManager::loadFromConfig(const RuntimeConfig& config) {
     if (debug) {
-        Serial.println("=== CalendarManager::loadFromConfig ===");
-        Serial.println("Number of calendars: " + String(config.calendars.size()));
+        DEBUG_INFO_PRINTLN("=== CalendarManager::loadFromConfig ===");
+        DEBUG_INFO_PRINTLN("Number of calendars: " + String(config.calendars.size()));
     }
 
     // Clear existing calendars
@@ -213,11 +221,11 @@ bool CalendarManager::loadFromConfig(const RuntimeConfig& config) {
         calendars.push_back(wrapper);
 
         if (debug) {
-            Serial.println("Added calendar: " + calConfig.name);
-            Serial.println("  URL: " + calConfig.url);
-            Serial.println("  Enabled: " + String(calConfig.enabled ? "Yes" : "No"));
-            Serial.println("  Days to fetch: " + String(calConfig.days_to_fetch));
-            Serial.println("  Color: " + calConfig.color);
+            DEBUG_INFO_PRINTLN("Added calendar: " + calConfig.name);
+            DEBUG_INFO_PRINTLN("  URL: " + calConfig.url);
+            DEBUG_INFO_PRINTLN("  Enabled: " + String(calConfig.enabled ? "Yes" : "No"));
+            DEBUG_INFO_PRINTLN("  Days to fetch: " + String(calConfig.days_to_fetch));
+            DEBUG_INFO_PRINTLN("  Color: " + calConfig.color);
         }
     }
 
@@ -226,8 +234,8 @@ bool CalendarManager::loadFromConfig(const RuntimeConfig& config) {
 
 bool CalendarManager::loadAll(bool forceRefresh) {
     if (debug) {
-        Serial.println("=== CalendarManager::loadAll ===");
-        Serial.println("Loading " + String(calendars.size()) + " calendars");
+        DEBUG_INFO_PRINTLN("=== CalendarManager::loadAll ===");
+        DEBUG_INFO_PRINTLN("Loading " + String(calendars.size()) + " calendars");
     }
 
     bool allSuccess = true;
@@ -238,32 +246,42 @@ bool CalendarManager::loadAll(bool forceRefresh) {
         CalendarWrapper* cal = calendars[i];
 
         if (debug) {
-            Serial.println("\nLoading calendar " + String(i+1) + "/" + String(calendars.size()));
+            DEBUG_INFO_PRINTLN("\nLoading calendar " + String(i+1) + "/" + String(calendars.size()));
         }
 
         if (cal->load(forceRefresh)) {
             if (cal->isLoaded()) {
                 loadedCount++;
                 if (debug) {
-                    Serial.println("✓ Loaded: " + cal->getName());
-                    Serial.println("  Events: " + String(cal->getEventCount()));
+                    DEBUG_INFO_PRINTLN("✓ Loaded: " + cal->getName());
+                    DEBUG_INFO_PRINTLN("  Events: " + String(cal->getEventCount()));
                 }
             }
         } else {
             errorCount++;
             allSuccess = false;
             if (debug) {
-                Serial.println("✗ Failed: " + cal->getName());
-                Serial.println("  Error: " + cal->getLastError());
+                DEBUG_INFO_PRINTLN("✗ Failed: " + cal->getName());
+                DEBUG_INFO_PRINTLN("  Error: " + cal->getLastError());
             }
         }
     }
 
     if (debug) {
-        Serial.println("\n=== Load Summary ===");
-        Serial.println("Loaded: " + String(loadedCount) + " calendars");
-        Serial.println("Errors: " + String(errorCount) + " calendars");
-        Serial.println("Total events: " + String(getTotalEventCount()));
+        DEBUG_INFO_PRINTLN("\n=== Load Summary ===");
+        DEBUG_INFO_PRINTLN("Loaded: " + String(loadedCount) + " calendars");
+        DEBUG_INFO_PRINTLN("Errors: " + String(errorCount) + " calendars");
+        DEBUG_INFO_PRINTLN("Total events: " + String(getTotalEventCount()));
+
+        // Show events in range for each calendar
+        time_t now = time(nullptr);
+        for (auto cal : calendars) {
+            if (cal->isLoaded()) {
+                time_t endDate = now + (cal->getDaysToFetch() * 86400);
+                size_t eventsInRange = cal->getEventCountInRange(now, endDate);
+                DEBUG_INFO_PRINTLN("  " + cal->getName() + ": " + String(eventsInRange) + " events in next " + String(cal->getDaysToFetch()) + " days");
+            }
+        }
     }
 
     return allSuccess;
@@ -286,7 +304,7 @@ std::vector<CalendarEvent*> CalendarManager::getAllEvents(time_t startDate, time
     });
 
     if (debug) {
-        Serial.println("Merged events from all calendars: " + String(allEvents.size()) + " events");
+        DEBUG_INFO_PRINTLN("Merged events from all calendars: " + String(allEvents.size()) + " events");
     }
 
     return allEvents;
@@ -310,11 +328,16 @@ size_t CalendarManager::getTotalEventCount() const {
 }
 
 void CalendarManager::printStatus() const {
-    Serial.println("\n=== Calendar Manager Status ===");
-    Serial.println("Total calendars: " + String(calendars.size()));
+    DEBUG_INFO_PRINTLN("\n=== Calendar Manager Status ===");
+    DEBUG_INFO_PRINTLN("Total calendars: " + String(calendars.size()));
+
+    // Calculate the date range we're looking at
+    time_t now = time(nullptr);
+    time_t startDate = now;
 
     int enabledCount = 0;
     int loadedCount = 0;
+    size_t totalEventsInRange = 0;
 
     for (size_t i = 0; i < calendars.size(); i++) {
         CalendarWrapper* cal = calendars[i];
@@ -322,20 +345,45 @@ void CalendarManager::printStatus() const {
         if (cal->isEnabled()) enabledCount++;
         if (cal->isLoaded()) loadedCount++;
 
-        Serial.println("\nCalendar " + String(i+1) + ": " + cal->getName());
-        Serial.println("  Enabled: " + String(cal->isEnabled() ? "Yes" : "No"));
-        Serial.println("  Loaded: " + String(cal->isLoaded() ? "Yes" : "No"));
+        DEBUG_INFO_PRINTLN("\nCalendar " + String(i+1) + ": " + cal->getName());
+        DEBUG_INFO_PRINTLN("  Enabled: " + String(cal->isEnabled() ? "Yes" : "No"));
+        DEBUG_INFO_PRINTLN("  Loaded: " + String(cal->isLoaded() ? "Yes" : "No"));
 
         if (cal->isLoaded()) {
-            Serial.println("  Events: " + String(cal->getEventCount()));
+            // Calculate events in range for this calendar
+            time_t calEndDate = now + (cal->getDaysToFetch() * 86400);
+            size_t eventsInRange = cal->getEventCountInRange(startDate, calEndDate);
+            totalEventsInRange += eventsInRange;
+
+            DEBUG_INFO_PRINTLN("  Total events: " + String(cal->getEventCount()));
+            DEBUG_INFO_PRINTLN("  Events in range: " + String(eventsInRange) + " (next " + String(cal->getDaysToFetch()) + " days)");
+
+            // List events in range
+            if (eventsInRange > 0) {
+                std::vector<CalendarEvent*> events = cal->getEvents(startDate, calEndDate);
+                DEBUG_INFO_PRINTLN("  Events found:");
+                for (size_t j = 0; j < events.size(); j++) {
+                    if (events[j]) {
+                        // Format the event date/time nicely
+                        struct tm* tm = localtime(&events[j]->startTime);
+                        char dateStr[32];
+                        strftime(dateStr, sizeof(dateStr), "%b %d, %H:%M", tm);
+
+                        DEBUG_INFO_PRINTLN("    " + String(j+1) + ". " + events[j]->summary +
+                                         " - " + String(dateStr) +
+                                         (events[j]->allDay ? " (all day)" : ""));
+                    }
+                }
+            }
         }
 
-        Serial.println("  Days to fetch: " + String(cal->getDaysToFetch()));
-        Serial.println("  Color: " + cal->getColor());
+        DEBUG_INFO_PRINTLN("  Days to fetch: " + String(cal->getDaysToFetch()));
+        DEBUG_INFO_PRINTLN("  Color: " + cal->getColor());
     }
 
-    Serial.println("\nSummary:");
-    Serial.println("  Enabled: " + String(enabledCount) + "/" + String(calendars.size()));
-    Serial.println("  Loaded: " + String(loadedCount) + "/" + String(calendars.size()));
-    Serial.println("  Total events: " + String(getTotalEventCount()));
+    DEBUG_INFO_PRINTLN("\nSummary:");
+    DEBUG_INFO_PRINTLN("  Enabled: " + String(enabledCount) + "/" + String(calendars.size()));
+    DEBUG_INFO_PRINTLN("  Loaded: " + String(loadedCount) + "/" + String(calendars.size()));
+    DEBUG_INFO_PRINTLN("  Total events: " + String(getTotalEventCount()));
+    DEBUG_INFO_PRINTLN("  Total events in range: " + String(totalEventsInRange));
 }

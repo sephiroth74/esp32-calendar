@@ -14,6 +14,7 @@
 #include "wifi_manager.h"
 #include "battery_monitor.h"
 #include "config.h"
+#include "debug_config.h"
 #include "version.h"
 
 // Global objects
@@ -60,57 +61,57 @@ void setup() {
         delay(1);
         pinMode(BUTTON_PIN, INPUT_PULLDOWN);
 
-        Serial.println("Button configured on pin " + String(BUTTON_PIN));
+        DEBUG_VERBOSE_PRINTLN("Button configured on pin " + String(BUTTON_PIN));
     }
 
     // Initialize display
-    Serial.println("Initializing display...");
+    DEBUG_INFO_PRINTLN("Initializing display...");
     displayMgr.init();
-    displayMgr.clear();
+    // displayMgr.clear();
 
     // Initialize SPI
     SPI.begin(EPD_SCK, -1, EPD_MOSI, EPD_CS);
 
     // Initialize LittleFS and load configuration
-    Serial.println("Initializing LittleFS...");
+    DEBUG_INFO_PRINTLN("Initializing LittleFS...");
     if (!configLoader.begin()) {
-        Serial.println("Failed to initialize LittleFS!");
+        DEBUG_ERROR_PRINTLN("Failed to initialize LittleFS!");
         displayMgr.showMessage("Configuration Error",
             "Failed to mount filesystem\n\n"
             "Device will sleep indefinitely.\n"
             "Fix filesystem and reset device.");
         delay(10000);  // Give user time to read the message
-        Serial.println("Going to indefinite deep sleep due to filesystem error...");
+        DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to filesystem error...");
         enterDeepSleep(0);  // 0 means no wake-up timer - sleep indefinitely
     }
 
     // Load configuration from LittleFS
     if (!configLoader.loadConfiguration()) {
-        Serial.println("No valid configuration found in LittleFS!");
+        DEBUG_ERROR_PRINTLN("No valid configuration found in LittleFS!");
         displayMgr.showMessage("Configuration Missing",
             "Please upload config.json:\n\n"
             "1. Edit data/config.json\n"
             "2. Run: pio run -t uploadfs\n\n"
             "Device will sleep indefinitely.");
         delay(15000);  // Give user more time to read instructions
-        Serial.println("Going to indefinite deep sleep due to missing configuration...");
+        DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to missing configuration...");
         enterDeepSleep(0);  // 0 means no wake-up timer - sleep indefinitely
     }
 
     // Perform calendar update
     performUpdate();
 
-    Serial.println("Setup complete!");
+    DEBUG_INFO_PRINTLN("Setup complete!");
 
     // Check wake-up reason and add appropriate delay
     if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT1) {
-        Serial.println("Button wake-up - waiting 15 seconds for viewing...");
+        DEBUG_INFO_PRINTLN("Button wake-up - waiting 15 seconds for viewing...");
         delay(15000);
     } else if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER) {
-        Serial.println("Undefined wakeup - waiting 10 seconds...");
+        DEBUG_INFO_PRINTLN("Undefined wakeup - waiting 10 seconds...");
         delay(10000);
     } else {
-        Serial.println("Timer wake-up - minimal delay");
+        DEBUG_INFO_PRINTLN("Timer wake-up - minimal delay");
         delay(1000);
     }
 
@@ -131,8 +132,8 @@ void setup() {
             enterDeepSleep();  // Default: next day at update hour
         }
     } else {
-        Serial.println("\n=== DEEP SLEEP DISABLED - Device staying awake for testing ===");
-        Serial.println("Hold button for 3 seconds to reset configuration and restart");
+        DEBUG_INFO_PRINTLN("\n=== DEEP SLEEP DISABLED - Device staying awake for testing ===");
+        DEBUG_VERBOSE_PRINTLN("Hold button for 3 seconds to reset configuration and restart");
     }
 }
 
@@ -146,14 +147,14 @@ void loop() {
             // Button just pressed
             buttonPressed = true;
             buttonPressStart = millis();
-            Serial.println("Button pressed - hold for 3 seconds to reset config...");
+            DEBUG_VERBOSE_PRINTLN("Button pressed - hold for 3 seconds to reset config...");
         } else if (buttonState == LOW && buttonPressed) {
             // Button released
             buttonPressed = false;
             unsigned long pressDuration = millis() - buttonPressStart;
 
             if (pressDuration >= CONFIG_RESET_HOLD_TIME) {
-                Serial.println("Configuration reset triggered!");
+                DEBUG_VERBOSE_PRINTLN("Configuration reset triggered!");
 
                 // Show message on display
                 displayMgr.showMessage("Configuration Reset",
@@ -170,14 +171,14 @@ void loop() {
                 // Restart device
                 ESP.restart();
             } else {
-                Serial.println("Button released after " + String(pressDuration) + "ms (not long enough)");
+                DEBUG_VERBOSE_PRINTLN("Button released after " + String(pressDuration) + "ms (not long enough)");
             }
         } else if (buttonPressed) {
             // Button still held - check if held long enough
             unsigned long pressDuration = millis() - buttonPressStart;
             if (pressDuration >= CONFIG_RESET_HOLD_TIME && !configResetPending) {
                 configResetPending = true;
-                Serial.println("Config reset ready - release button to execute");
+                DEBUG_VERBOSE_PRINTLN("Config reset ready - release button to execute");
             }
         }
 
@@ -191,20 +192,20 @@ void performUpdate() {
     const RuntimeConfig& config = configLoader.getConfig();
 
     // Connect to WiFi using WiFiManager
-    Serial.println("\n--- WiFi Connection ---");
-    Serial.println("Connecting to: " + config.wifi_ssid);
+    DEBUG_INFO_PRINTLN("\n--- WiFi Connection ---");
+    DEBUG_INFO_PRINTLN("Connecting to: " + config.wifi_ssid);
 
-    if (!wifiManager.connect(configLoader)) {
-        Serial.println("WiFi connection failed!");
+    if (!wifiManager.connect(config)) {
+        DEBUG_INFO_PRINTLN("WiFi connection failed!");
         lastError = ErrorCode::WIFI_CONNECTION_FAILED;
         errorMgr.setError(lastError);
         displayMgr.showFullScreenError(errorMgr.getCurrentError());
         return;
     }
 
-    Serial.println("WiFi connected!");
-    Serial.println("IP Address: " + wifiManager.getIPAddress());
-    Serial.println("RSSI: " + String(wifiManager.getRSSI()) + " dBm");
+    DEBUG_INFO_PRINTLN("WiFi connected!");
+    DEBUG_INFO_PRINTLN("IP Address: " + wifiManager.getIPAddress());
+    DEBUG_INFO_PRINTLN("RSSI: " + String(wifiManager.getRSSI()) + " dBm");
 
     // Successful WiFi connection
     lastError = ErrorCode::SUCCESS;
@@ -212,7 +213,7 @@ void performUpdate() {
     // Initialize WiFiClientSecure
     WiFiClientSecure* client = new WiFiClientSecure();
     if (!client) {
-        Serial.println("Failed to create WiFiClientSecure");
+        DEBUG_ERROR_PRINTLN("Failed to create WiFiClientSecure");
         return;
     }
     client->setInsecure();  // Skip certificate validation
@@ -226,13 +227,13 @@ void performUpdate() {
     calendarManager->setDebug(true); // Enable debug output
 
     // Update battery status
-    Serial.println("\n--- Battery Status ---");
+    DEBUG_INFO_PRINTLN("\n--- Battery Status ---");
     batteryMonitor.update();
     batteryMonitor.printStatus();
 
     // Check battery level
     if (batteryMonitor.isCritical()) {
-        Serial.println("Battery critical: " + String(batteryMonitor.getPercentage()) + "%");
+        DEBUG_ERROR_PRINTLN("Battery critical: " + String(batteryMonitor.getPercentage()) + "%");
         lastError = ErrorCode::BATTERY_LOW;
         errorMgr.setError(lastError);
         displayMgr.showFullScreenError(errorMgr.getCurrentError());
@@ -241,68 +242,81 @@ void performUpdate() {
     }
 
     // Fetch weather data
-    Serial.println("\n--- Weather Update ---");
+    DEBUG_INFO_PRINTLN("\n--- Weather Update ---");
     WeatherData weatherData;
     bool weatherSuccess = false;
     if (weatherClient) {
         weatherSuccess = weatherClient->fetchWeather(weatherData);
         if (weatherSuccess) {
-            Serial.println("Weather fetched successfully");
+            DEBUG_INFO_PRINTLN("Weather fetched successfully");
         } else {
-            Serial.println("Weather fetch failed (non-critical)");
+            DEBUG_WARN_PRINTLN("Weather fetch failed (non-critical)");
         }
     }
 
     // Sync time from NTP
-    Serial.println("\n--- Time Sync ---");
-    if (!wifiManager.syncTimeFromNTP(config.timezone)) {
-        Serial.println("Warning: NTP sync failed");
+    DEBUG_INFO_PRINTLN("\n--- Time Sync ---");
+    if (!wifiManager.syncTimeFromNTP(config.timezone, NTP_SERVER_1, NTP_SERVER_2)) {
+        DEBUG_WARN_PRINTLN("Warning: NTP sync failed");
     }
 
     // Get current time
     time_t now;
     time(&now);
     struct tm* timeinfo = localtime(&now);
-    String currentDate = String(timeinfo->tm_mday) + "/" + String(timeinfo->tm_mon + 1) + "/" + String(timeinfo->tm_year + 1900);
-    String currentTime = String(timeinfo->tm_hour) + ":" + String(timeinfo->tm_min);
+
+    // Format date and time properly with zero padding
+    char dateStr[32];  // Increased buffer size to avoid truncation warning
+    char timeStr[6];
+    snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%04d",
+             timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+    snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
+             timeinfo->tm_hour, timeinfo->tm_min);
+
+    String currentDate = String(dateStr);
+    String currentTime = String(timeStr);
+
+    // Debug: Show timezone info
+    DEBUG_VERBOSE_PRINTLN("Current local time: " + currentDate + " " + currentTime);
+    DEBUG_VERBOSE_PRINTLN("Hour: " + String(timeinfo->tm_hour) + ", DST: " + String(timeinfo->tm_isdst));
 
     // Fetch calendar events
-    Serial.println("\n--- Calendar Update ---");
+    DEBUG_INFO_PRINTLN("\n--- Calendar Update ---");
     std::vector<CalendarEvent*> events;
 
     // Load calendar configuration
     calendarManager->loadFromConfig(config);
 
     // Load all calendars
-    bool calendarSuccess = calendarManager->loadAll(false); // false = use cache if available
+    bool allCalendarsSuccess = calendarManager->loadAll(false); // false = use cache if available
+    DEBUG_INFO_PRINTLN("Calendar loadAll returned: " + String(allCalendarsSuccess ? "all success" : "some failures"));
 
-    if (calendarSuccess) {
-        // Get current time
-        time_t now = time(nullptr);
-        time_t endDate = now + (365 * 86400); // Get events for next year
+    // Get current time
+    now = time(nullptr);
+    time_t endDate = now + (365 * 86400); // Get events for next year
 
-        // Get merged events from all calendars
-        events = calendarManager->getAllEvents(now, endDate);
+    // Get merged events from all calendars (even if some failed to load)
+    events = calendarManager->getAllEvents(now, endDate);
+    DEBUG_INFO_PRINTLN("Fetched " + String(events.size()) + " events from " +
+                 String(calendarManager->getCalendarCount()) + " calendars");
 
-        if (!events.empty()) {
-            Serial.println("Fetched " + String(events.size()) + " events from " +
-                         String(calendarManager->getCalendarCount()) + " calendars");
-            lastError = ErrorCode::SUCCESS;
+    if (!events.empty()) {
+        lastError = ErrorCode::SUCCESS;
 
-            // Only limit total events if we have too many
-            if (events.size() > MAX_EVENTS_TO_SHOW) {
-                events.resize(MAX_EVENTS_TO_SHOW);
-                Serial.println("Limited to " + String(MAX_EVENTS_TO_SHOW) + " events");
-            }
-        } else {
-            Serial.println("No events found in calendars");
-            lastError = ErrorCode::CALENDAR_FETCH_FAILED;
-            errorMgr.setError(lastError);
+        // Only limit total events if we have too many
+        if (events.size() > MAX_EVENTS_TO_SHOW) {
+            events.resize(MAX_EVENTS_TO_SHOW);
+            DEBUG_VERBOSE_PRINTLN("Limited to " + String(MAX_EVENTS_TO_SHOW) + " events");
         }
-    } else {
-        Serial.println("Calendar fetch failed");
+    } else if (!allCalendarsSuccess) {
+        // Only set error if no events AND some calendars failed
+        DEBUG_WARN_PRINTLN("Some calendars failed to load and no events found");
         lastError = ErrorCode::CALENDAR_FETCH_FAILED;
         errorMgr.setError(lastError);
+    } else {
+        // All calendars loaded but no events found
+        DEBUG_INFO_PRINTLN("All calendars loaded successfully but no events found");
+        lastError = ErrorCode::SUCCESS;
     }
 
     // Print calendar status
@@ -311,11 +325,11 @@ void performUpdate() {
     // Prepare events for display (add compatibility fields)
     if (!events.empty()) {
         CalendarDisplayAdapter::prepareEventsForDisplay(events);
-        Serial.println("Events prepared for display");
+        DEBUG_INFO_PRINTLN("Events prepared for display");
     }
 
     // Update display
-    Serial.println("\n--- Display Update ---");
+    DEBUG_INFO_PRINTLN("\n--- Display Update ---");
     displayMgr.showCalendar(events, currentDate, currentTime,
                            weatherSuccess ? &weatherData : nullptr,
                            wifiManager.isConnected(),
@@ -323,9 +337,9 @@ void performUpdate() {
                            batteryMonitor.getVoltage(),
                            batteryMonitor.getPercentage());
 
-    Serial.println("Display update complete");
+    DEBUG_INFO_PRINTLN("Display update complete");
 
-    // Note: Events are managed by CalendarManager and ICSParser, no need to free them manually
+    // Note: Events are managed by CalendarManager and CalendarStreamParser, no need to free them manually
 
     // Cleanup clients
     delete weatherClient;
@@ -346,12 +360,12 @@ void enterDeepSleep(int retryMinutes) {
     if (retryMinutes == 0) {
         // Indefinite sleep - don't set wake-up timer
         // Used for: battery too low, configuration errors, filesystem errors
-        Serial.println("Sleeping indefinitely without wake-up timer");
+        DEBUG_INFO_PRINTLN("Sleeping indefinitely without wake-up timer");
         // Don't call esp_sleep_enable_timer_wakeup
     } else if (retryMinutes > 0) {
         // Error retry - sleep for specified minutes
         sleepSeconds = retryMinutes * 60;
-        Serial.println("Error retry - sleeping for " + String(retryMinutes) + " minutes");
+        DEBUG_WARN_PRINTLN("Error retry - sleeping for " + String(retryMinutes) + " minutes");
         esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000ULL);
     } else {
         // Normal operation - wake up at next update hour
@@ -375,8 +389,8 @@ void enterDeepSleep(int retryMinutes) {
             sleepSeconds = 24 * 60 * 60;
         }
 
-        Serial.println("Next update at " + String(updateHour) + ":00 tomorrow");
-        Serial.println("Sleeping for " + String(sleepSeconds / 3600) + " hours");
+        DEBUG_INFO_PRINTLN("Next update at " + String(updateHour) + ":00 tomorrow");
+        DEBUG_INFO_PRINTLN("Sleeping for " + String(sleepSeconds / 3600) + " hours");
         esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000ULL);
     }
 
@@ -385,7 +399,7 @@ void enterDeepSleep(int retryMinutes) {
         int buttonState = digitalRead(BUTTON_PIN);
 
         if (buttonState == HIGH) {
-            Serial.println("Waiting for button release...");
+            DEBUG_INFO_PRINTLN("Waiting for button release...");
             int timeout = 50;
             while (digitalRead(BUTTON_PIN) == HIGH && timeout > 0) {
                 delay(100);
@@ -396,14 +410,14 @@ void enterDeepSleep(int retryMinutes) {
         if (digitalRead(BUTTON_PIN) == LOW) {
             uint64_t button_mask = 1ULL << BUTTON_PIN;
             esp_sleep_enable_ext1_wakeup(button_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
-            Serial.println("Button wake-up configured");
+            DEBUG_INFO_PRINTLN("Button wake-up configured");
         }
     }
 
     // Disconnect WiFi
     wifiManager.disconnect();
 
-    Serial.println("Going to sleep...");
+    DEBUG_INFO_PRINTLN("Going to sleep...");
     Serial.flush();
 
     // Enter deep sleep
@@ -414,28 +428,32 @@ void printWakeupReason() {
     esp_sleep_wakeup_cause_t wakeup_reason;
     wakeup_reason = esp_sleep_get_wakeup_cause();
 
-    Serial.println("\n=== WAKE-UP REASON ===");
+    DEBUG_INFO_PRINTLN("\n=== WAKE-UP REASON ===");
     switch(wakeup_reason) {
         case ESP_SLEEP_WAKEUP_EXT0:
-            Serial.println("Wake-up: External signal using RTC_IO");
+            DEBUG_INFO_PRINTLN("Wake-up: External signal using RTC_IO");
             break;
         case ESP_SLEEP_WAKEUP_EXT1: {
             uint64_t wakeup_pin_mask = esp_sleep_get_ext1_wakeup_status();
-            Serial.print("Wake-up: Button press on GPIO ");
+            DEBUG_VERBOSE_PRINT("Wake-up: Button press on GPIO ");
+            #if DEBUG_LEVEL >= DEBUG_VERBOSE
             if (wakeup_pin_mask != 0) {
                 int pin = __builtin_ctzll(wakeup_pin_mask);
-                Serial.println(pin);
+                DEBUG_VERBOSE_PRINTLN(pin);
             }
+            #else
+            (void)wakeup_pin_mask; // Suppress unused variable warning
+            #endif
             break;
         }
         case ESP_SLEEP_WAKEUP_TIMER:
-            Serial.println("Wake-up: Timer (scheduled update)");
+            DEBUG_INFO_PRINTLN("Wake-up: Timer (scheduled update)");
             break;
         default:
-            Serial.println("Wake-up: Power on / Reset");
+            DEBUG_INFO_PRINTLN("Wake-up: Power on / Reset");
             break;
     }
-    Serial.println("=======================\n");
+    DEBUG_INFO_PRINTLN("=======================\n");
 }
 
 #endif // DEBUG_DISPLAY

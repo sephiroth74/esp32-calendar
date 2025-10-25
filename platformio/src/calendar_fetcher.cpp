@@ -268,20 +268,11 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
             return nullptr;
         }
 
-        // Create a new WiFi client
-        streamClient = new WiFiClient();
-        if (!streamClient) {
-            if (debug) Serial.println("Error: Failed to allocate WiFi client");
-            return nullptr;
-        }
-
-        // Start HTTP request with the WiFi client
+        // Start HTTP request directly (without explicit WiFiClient)
         if (debug) Serial.println("Starting HTTP stream request...");
 
-        if (!http.begin(*streamClient, url)) {
+        if (!http.begin(url)) {
             if (debug) Serial.println("Error: Failed to begin HTTP request");
-            delete streamClient;
-            streamClient = nullptr;
             return nullptr;
         }
 
@@ -298,8 +289,6 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
         if (httpCode <= 0) {
             if (debug) Serial.println("Error: HTTP request failed: " + http.errorToString(httpCode));
             http.end();
-            delete streamClient;
-            streamClient = nullptr;
             return nullptr;
         }
 
@@ -308,8 +297,6 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
         if (httpCode != HTTP_CODE_OK) {
             if (debug) Serial.println("Error: HTTP error: " + String(httpCode));
             http.end();
-            delete streamClient;
-            streamClient = nullptr;
             return nullptr;
         }
 
@@ -318,12 +305,19 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
         if (!stream) {
             if (debug) Serial.println("Error: Failed to get HTTP stream");
             http.end();
-            delete streamClient;
-            streamClient = nullptr;
             return nullptr;
         }
 
-        if (debug) Serial.println("HTTP stream opened successfully");
+        // Get content length for debugging
+        int contentLength = http.getSize();
+        if (debug) {
+            if (contentLength >= 0) {
+                Serial.printf("HTTP stream opened successfully (size: %d bytes)\n", contentLength);
+            } else {
+                Serial.println("HTTP stream opened successfully (chunked transfer)");
+            }
+        }
+
         return stream;
     }
 }
@@ -339,7 +333,7 @@ void CalendarFetcher::endStream() {
         http.end();
     }
 
-    // Clean up WiFi client
+    // Clean up WiFi client (if we still have one from old code)
     if (streamClient) {
         if (streamClient->connected()) {
             streamClient->stop();

@@ -1,4 +1,5 @@
 #include "calendar_display_adapter.h"
+#include "date_utils.h"
 #include <algorithm>
 
 void CalendarDisplayAdapter::prepareEventsForDisplay(std::vector<CalendarEvent*>& events) {
@@ -96,30 +97,11 @@ String CalendarDisplayAdapter::formatTime(time_t timestamp) {
 }
 
 bool CalendarDisplayAdapter::isToday(time_t timestamp) {
-    time_t now;
-    time(&now);
-
-    struct tm* nowInfo = localtime(&now);
-    struct tm* eventInfo = localtime(&timestamp);
-
-    return (nowInfo->tm_year == eventInfo->tm_year &&
-            nowInfo->tm_mon == eventInfo->tm_mon &&
-            nowInfo->tm_mday == eventInfo->tm_mday);
+    return DateUtils::isToday(timestamp);
 }
 
 bool CalendarDisplayAdapter::isTomorrow(time_t timestamp) {
-    time_t now;
-    time(&now);
-
-    // Add 24 hours to get tomorrow
-    time_t tomorrow = now + 86400;
-
-    struct tm* tomorrowInfo = localtime(&tomorrow);
-    struct tm* eventInfo = localtime(&timestamp);
-
-    return (tomorrowInfo->tm_year == eventInfo->tm_year &&
-            tomorrowInfo->tm_mon == eventInfo->tm_mon &&
-            tomorrowInfo->tm_mday == eventInfo->tm_mday);
+    return DateUtils::isTomorrow(timestamp);
 }
 
 int CalendarDisplayAdapter::getDayOfMonth(time_t timestamp) {

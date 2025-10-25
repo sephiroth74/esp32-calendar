@@ -63,8 +63,12 @@
     // Days from previous/next month
     #define COLOR_CALENDAR_OUTSIDE_MONTH   GxEPD_GREEN
 
-    // Weekend cell background (will be 25% dithered)
+    // Weekend cell background (will be dithered)
     #define COLOR_CALENDAR_WEEKEND_BG      GxEPD_YELLOW
+    #define DITHER_CALENDAR_WEEKEND        50  // 50% dithering for weekend cells
+
+    // Previous/next month days dithering
+    #define DITHER_CALENDAR_OUTSIDE_MONTH  20  // 20% dithering for prev/next month days
 
     // Day of week labels (M, T, W, etc.)
     #define COLOR_CALENDAR_DAY_LABELS      GxEPD_RED
@@ -187,6 +191,8 @@
 // NTP TIME SYNCHRONIZATION
 // =============================================================================
 // NTP servers are hardcoded as "pool.ntp.org" and "time.nist.gov"
+#define NTP_SERVER_1 "0.europe.pool.ntp.org"
+#define NTP_SERVER_2 "pool.ntp.org"
 
 
 // =============================================================================

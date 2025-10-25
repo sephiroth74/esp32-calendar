@@ -2,20 +2,20 @@
 #define CALENDAR_WRAPPER_H
 
 #include <Arduino.h>
-#include "ics_parser.h"
-#include "calendar_fetcher.h"
+#include "calendar_stream_parser.h"
 #include "littlefs_config.h"
 #include <vector>
 
-// CalendarWrapper combines ICS parser with calendar configuration
+// CalendarWrapper combines stream parser with calendar configuration
 // This class manages a single calendar with its configuration properties
 class CalendarWrapper {
 private:
-    ICSParser parser;
+    CalendarStreamParser parser;
     CalendarConfig config;
-    CalendarFetcher fetcher;
+    std::vector<CalendarEvent*> cachedEvents;  // Cache events after loading
 
     String cachedFilename;
+    String lastError;
     time_t lastFetchTime;
     bool loaded;
     bool debug;
@@ -32,7 +32,7 @@ public:
 
     // Configuration
     void setConfig(const CalendarConfig& calConfig) { config = calConfig; }
-    void setDebug(bool enable) { debug = enable; fetcher.setDebug(enable); parser.setDebug(enable); }
+    void setDebug(bool enable) { debug = enable; parser.setDebug(enable); }
 
     // Get configuration properties
     const String& getName() const { return config.name; }
@@ -52,11 +52,12 @@ public:
 
     // Status
     bool isLoaded() const { return loaded; }
-    size_t getEventCount() const { return parser.getEventCount(); }
-    String getLastError() const { return parser.getLastError(); }
+    size_t getEventCount() const { return cachedEvents.size(); }
+    size_t getEventCountInRange(time_t startDate, time_t endDate) const;
+    String getLastError() const { return lastError; }
 
-    // Memory info
-    void printMemoryInfo() const { parser.printMemoryInfo(); }
+    // Clean up cached events
+    void clearCache();
 };
 
 // CalendarManager manages multiple calendars

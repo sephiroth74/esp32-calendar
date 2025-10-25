@@ -1,5 +1,6 @@
 #include "wifi_manager.h"
 #include "littlefs_config.h"
+#include "debug_config.h"
 
 WiFiManager::WiFiManager() : client(nullptr), lastConnectionAttempt(0), timeConfigured(false) {
     client = new WiFiClientSecure();
@@ -95,46 +96,76 @@ void WiFiManager::printStatus() {
 }
 
 bool WiFiManager::syncTimeFromNTP(const String& timezone, const char* ntpServer1, const char* ntpServer2) {
-    Serial.println("Configuring time with NTP...");
+    DEBUG_INFO_PRINTLN("Configuring time with NTP...");
 
     // Check WiFi connection first
     if (!isConnected()) {
-        Serial.println("ERROR: WiFi not connected, cannot sync time");
+        DEBUG_ERROR_PRINTLN("ERROR: WiFi not connected, cannot sync time");
         return false;
     }
 
-    // Set timezone
-    setenv("TZ", timezone.c_str(), 1);
-    tzset();
-
-    // Configure NTP servers
+    // First, configure NTP with UTC to get basic time sync
+    DEBUG_INFO_PRINTLN("Initiating NTP sync with servers: " + String(ntpServer1) + ", " + String(ntpServer2));
     configTime(0, 0, ntpServer1, ntpServer2);
 
     // Wait for time to be set
     int retry = 0;
-    const int retry_count = 20;
+    const int retry_count = 40;  // Increased timeout to 20 seconds
     time_t now = time(nullptr);
 
-    Serial.print("Waiting for NTP sync");
-    while (now < 24 * 3600 && retry < retry_count) {
+    DEBUG_INFO_PRINT("Waiting for NTP sync");
+    while (now < 8 * 3600 * 365 && retry < retry_count) {  // Check for a reasonable year (> 1970)
         delay(500);
         now = time(nullptr);
         retry++;
-        Serial.print(".");
+        if (retry % 4 == 0) {  // Print every 2 seconds
+            DEBUG_INFO_PRINT(" (" + String(retry/2) + "s)");
+        }
     }
-    Serial.println();
+    DEBUG_INFO_PRINTLN("");
 
-    if (now < 24 * 3600) {
-        Serial.println("Failed to sync time from NTP");
+    if (now < 8 * 3600 * 365) {
+        DEBUG_ERROR_PRINTLN("Failed to sync time from NTP after " + String(retry_count/2) + " seconds");
+        DEBUG_ERROR_PRINTLN("Current time value: " + String(now));
         timeConfigured = false;
         return false;
     }
 
-    struct tm* timeinfo = localtime(&now);
-    Serial.println("Time synchronized: " + String(asctime(timeinfo)));
+    // Now set the timezone after time is synced
+    DEBUG_INFO_PRINTLN("NTP sync successful, setting timezone to: " + timezone);
+    setenv("TZ", timezone.c_str(), 1);
+    tzset();
 
-    // Print timezone info
-    Serial.println("Timezone: " + timezone);
+    // Re-read time after timezone is set
+    now = time(nullptr);
+
+    // Get both UTC and local time for debugging
+    struct tm timeinfo_buf;
+    struct tm utcinfo_buf;
+    struct tm* timeinfo = localtime_r(&now, &timeinfo_buf);
+    struct tm* utcinfo = gmtime_r(&now, &utcinfo_buf);
+
+    char local_time_str[64];
+    char utc_time_str[64];
+    strftime(local_time_str, sizeof(local_time_str), "%Y-%m-%d %H:%M:%S %Z", timeinfo);
+    strftime(utc_time_str, sizeof(utc_time_str), "%Y-%m-%d %H:%M:%S UTC", utcinfo);
+
+    DEBUG_INFO_PRINTLN("Time synchronized!");
+    DEBUG_INFO_PRINTLN("  Raw timestamp: " + String(now));
+    DEBUG_INFO_PRINTLN("  UTC time: " + String(utc_time_str));
+    DEBUG_INFO_PRINTLN("  Local time: " + String(local_time_str));
+    DEBUG_INFO_PRINTLN("  Timezone: " + timezone);
+    DEBUG_INFO_PRINTLN("  Year: " + String(timeinfo->tm_year + 1900));
+    DEBUG_INFO_PRINTLN("  Month: " + String(timeinfo->tm_mon + 1));
+    DEBUG_INFO_PRINTLN("  Day: " + String(timeinfo->tm_mday));
+
+    // Calculate and display the offset
+    int hour_diff = timeinfo->tm_hour - utcinfo->tm_hour;
+    int day_diff = timeinfo->tm_mday - utcinfo->tm_mday;
+    if (day_diff != 0) {
+        hour_diff += day_diff * 24;
+    }
+    DEBUG_INFO_PRINTLN("  UTC offset: " + String(hour_diff) + " hours");
 
     timeConfigured = true;
     return true;
