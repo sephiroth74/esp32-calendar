@@ -29,11 +29,6 @@ CalendarManager* calendarManager = nullptr;
 // Variables to track last error for retry logic
 ErrorCode lastError = ErrorCode::SUCCESS;
 
-// Button monitoring for configuration reset
-unsigned long buttonPressStart = 0;
-bool buttonPressed = false;
-bool configResetPending = false;
-
 // Forward declarations
 void performUpdate();
 void enterDeepSleep(int retryMinutes = -1); // -1 means calculate next update hour
@@ -42,7 +37,7 @@ void printWakeupReason();
 void setup()
 {
     Serial.begin(115200);
-    delay(100);
+    delay(1000);
 
     Serial.println("\n\n" + String(PROJECT_NAME) + " v" + VERSION);
     Serial.println("Build: " + String(__DATE__) + " " + String(__TIME__));
@@ -60,10 +55,10 @@ void setup()
 
     // Check wake-up reason and add appropriate delay
     if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT1) {
-        DEBUG_INFO_PRINTLN("Button wake-up - waiting 15 seconds for viewing...");
+        DEBUG_INFO_PRINTLN("Button wake-up - waiting 5 seconds for viewing...");
         delayBeforeDeepSleepMs = 5000;
     } else if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER) {
-        DEBUG_INFO_PRINTLN("Undefined wakeup - waiting 10 seconds...");
+        DEBUG_INFO_PRINTLN("Undefined wakeup - waiting 1 second...");
         delayBeforeDeepSleepMs = 1000;
     } else {
         DEBUG_INFO_PRINTLN("Timer wake-up - minimal delay");
@@ -74,12 +69,6 @@ void setup()
     if (BUTTON_WAKEUP_ENABLED) {
         pinMode(BUTTON_PIN, INPUT_PULLDOWN);
 
-        // Apply stronger pull-down
-        pinMode(BUTTON_PIN, OUTPUT);
-        digitalWrite(BUTTON_PIN, LOW);
-        delay(1);
-        pinMode(BUTTON_PIN, INPUT_PULLDOWN);
-
         DEBUG_VERBOSE_PRINTLN("Button configured on pin " + String(BUTTON_PIN));
 
         // If the wakeup button is pressed for more than CONFIG_RESET_HOLD_TIME during boot, disable the deep sleep
@@ -87,7 +76,7 @@ void setup()
             DEBUG_WARN_PRINTLN("Button held during boot... ");
             delay(CONFIG_RESET_HOLD_TIME);
             if (digitalRead(BUTTON_PIN) == HIGH) {
-                DEBUG_WARN_PRINTLN("Configuration reset triggered during boot! Disabling deep sleep.");
+                DEBUG_WARN_PRINTLN("Button held during boot! Disabling deep sleep.");
                 enableDeepSleep = false;
             }
         }
@@ -206,59 +195,27 @@ void setup()
         }
     } else {
         DEBUG_INFO_PRINTLN("\n=== DEEP SLEEP DISABLED - Device staying awake for testing ===");
-        DEBUG_INFO_PRINTLN("Hold button for 3 seconds to reset configuration and restart");
+        DEBUG_INFO_PRINTLN("Press button to restart");
     }
 }
 
 void loop()
 {
-    // Only runs when DISABLE_DEEP_SLEEP is true
-    if (DISABLE_DEEP_SLEEP) {
-        // Monitor button for configuration reset
-        int buttonState = digitalRead(BUTTON_PIN);
+    DEBUG_VERBOSE_PRINTLN("Main loop running...");
 
-        if (buttonState == HIGH && !buttonPressed) {
-            // Button just pressed
-            buttonPressed = true;
-            buttonPressStart = millis();
-            DEBUG_VERBOSE_PRINTLN("Button pressed - hold for 3 seconds to reset config...");
-        } else if (buttonState == LOW && buttonPressed) {
-            // Button released
-            buttonPressed = false;
-            unsigned long pressDuration = millis() - buttonPressStart;
-
-            if (pressDuration >= CONFIG_RESET_HOLD_TIME) {
-                DEBUG_VERBOSE_PRINTLN("Configuration reset triggered!");
-
-                // Show message on display
-                displayMgr.showMessage("Configuration Reset",
-                    "Deleting saved configuration...\n\n"
-                    "Device will restart.\n\n"
-                    "Please upload new config.json");
-
-                // Delete configuration
-                configLoader.resetConfiguration();
-
-                // Wait a moment for user to see message
-                delay(3000);
-
-                // Restart device
-                ESP.restart();
-            } else {
-                DEBUG_VERBOSE_PRINTLN("Button released after " + String(pressDuration) + "ms (not long enough)");
-            }
-        } else if (buttonPressed) {
-            // Button still held - check if held long enough
-            unsigned long pressDuration = millis() - buttonPressStart;
-            if (pressDuration >= CONFIG_RESET_HOLD_TIME && !configResetPending) {
-                configResetPending = true;
-                DEBUG_VERBOSE_PRINTLN("Config reset ready - release button to execute");
-            }
-        }
-
-        // Small delay to prevent excessive CPU usage
-        delay(50);
+    while (digitalRead(BUTTON_PIN) == HIGH) {
+        delay(100);
     }
+
+    // button is low (not pressed)
+    // now check when the button is pressed again and then trigger a board reboot
+    while (digitalRead(BUTTON_PIN) == LOW) {
+        delay(100);
+    }
+
+    DEBUG_INFO_PRINTLN("Button pressed - restarting device to enter configuration mode...");
+    delay(1000);
+    ESP.restart();
 }
 
 void performUpdate()
