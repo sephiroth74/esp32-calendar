@@ -5,14 +5,25 @@ All notable changes to the ESP32 E-Paper Calendar project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.5] - 2025-10-25
+
+### Changed
+- **Weather Layout Refinements** - Fine-tuned weather section positioning
+  - Weather forecast hours section moved down 2 pixels for better spacing
+  - Improved visual alignment with main weather display
+  - Better separation between weather elements
+
 ## [1.7.4] - 2025-10-25
 
 ### Changed
 - **Sunrise/Sunset Icons** - Replaced text arrows with proper weather icons
-  - Now uses wi_sunrise_16x16 bitmap for sunrise indicator
-  - Now uses wi_sunset_16x16 bitmap for sunset indicator
-  - Icons positioned at Y=10, text at Y=20 for better alignment
+  - Now uses wi_sunrise_24x24 bitmap for sunrise indicator
+  - Now uses wi_sunset_24x24 bitmap for sunset indicator
+  - Icons positioned at Y=8, text at Y=22 for better alignment
   - Improved visual consistency with other weather elements
+- **Weather Icon Positioning** - Adjusted main weather icon
+  - Today's weather icon moved down 6 pixels (Y position from -20 to -14)
+  - Better visual balance with temperature display
 
 ## [1.7.3] - 2025-10-25
 

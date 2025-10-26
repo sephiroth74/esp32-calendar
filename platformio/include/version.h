@@ -9,7 +9,7 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 7
-#define VERSION_PATCH 4
+#define VERSION_PATCH 5
 
 // Build metadata (optional)
 #define VERSION_BUILD __DATE__ " " __TIME__

@@ -10,6 +10,7 @@
 #include <assets/icons/icons_64x64.h>
 #include <assets/icons/icons_48x48.h>
 #include <assets/icons/icons_32x32.h>
+#include <assets/icons/icons_24x24.h>
 #include <assets/icons/icons_16x16.h>
 
 DisplayManager::DisplayManager()
@@ -176,10 +177,10 @@ void DisplayManager::drawModernHeader(int currentDay, const String& monthYear, c
         // Draw sunrise at top-left corner with icon
         if (today.sunrise.length() >= 16) {
             String sunriseTime = today.sunrise.substring(11, 16);  // Extract HH:MM
-            // Draw sunrise icon
-            display.drawInvertedBitmap(10, 10, wi_sunrise_16x16, 16, 16, GxEPD_BLACK);
+            // Draw sunrise icon (24x24)
+            display.drawInvertedBitmap(10, 8, wi_sunrise_24x24, 24, 24, GxEPD_BLACK);
             // Draw sunrise time next to icon
-            display.setCursor(30, 20);  // Position text next to icon
+            display.setCursor(38, 22);  // Position text next to icon (adjusted for 24px icon)
             display.print(sunriseTime);
         }
 
@@ -188,11 +189,11 @@ void DisplayManager::drawModernHeader(int currentDay, const String& monthYear, c
             String sunsetTime = today.sunset.substring(11, 16);  // Extract HH:MM
             int16_t textWidth = getTextWidth(sunsetTime, &FONT_SUNRISE_SUNSET);
             // Calculate position for right alignment
-            int iconX = LEFT_WIDTH - textWidth - 30;  // Account for icon and text width
-            // Draw sunset icon
-            display.drawInvertedBitmap(iconX, 10, wi_sunset_16x16, 16, 16, GxEPD_BLACK);
+            int iconX = LEFT_WIDTH - textWidth - 38;  // Account for 24px icon and text width
+            // Draw sunset icon (24x24)
+            display.drawInvertedBitmap(iconX, 8, wi_sunset_24x24, 24, 24, GxEPD_BLACK);
             // Draw sunset time next to icon
-            display.setCursor(iconX + 20, 20);  // Position text next to icon
+            display.setCursor(iconX + 28, 22);  // Position text next to icon (adjusted for 24px icon)
             display.print(sunsetTime);
         }
     }
@@ -801,9 +802,9 @@ void DisplayManager::drawWeatherPlaceholder()
     // Display placeholder weather icon (48x48)
 #ifdef DISP_TYPE_6C
     // Use red for weather icon on 6-color displays
-    display.drawInvertedBitmap(x + 10, y - 20, wi_na_48x48, 48, 48, COLOR_WEATHER_ICON);
+    display.drawInvertedBitmap(x + 10, y - 14, wi_na_48x48, 48, 48, COLOR_WEATHER_ICON);
 #else
-    display.drawInvertedBitmap(x + 10, y - 20, wi_na_48x48, 48, 48, GxEPD_BLACK);
+    display.drawInvertedBitmap(x + 10, y - 14, wi_na_48x48, 48, 48, GxEPD_BLACK);
 #endif
 
     // Display placeholder temperatures (moved down and adjusted for 48px icon)
@@ -834,8 +835,8 @@ void DisplayManager::drawWeatherForecast(const WeatherData& weatherData)
         const uint8_t* todayIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 48);
         if (todayIcon) {
             // Position icon
-            int iconX = x;  // Slightly offset from left
-            int iconY = y - 20;  // Adjusted for 48px icon
+            int iconX = x + 10;  // Slightly offset from left
+            int iconY = y - 14;  // Moved down 6 pixels (was y - 20)
 #ifdef DISP_TYPE_6C
             // Use red for weather icon on 6-color displays
             display.drawInvertedBitmap(iconX, iconY, todayIcon, 48, 48, COLOR_WEATHER_ICON);
@@ -873,7 +874,7 @@ void DisplayManager::drawWeatherForecast(const WeatherData& weatherData)
 
         // Calculate position (single row)
         int itemX = startX + (i * (itemWidth + itemSpacing));
-        int itemY = y;
+        int itemY = y + 2;  // Moved down 2 pixels
 
         // Extract hour from time string (format: 2025-10-16T11:00)
         String hourStr = hour.time.substring(11, 13);
