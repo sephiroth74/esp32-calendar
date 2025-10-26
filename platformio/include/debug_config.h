@@ -38,20 +38,24 @@
     #define DEBUG_INFO_PRINT(x) Serial.print(x)
     #define DEBUG_INFO_PRINTLN(x) Serial.println(x)
     #define DEBUG_INFO_PRINTF(...) Serial.printf(__VA_ARGS__)
-#else
+    #define DEBUG_INFO_PRINT_FLOAT(x, y) Serial.print((double)x, (int)y)
+    #else
     #define DEBUG_INFO_PRINT(x)
     #define DEBUG_INFO_PRINTLN(x)
     #define DEBUG_INFO_PRINTF(...)
-#endif
-
-#if DEBUG_LEVEL >= DEBUG_VERBOSE
+    #define DEBUG_INFO_PRINT_FLOAT(x, y)
+    #endif
+    
+    #if DEBUG_LEVEL >= DEBUG_VERBOSE
     #define DEBUG_VERBOSE_PRINT(x) Serial.print(x)
     #define DEBUG_VERBOSE_PRINTLN(x) Serial.println(x)
     #define DEBUG_VERBOSE_PRINTF(...) Serial.printf(__VA_ARGS__)
-#else
+    #define DEBUG_VERBOSE_PRINT_FLOAT(x, y) Serial.print((double)x, (int)y)
+    #else
     #define DEBUG_VERBOSE_PRINT(x)
     #define DEBUG_VERBOSE_PRINTLN(x)
     #define DEBUG_VERBOSE_PRINTF(...)
+    #define DEBUG_VERBOSE_PRINT_FLOAT(x, y)
 #endif
 
 // Convenience macros for common debug patterns

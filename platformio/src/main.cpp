@@ -36,10 +36,11 @@ bool configResetPending = false;
 
 // Forward declarations
 void performUpdate();
-void enterDeepSleep(int retryMinutes = -1);  // -1 means calculate next update hour
+void enterDeepSleep(int retryMinutes = -1); // -1 means calculate next update hour
 void printWakeupReason();
 
-void setup() {
+void setup()
+{
     Serial.begin(115200);
     delay(100);
 
@@ -47,9 +48,27 @@ void setup() {
     Serial.println("Build: " + String(__DATE__) + " " + String(__TIME__));
     Serial.println("=====================================");
 
+    bool enableDeepSleep = !DISABLE_DEEP_SLEEP;
+    unsigned long delayBeforeDeepSleepMs = 5000;
+
+    Serial.println("Deep Sleep: " + String(enableDeepSleep ? "ENABLED" : "DISABLED"));
+    Serial.println("=====================================");
+
     // Print wake-up reason
     esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
     printWakeupReason();
+
+    // Check wake-up reason and add appropriate delay
+    if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT1) {
+        DEBUG_INFO_PRINTLN("Button wake-up - waiting 15 seconds for viewing...");
+        delayBeforeDeepSleepMs = 5000;
+    } else if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER) {
+        DEBUG_INFO_PRINTLN("Undefined wakeup - waiting 10 seconds...");
+        delayBeforeDeepSleepMs = 1000;
+    } else {
+        DEBUG_INFO_PRINTLN("Timer wake-up - minimal delay");
+        delayBeforeDeepSleepMs = 1000;
+    }
 
     // Configure button if enabled
     if (BUTTON_WAKEUP_ENABLED) {
@@ -62,15 +81,61 @@ void setup() {
         pinMode(BUTTON_PIN, INPUT_PULLDOWN);
 
         DEBUG_VERBOSE_PRINTLN("Button configured on pin " + String(BUTTON_PIN));
+
+        // If the wakeup button is pressed for more than CONFIG_RESET_HOLD_TIME during boot, disable the deep sleep
+        if (enableDeepSleep && digitalRead(BUTTON_PIN) == HIGH) {
+            DEBUG_WARN_PRINTLN("Button held during boot... ");
+            delay(CONFIG_RESET_HOLD_TIME);
+            if (digitalRead(BUTTON_PIN) == HIGH) {
+                DEBUG_WARN_PRINTLN("Configuration reset triggered during boot! Disabling deep sleep.");
+                enableDeepSleep = false;
+            }
+        }
+    }
+
+    // Update battery status
+    DEBUG_INFO_PRINTLN("\n--- Battery Status ---");
+    batteryMonitor.update();
+
+#if DEBUG_LEVEL >= DEBUG_INFO
+    batteryMonitor.printStatus();
+#endif
+
+    delay(1000);
+
+    if (batteryMonitor.isCritical()) {
+        DEBUG_ERROR_PRINTLN("Battery critical: " + String(batteryMonitor.getPercentage()) + "%");
+        lastError = ErrorCode::BATTERY_LOW;
+        errorMgr.setError(lastError);
+        delay(10000); // Give user time to read the message
+
+        if (enableDeepSleep) {
+            enterDeepSleep(0); // 0 means no wake-up timer - sleep indefinitely
+        } else {
+            DEBUG_WARN_PRINTLN("Deep sleep disabled - staying awake for testing.");
+        }
+        return;
     }
 
     // Initialize display
     DEBUG_INFO_PRINTLN("Initializing display...");
     displayMgr.init();
-    // displayMgr.clear();
 
-    // Initialize SPI
-    SPI.begin(EPD_SCK, -1, EPD_MOSI, EPD_CS);
+    if (batteryMonitor.isLow()) {
+        DEBUG_WARN_PRINTLN("Battery low: " + String(batteryMonitor.getPercentage()) + "%");
+        lastError = ErrorCode::BATTERY_LOW;
+        errorMgr.setError(lastError);
+        displayMgr.showFullScreenError(errorMgr.getCurrentError());
+        DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to low battery...");
+
+        if (enableDeepSleep) {
+            delay(5000); // Give user time to read the message
+            enterDeepSleep(0); // 0 means no wake-up timer - sleep indefinitely
+        } else {
+            DEBUG_WARN_PRINTLN("Deep sleep disabled - staying awake for testing.");
+        }
+        return;
+    }
 
     // Initialize LittleFS and load configuration
     DEBUG_INFO_PRINTLN("Initializing LittleFS...");
@@ -80,9 +145,15 @@ void setup() {
             "Failed to mount filesystem\n\n"
             "Device will sleep indefinitely.\n"
             "Fix filesystem and reset device.");
-        delay(10000);  // Give user time to read the message
-        DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to filesystem error...");
-        enterDeepSleep(0);  // 0 means no wake-up timer - sleep indefinitely
+        delay(10000); // Give user time to read the message
+
+        if (enableDeepSleep) {
+            DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to filesystem error...");
+            enterDeepSleep(0); // 0 means no wake-up timer - sleep indefinitely
+        } else {
+            DEBUG_WARN_PRINTLN("Deep sleep disabled - staying awake for testing.");
+        }
+        return;
     }
 
     // Load configuration from LittleFS
@@ -93,34 +164,36 @@ void setup() {
             "1. Edit data/config.json\n"
             "2. Run: pio run -t uploadfs\n\n"
             "Device will sleep indefinitely.");
-        delay(15000);  // Give user more time to read instructions
-        DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to missing configuration...");
-        enterDeepSleep(0);  // 0 means no wake-up timer - sleep indefinitely
+
+        if (enableDeepSleep) {
+            delay(15000); // Give user more time to read instructions
+            DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to missing configuration...");
+            delay(10000);
+            enterDeepSleep(0); // 0 means no wake-up timer - sleep indefinitely
+        } else {
+            DEBUG_WARN_PRINTLN("Deep sleep disabled - staying awake for testing.");
+        }
+        return;
     }
 
     // Perform calendar update
     performUpdate();
 
-    DEBUG_INFO_PRINTLN("Setup complete!");
-
-    // Check wake-up reason and add appropriate delay
-    if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT1) {
-        DEBUG_INFO_PRINTLN("Button wake-up - waiting 15 seconds for viewing...");
-        delay(15000);
-    } else if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER) {
-        DEBUG_INFO_PRINTLN("Undefined wakeup - waiting 10 seconds...");
-        delay(10000);
-    } else {
-        DEBUG_INFO_PRINTLN("Timer wake-up - minimal delay");
-        delay(1000);
-    }
+    DEBUG_INFO_PRINTLN("\n--- Setup Complete ---");
 
     // Enter deep sleep or stay awake for testing
-    if (!DISABLE_DEEP_SLEEP) {
+    if (enableDeepSleep) {
+        if (delayBeforeDeepSleepMs > 0) {
+            DEBUG_INFO_PRINTLN("Waiting " + String(delayBeforeDeepSleepMs) + "ms before deep sleep...");
+            delay(delayBeforeDeepSleepMs);
+        }
+
+        DEBUG_INFO_PRINTLN("Entering deep sleep...");
+
         // Normal operation - enter deep sleep
         if (lastError == ErrorCode::BATTERY_LOW || lastError == ErrorCode::BATTERY_CRITICAL) {
             // Battery too low - sleep without setting wake-up timer
-            enterDeepSleep(0);  // 0 means no wake-up timer
+            enterDeepSleep(0); // 0 means no wake-up timer
         } else if (lastError == ErrorCode::WIFI_CONNECTION_FAILED) {
             // WiFi error - retry after 1 hour
             enterDeepSleep(WIFI_ERROR_RETRY_MINUTES);
@@ -129,15 +202,16 @@ void setup() {
             enterDeepSleep(CALENDAR_ERROR_RETRY_MINUTES);
         } else {
             // Success - wake up at next update hour
-            enterDeepSleep();  // Default: next day at update hour
+            enterDeepSleep(); // Default: next day at update hour
         }
     } else {
         DEBUG_INFO_PRINTLN("\n=== DEEP SLEEP DISABLED - Device staying awake for testing ===");
-        DEBUG_VERBOSE_PRINTLN("Hold button for 3 seconds to reset configuration and restart");
+        DEBUG_INFO_PRINTLN("Hold button for 3 seconds to reset configuration and restart");
     }
 }
 
-void loop() {
+void loop()
+{
     // Only runs when DISABLE_DEEP_SLEEP is true
     if (DISABLE_DEEP_SLEEP) {
         // Monitor button for configuration reset
@@ -187,7 +261,8 @@ void loop() {
     }
 }
 
-void performUpdate() {
+void performUpdate()
+{
     // Get configuration
     const RuntimeConfig& config = configLoader.getConfig();
 
@@ -216,7 +291,7 @@ void performUpdate() {
         DEBUG_ERROR_PRINTLN("Failed to create WiFiClientSecure");
         return;
     }
-    client->setInsecure();  // Skip certificate validation
+    client->setInsecure(); // Skip certificate validation
 
     // Initialize clients with configuration from LittleFS
     weatherClient = new WeatherClient(client);
@@ -225,21 +300,6 @@ void performUpdate() {
     // Initialize calendar manager
     calendarManager = new CalendarManager();
     calendarManager->setDebug(true); // Enable debug output
-
-    // Update battery status
-    DEBUG_INFO_PRINTLN("\n--- Battery Status ---");
-    batteryMonitor.update();
-    batteryMonitor.printStatus();
-
-    // Check battery level
-    if (batteryMonitor.isCritical()) {
-        DEBUG_ERROR_PRINTLN("Battery critical: " + String(batteryMonitor.getPercentage()) + "%");
-        lastError = ErrorCode::BATTERY_LOW;
-        errorMgr.setError(lastError);
-        displayMgr.showFullScreenError(errorMgr.getCurrentError());
-        delay(3000);
-        // Will sleep without wake-up timer
-    }
 
     // Fetch weather data
     DEBUG_INFO_PRINTLN("\n--- Weather Update ---");
@@ -266,12 +326,12 @@ void performUpdate() {
     struct tm* timeinfo = localtime(&now);
 
     // Format date and time properly with zero padding
-    char dateStr[32];  // Increased buffer size to avoid truncation warning
+    char dateStr[32]; // Increased buffer size to avoid truncation warning
     char timeStr[6];
     snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%04d",
-             timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+        timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
     snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
-             timeinfo->tm_hour, timeinfo->tm_min);
+        timeinfo->tm_hour, timeinfo->tm_min);
 
     String currentDate = String(dateStr);
     String currentTime = String(timeStr);
@@ -297,8 +357,7 @@ void performUpdate() {
 
     // Get merged events from all calendars (even if some failed to load)
     events = calendarManager->getAllEvents(now, endDate);
-    DEBUG_INFO_PRINTLN("Fetched " + String(events.size()) + " events from " +
-                 String(calendarManager->getCalendarCount()) + " calendars");
+    DEBUG_INFO_PRINTLN("Fetched " + String(events.size()) + " events from " + String(calendarManager->getCalendarCount()) + " calendars");
 
     if (!events.empty()) {
         lastError = ErrorCode::SUCCESS;
@@ -331,11 +390,11 @@ void performUpdate() {
     // Update display
     DEBUG_INFO_PRINTLN("\n--- Display Update ---");
     displayMgr.showCalendar(events, currentDate, currentTime,
-                           weatherSuccess ? &weatherData : nullptr,
-                           wifiManager.isConnected(),
-                           wifiManager.getRSSI(),
-                           batteryMonitor.getVoltage(),
-                           batteryMonitor.getPercentage());
+        weatherSuccess ? &weatherData : nullptr,
+        wifiManager.isConnected(),
+        wifiManager.getRSSI(),
+        batteryMonitor.getVoltage(),
+        batteryMonitor.getPercentage());
 
     DEBUG_INFO_PRINTLN("Display update complete");
 
@@ -349,7 +408,8 @@ void performUpdate() {
     delete client;
 }
 
-void enterDeepSleep(int retryMinutes) {
+void enterDeepSleep(int retryMinutes)
+{
     // Get current time
     time_t now;
     time(&now);
@@ -424,34 +484,35 @@ void enterDeepSleep(int retryMinutes) {
     esp_deep_sleep_start();
 }
 
-void printWakeupReason() {
+void printWakeupReason()
+{
     esp_sleep_wakeup_cause_t wakeup_reason;
     wakeup_reason = esp_sleep_get_wakeup_cause();
 
     DEBUG_INFO_PRINTLN("\n=== WAKE-UP REASON ===");
-    switch(wakeup_reason) {
-        case ESP_SLEEP_WAKEUP_EXT0:
-            DEBUG_INFO_PRINTLN("Wake-up: External signal using RTC_IO");
-            break;
-        case ESP_SLEEP_WAKEUP_EXT1: {
-            uint64_t wakeup_pin_mask = esp_sleep_get_ext1_wakeup_status();
-            DEBUG_VERBOSE_PRINT("Wake-up: Button press on GPIO ");
-            #if DEBUG_LEVEL >= DEBUG_VERBOSE
-            if (wakeup_pin_mask != 0) {
-                int pin = __builtin_ctzll(wakeup_pin_mask);
-                DEBUG_VERBOSE_PRINTLN(pin);
-            }
-            #else
-            (void)wakeup_pin_mask; // Suppress unused variable warning
-            #endif
-            break;
+    switch (wakeup_reason) {
+    case ESP_SLEEP_WAKEUP_EXT0:
+        DEBUG_INFO_PRINTLN("Wake-up: External signal using RTC_IO");
+        break;
+    case ESP_SLEEP_WAKEUP_EXT1: {
+        uint64_t wakeup_pin_mask = esp_sleep_get_ext1_wakeup_status();
+        DEBUG_VERBOSE_PRINT("Wake-up: Button press on GPIO ");
+#if DEBUG_LEVEL >= DEBUG_VERBOSE
+        if (wakeup_pin_mask != 0) {
+            int pin = __builtin_ctzll(wakeup_pin_mask);
+            DEBUG_VERBOSE_PRINTLN(pin);
         }
-        case ESP_SLEEP_WAKEUP_TIMER:
-            DEBUG_INFO_PRINTLN("Wake-up: Timer (scheduled update)");
-            break;
-        default:
-            DEBUG_INFO_PRINTLN("Wake-up: Power on / Reset");
-            break;
+#else
+        (void)wakeup_pin_mask; // Suppress unused variable warning
+#endif
+        break;
+    }
+    case ESP_SLEEP_WAKEUP_TIMER:
+        DEBUG_INFO_PRINTLN("Wake-up: Timer (scheduled update)");
+        break;
+    default:
+        DEBUG_INFO_PRINTLN("Wake-up: Power on / Reset");
+        break;
     }
     DEBUG_INFO_PRINTLN("=======================\n");
 }

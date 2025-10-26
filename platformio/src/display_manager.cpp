@@ -20,8 +20,6 @@ DisplayManager::DisplayManager()
 
 void DisplayManager::init()
 {
-    DEBUG_INFO_PRINTLN("Initializing display...");
-
     DEBUG_INFO_PRINTLN("Configuring SPI for EPD...");
     DEBUG_INFO_PRINTF("SCK: %d, MOSI: %d, CS: %d\n", EPD_SCK, EPD_MOSI, EPD_CS);
     // SPI.end();

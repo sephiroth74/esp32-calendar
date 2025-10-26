@@ -1,5 +1,6 @@
 #include "battery_monitor.h"
 #include "config.h"
+#include "debug_config.h"
 
 // LiPo discharge curve lookup table
 const BatteryMonitor::BatteryPoint BatteryMonitor::lipoTable[] = {
@@ -34,15 +35,15 @@ void BatteryMonitor::update() {
     lastPercentage = calculatePercentage(lastVoltage);
 
     if (debug) {
-        Serial.print("[BatteryMonitor] ADC: ");
-        Serial.print(adcValue);
-        Serial.print(" | Measured: ");
-        Serial.print(measuredVoltage, 3);
-        Serial.print("V | Battery: ");
-        Serial.print(lastVoltage, 2);
-        Serial.print("V (");
-        Serial.print(lastPercentage);
-        Serial.println("%)");
+        DEBUG_VERBOSE_PRINT("[BatteryMonitor] ADC: ");
+        DEBUG_VERBOSE_PRINT(adcValue);
+        DEBUG_VERBOSE_PRINT(" | Measured: ");
+        DEBUG_VERBOSE_PRINT_FLOAT(measuredVoltage, 3);
+        DEBUG_VERBOSE_PRINT("V | Battery: ");
+        DEBUG_VERBOSE_PRINT_FLOAT(lastVoltage, 2);
+        DEBUG_VERBOSE_PRINT("V (");
+        DEBUG_VERBOSE_PRINT(lastPercentage);
+        DEBUG_VERBOSE_PRINTLN("%)");
     }
 }
 
