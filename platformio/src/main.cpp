@@ -426,6 +426,7 @@ void enterDeepSleep(int retryMinutes)
 
         if (digitalRead(BUTTON_PIN) == LOW) {
             uint64_t button_mask = 1ULL << BUTTON_PIN;
+            esp_sleep_disable_wifi_wakeup(); // Disable WiFi wake-up to avoid conflicts
             esp_sleep_enable_ext1_wakeup(button_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
             DEBUG_INFO_PRINTLN("Button wake-up configured");
         }
@@ -466,6 +467,27 @@ void printWakeupReason()
     }
     case ESP_SLEEP_WAKEUP_TIMER:
         DEBUG_INFO_PRINTLN("Wake-up: Timer (scheduled update)");
+        break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD:
+        DEBUG_INFO_PRINTLN("Wake-up: Touchpad");
+        break;
+    case ESP_SLEEP_WAKEUP_ULP:
+        DEBUG_INFO_PRINTLN("Wake-up: ULP program");
+        break;
+    case ESP_SLEEP_WAKEUP_GPIO:
+        DEBUG_INFO_PRINTLN("Wake-up: GPIO (legacy)");
+        break;
+    case ESP_SLEEP_WAKEUP_UART:
+        DEBUG_INFO_PRINTLN("Wake-up: UART");
+        break;
+    case ESP_SLEEP_WAKEUP_WIFI:
+        DEBUG_INFO_PRINTLN("Wake-up: WiFi");
+        break;
+    case ESP_SLEEP_WAKEUP_BT:
+        DEBUG_INFO_PRINTLN("Wake-up: Bluetooth");
+        break;
+    case ESP_SLEEP_WAKEUP_UNDEFINED:
+        DEBUG_INFO_PRINTLN("Wake-up: Undefined");
         break;
     default:
         DEBUG_INFO_PRINTLN("Wake-up: Power on / Reset");
