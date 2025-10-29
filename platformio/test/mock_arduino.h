@@ -94,12 +94,46 @@ public:
     }
 
     char operator[](size_t index) const {
+        if (index >= buffer.length()) return '\0';
+        return (unsigned char)buffer[index];
+    }
+
+    char& operator[](size_t index) {
+        static char dummy = '\0';
+        if (index >= buffer.length()) return dummy;
         return buffer[index];
     }
 
     char charAt(size_t index) const {
         if (index >= buffer.length()) return '\0';
-        return buffer[index];
+        return (unsigned char)buffer[index];
+    }
+
+    void setCharAt(size_t index, char c) {
+        if (index < buffer.length()) {
+            buffer[index] = c;
+        }
+    }
+
+    void remove(size_t index) {
+        if (index < buffer.length()) {
+            buffer.erase(index);
+        }
+    }
+
+    void remove(size_t index, size_t count) {
+        if (index < buffer.length()) {
+            buffer.erase(index, count);
+        }
+    }
+
+    bool startsWith(const String& prefix) const {
+        return buffer.find(prefix.buffer) == 0;
+    }
+
+    bool startsWith(const char* prefix) const {
+        if (!prefix) return false;
+        return buffer.find(prefix) == 0;
     }
 
     friend String operator+(const String& a, const String& b) {
@@ -127,6 +161,11 @@ public:
     void println(int val) {}
     void print(const String& str) {}
     void print(const char* str) {}
+
+    template<typename... Args>
+    void printf(const char* format, Args... args) {
+        // Mock implementation - just ignore for testing
+    }
 };
 
 extern MockSerial Serial;
@@ -134,8 +173,12 @@ extern MockSerial Serial;
 // Mock Stream class
 class Stream {
 public:
+    virtual ~Stream() {}
     virtual int available() = 0;
     virtual String readString() = 0;
+    virtual int read() = 0;
+    virtual int peek() = 0;
+    virtual void flush() {}
 };
 
 // Mock StringStream for testing
@@ -154,6 +197,20 @@ public:
         String result = content.substring(position);
         position = content.length();
         return result;
+    }
+
+    int read() override {
+        if (position >= content.length()) {
+            return -1;
+        }
+        return content.charAt(position++);
+    }
+
+    int peek() override {
+        if (position >= content.length()) {
+            return -1;
+        }
+        return content.charAt(position);
     }
 
     void reset() {
@@ -181,6 +238,16 @@ public:
         return result;
     }
     void close() { isOpen = false; position = 0; }
+
+    size_t write(uint8_t c) {
+        if (!isOpen) return 0;
+        content += String((char)c);
+        return 1;
+    }
+
+    void flush() {
+        // Mock implementation - do nothing
+    }
 
     // For testing purposes
     void setContent(const String& data) { content = data; position = 0; }
@@ -233,6 +300,11 @@ public:
         mountFails = fails;
     }
 
+    bool mkdir(const String& path) {
+        // Mock implementation - just return success
+        return true;
+    }
+
 private:
     std::map<std::string, String> files;
     bool mounted = false;
@@ -243,10 +315,39 @@ private:
 
 extern MockLittleFS LittleFS;
 
+// Mock HTTPClient
+class HTTPClient {
+public:
+    bool begin(const String& url) { return true; }
+    int GET() { return 200; }
+    String getString() { return "BEGIN:VCALENDAR..."; }
+    void end() {}
+};
+
+// Mock WiFiClient
+class WiFiClient {
+public:
+    // Add any necessary member functions for WiFiClient
+};
+
+
 // Mock time_t if not available
 #ifndef _TIME_T
 #define _TIME_T
 typedef long time_t;
 #endif
+
+// Mock Arduino timing functions
+inline unsigned long millis() {
+    // Return incrementing timestamp to avoid infinite loops
+    static unsigned long mockTime = 0;
+    return mockTime++;
+}
+
+inline void delay(unsigned long ms) {
+    // Mock implementation - advance mock time
+    static unsigned long mockTime = 0;
+    mockTime += ms;
+}
 
 #endif // MOCK_ARDUINO_H

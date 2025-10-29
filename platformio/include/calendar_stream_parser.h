@@ -6,7 +6,11 @@
 #ifndef CALENDAR_STREAM_PARSER_H
 #define CALENDAR_STREAM_PARSER_H
 
+#ifdef NATIVE_TEST
+#include "mock_arduino.h"
+#else
 #include <Arduino.h>
+#endif
 #include <vector>
 #include "calendar_event.h"
 
@@ -56,7 +60,8 @@ public:
     FilteredEvents* fetchEventsInRange(const String& url,
                                        time_t startDate,
                                        time_t endDate,
-                                       size_t maxEvents = 100);
+                                       size_t maxEvents = 100,
+                                       const String& cachePath = "");
 
     /**
      * Stream parse with callback - for custom processing without storing events
@@ -71,7 +76,8 @@ public:
     bool streamParse(const String& url,
                      EventCallback callback,
                      time_t startDate = 0,
-                     time_t endDate = 0);
+                     time_t endDate = 0,
+                     const String& cachePath = "");
 
     /**
      * Parse calendar metadata without loading events

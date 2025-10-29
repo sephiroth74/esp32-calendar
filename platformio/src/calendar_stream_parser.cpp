@@ -4,6 +4,7 @@
 
 #include "calendar_stream_parser.h"
 #include "calendar_fetcher.h"
+#include "tee_stream.h"
 #include <algorithm>
 
 // Constructor
@@ -23,7 +24,8 @@ CalendarStreamParser::~CalendarStreamParser() {
 FilteredEvents* CalendarStreamParser::fetchEventsInRange(const String& url,
                                                          time_t startDate,
                                                          time_t endDate,
-                                                         size_t maxEvents) {
+                                                         size_t maxEvents,
+                                                         const String& cachePath) {
     FilteredEvents* result = new FilteredEvents();
 
     if (debug) {
@@ -33,133 +35,22 @@ FilteredEvents* CalendarStreamParser::fetchEventsInRange(const String& url,
         Serial.printf("Max events: %d\n", maxEvents);
     }
 
-    // Get stream from fetcher
-    Stream* stream = fetcher->fetchStream(url);
-    if (!stream) {
+    auto eventCallback = [&](CalendarEvent* event) {
+        if (result->events.size() < maxEvents || maxEvents == 0) {
+            result->events.push_back(event);
+        } else {
+            delete event; // Free memory if maxEvents is reached
+        }
+    };
+
+    if (streamParse(url, eventCallback, startDate, endDate, cachePath)) {
+        result->success = true;
+        result->totalFiltered = result->events.size();
+        // totalParsed is not easily available here, would require another callback
+    } else {
         result->success = false;
-        result->error = "Failed to open stream";
-        if (debug) Serial.println("Error: " + result->error);
-        return result;
+        result->error = "Stream parsing failed";
     }
-
-    // Parse events from stream
-    ParseState state = LOOKING_FOR_CALENDAR;
-    String currentLine = "";
-    String eventBuffer = "";
-    String headerBuffer = "";
-    bool eof = false;
-
-    while (!eof && state != DONE) {
-        currentLine = readLineFromStream(stream, eof);
-
-        if (currentLine.isEmpty() && !eof) {
-            continue;
-        }
-
-        switch (state) {
-            case LOOKING_FOR_CALENDAR:
-                if (currentLine.indexOf("BEGIN:VCALENDAR") != -1) {
-                    headerBuffer = currentLine + "\n";
-                    state = IN_HEADER;
-                }
-                break;
-
-            case IN_HEADER:
-                headerBuffer += currentLine + "\n";
-
-                // Parse calendar metadata
-                if (currentLine.indexOf("X-WR-CALNAME:") != -1) {
-                    calendarName = extractValue(currentLine, "X-WR-CALNAME:");
-                }
-
-                if (currentLine.indexOf("BEGIN:VEVENT") != -1) {
-                    // Start collecting event
-                    eventBuffer = currentLine + "\n";
-                    state = IN_EVENT;
-                } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
-                    state = DONE;
-                }
-                break;
-
-            case IN_EVENT:
-                eventBuffer += currentLine + "\n";
-
-                if (currentLine.indexOf("END:VEVENT") != -1) {
-                    // Parse and filter event
-                    result->totalParsed++;
-
-                    // Parse the event
-                    CalendarEvent* event = parseEventFromBuffer(eventBuffer);
-                    if (event) {
-                        // Add calendar metadata
-                        event->calendarName = calendarName;
-                        event->calendarColor = calendarColor;
-
-
-                        // Check if event is in range
-                        if (event->isRecurring) {
-                            // Expand recurring events
-                            std::vector<CalendarEvent*> expanded =
-                                expandRecurringEvent(event, startDate, endDate);
-
-                            for (auto expandedEvent : expanded) {
-                                if (result->events.size() < maxEvents || maxEvents == 0) {
-                                    result->events.push_back(expandedEvent);
-                                    result->totalFiltered++;
-                                } else {
-                                    delete expandedEvent;
-                                }
-                            }
-
-                            // Delete original recurring event
-                            delete event;
-                        } else if (isEventInRange(event, startDate, endDate)) {
-                            if (result->events.size() < maxEvents || maxEvents == 0) {
-                                result->events.push_back(event);
-                                result->totalFiltered++;
-                            } else {
-                                delete event;
-                            }
-                        } else {
-                            // Event not in range, delete it
-                            delete event;
-                        }
-                    }
-
-                    // Clear event buffer
-                    eventBuffer = "";
-                    state = IN_HEADER;
-
-                    // Yield periodically
-                    if (result->totalParsed % 10 == 0) {
-                        delay(1);
-                    }
-
-                    // Stop if we have enough events
-                    if (maxEvents > 0 && result->events.size() >= maxEvents) {
-                        state = DONE;
-                    }
-                } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
-                    state = DONE;
-                }
-                break;
-
-            case DONE:
-                break;
-        }
-
-        // Prevent buffer overflow
-        if (eventBuffer.length() > 8192) {
-            if (debug) {
-                Serial.println("Warning: Event buffer overflow, skipping event");
-            }
-            eventBuffer = "";
-            state = IN_HEADER;
-        }
-    }
-
-    // Clean up stream
-    fetcher->endStream();
 
     // Sort events by start time
     std::sort(result->events.begin(), result->events.end(),
@@ -168,27 +59,46 @@ FilteredEvents* CalendarStreamParser::fetchEventsInRange(const String& url,
               });
 
     if (debug) {
-        Serial.printf("Parsing complete: %d events parsed, %d filtered\n",
-                     result->totalParsed, result->totalFiltered);
+        Serial.printf("Parsing complete: %d events filtered\n", result->totalFiltered);
     }
 
-    result->success = true;
     return result;
 }
 
 bool CalendarStreamParser::streamParse(const String& url,
                                        EventCallback callback,
                                        time_t startDate,
-                                       time_t endDate) {
+                                       time_t endDate,
+                                       const String& cachePath) {
     if (!callback) {
         return false;
     }
 
     // Get stream from fetcher
-    Stream* stream = fetcher->fetchStream(url);
-    if (!stream) {
+    Stream* httpStream = fetcher->fetchStream(url);
+    if (!httpStream) {
         if (debug) Serial.println("Error: Failed to open stream");
         return false;
+    }
+
+    Stream* finalStream = httpStream;
+    File cacheFile;
+    TeeStream* teeStream = nullptr;
+
+    bool isRemote = !url.startsWith("file://");
+
+    if (isRemote && !cachePath.isEmpty()) {
+        if (!LittleFS.exists("/cache")) {
+            LittleFS.mkdir("/cache");
+        }
+        cacheFile = LittleFS.open(cachePath, "w");
+        if (cacheFile) {
+            if (debug) Serial.println("Caching to: " + cachePath);
+            teeStream = new TeeStream(*httpStream, cacheFile);
+            finalStream = teeStream;
+        } else {
+            if (debug) Serial.println("Warning: Could not open cache file " + cachePath);
+        }
     }
 
     ParseState state = LOOKING_FOR_CALENDAR;
@@ -196,9 +106,10 @@ bool CalendarStreamParser::streamParse(const String& url,
     String eventBuffer = "";
     bool eof = false;
     int eventCount = 0;
+    bool parseSuccess = true;
 
     while (!eof && state != DONE) {
-        currentLine = readLineFromStream(stream, eof);
+        currentLine = readLineFromStream(finalStream, eof);
 
         if (currentLine.isEmpty() && !eof) {
             continue;
@@ -227,26 +138,28 @@ bool CalendarStreamParser::streamParse(const String& url,
                     // Parse event
                     CalendarEvent* event = parseEventFromBuffer(eventBuffer);
                     if (event) {
-                        // Check date range if specified
-                        bool inRange = true;
-                        if (startDate > 0 || endDate > 0) {
-                            inRange = isEventInRange(event, startDate, endDate);
-                        }
-
-                        if (inRange) {
-                            // Call callback with event
+                        if (event->isRecurring) {
+                            std::vector<CalendarEvent*> expanded = expandRecurringEvent(event, startDate, endDate);
+                            for (auto expandedEvent : expanded) {
+                                if (isEventInRange(expandedEvent, startDate, endDate)) {
+                                    callback(expandedEvent);
+                                }
+                                else {
+                                    delete expandedEvent;
+                                }
+                            }
+                            delete event;
+                        } else if (isEventInRange(event, startDate, endDate)) {
                             callback(event);
+                        } else {
+                            delete event;
                         }
-
-                        // Delete event after callback
-                        delete event;
                         eventCount++;
                     }
 
                     eventBuffer = "";
                     state = IN_HEADER;
 
-                    // Yield periodically
                     if (eventCount % 10 == 0) {
                         delay(1);
                     }
@@ -259,15 +172,22 @@ bool CalendarStreamParser::streamParse(const String& url,
                 break;
         }
 
-        // Prevent buffer overflow
         if (eventBuffer.length() > 8192) {
             eventBuffer = "";
             state = IN_HEADER;
+            parseSuccess = false; // Indicate an error
         }
     }
 
+    if (teeStream) {
+        delete teeStream;
+    }
+    if (cacheFile) {
+        cacheFile.close();
+    }
+
     fetcher->endStream();
-    return true;
+    return parseSuccess;
 }
 
 bool CalendarStreamParser::parseMetadata(const String& url,

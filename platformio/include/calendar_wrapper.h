@@ -30,6 +30,8 @@ public:
     CalendarWrapper();
     ~CalendarWrapper();
 
+    bool isStale = false;       // True if data is from cache
+
     // Configuration
     void setConfig(const CalendarConfig& calConfig) { config = calConfig; }
     void setDebug(bool enable) { debug = enable; parser.setDebug(enable); }
@@ -92,6 +94,7 @@ public:
     // Status
     size_t getTotalEventCount() const;
     void printStatus() const;
+    bool isAnyCalendarStale() const;
 };
 
 #endif // CALENDAR_WRAPPER_H

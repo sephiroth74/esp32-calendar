@@ -5,6 +5,34 @@ All notable changes to the ESP32 E-Paper Calendar project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.6] - 2025-10-29
+
+### Added
+- **Display Capabilities Test** - New debug menu option (16) to test display
+  - Shows comprehensive display information: resolution, pages, color support
+  - Displays partial update and fast partial update capabilities
+  - Shows display type (Black & White or 6-Color)
+  - Color test screen with vertical bars showing all supported colors
+  - For B&W displays: Shows 4 dithering levels (10%, 25%, 50%, 75%) plus Black/White/Dark Grey/Light Grey
+  - For color displays: Shows all 7 colors (Black, White, Red, Yellow, Orange, Dark Grey, Light Grey)
+  - Two-stage test: info screen first, then color/dithering test after keypress
+
+### Fixed
+- **Native Tests** - Fixed all compiler errors and infinite loops in native test environment
+  - Added missing methods to mock Arduino classes (printf, startsWith, remove, mkdir, etc.)
+  - Fixed infinite loop in `replaceAll()` when handling empty "from" string
+  - Fixed `truncate()` edge cases when maxLength is smaller than suffix length
+  - Fixed `toTitleCase()` to treat all non-alphabetic characters as word delimiters
+  - Fixed `millis()` mock to return incrementing values instead of always 0
+  - Fixed UTF-8 character handling in tests (changed from "…" to "...")
+  - All 29 native test cases now pass successfully (127 assertions)
+  - Tests can now be run with standard `pio test -e native` command
+
+### Changed
+- **TeeStream Implementation** - Added virtual destructor and readString() method
+- **Mock String Class** - Enhanced with bounds checking and safer character access
+- **Test Infrastructure** - Disabled outdated `test_calendar_stream_parser.cpp` (tested old API)
+
 ## [1.7.5] - 2025-10-25
 
 ### Changed

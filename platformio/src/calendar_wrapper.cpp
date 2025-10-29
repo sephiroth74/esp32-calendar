@@ -54,6 +54,7 @@ bool CalendarWrapper::load(bool forceRefresh) {
     // Clear previous events
     clearCache();
     loaded = false;
+    isStale = false; // Reset stale flag
 
     // Check if calendar is enabled
     if (!config.enabled) {
@@ -80,38 +81,53 @@ bool CalendarWrapper::load(bool forceRefresh) {
         DEBUG_INFO_PRINTLN("Fetching events from now to " + String(config.days_to_fetch) + " days ahead");
     }
 
+    String cachePath = getCacheFilename();
+
     // Fetch events using the stream parser
-    FilteredEvents* result = parser.fetchEventsInRange(config.url, now, endDate, 500); // Max 500 events
+    FilteredEvents* result = parser.fetchEventsInRange(config.url, now, endDate, 500, cachePath);
 
-    if (!result) {
-        lastError = "Failed to fetch events";
-        if (debug) DEBUG_ERROR_PRINTLN("Failed to fetch events - null result");
-        return false;
-    }
-
-    if (!result->success) {
-        lastError = result->error;
-        if (debug) DEBUG_ERROR_PRINTLN("Failed to fetch events: " + result->error);
+    if (result && result->success) {
+        cachedEvents = std::move(result->events);
+        result->events.clear(); // Prevent double deletion
+        if (debug) {
+            DEBUG_INFO_PRINTLN("Successfully loaded calendar from remote");
+            DEBUG_INFO_PRINTLN("Cached events: " + String(cachedEvents.size()));
+        }
         delete result;
-        return false;
+        loaded = true;
+        lastFetchTime = time(nullptr);
+        return true;
     }
 
-    // Move events from result to our cache
-    cachedEvents = std::move(result->events);
-    result->events.clear(); // Prevent double deletion
-
-    if (debug) {
-        DEBUG_INFO_PRINTLN("Successfully loaded calendar");
-        DEBUG_INFO_PRINTLN("Total events parsed: " + String(result->totalParsed));
-        DEBUG_INFO_PRINTLN("Events in range: " + String(result->totalFiltered));
-        DEBUG_INFO_PRINTLN("Cached events: " + String(cachedEvents.size()));
+    // Remote fetch failed, try cache
+    if (debug) DEBUG_WARN_PRINTLN("Remote fetch failed. Trying cache.");
+    if (result) {
+        lastError = result->error;
+        delete result;
     }
 
-    delete result;
-    loaded = true;
-    lastFetchTime = time(nullptr);
+    if (LittleFS.exists(cachePath)) {
+        if (debug) DEBUG_INFO_PRINTLN("Found cache file: " + cachePath);
+        String fileUrl = "file://" + cachePath;
+        result = parser.fetchEventsInRange(fileUrl, now, endDate, 500, ""); // No cache path for file URL
 
-    return true;
+        if (result && result->success) {
+            if (debug) DEBUG_INFO_PRINTLN("Successfully loaded from cache.");
+            cachedEvents = std::move(result->events);
+            result->events.clear();
+            delete result;
+            loaded = true;
+            isStale = true; // Mark data as stale
+            return true;
+        }
+        if (result) {
+            delete result;
+        }
+    }
+
+    if (debug) DEBUG_ERROR_PRINTLN("Failed to load from remote and cache.");
+    loaded = false;
+    return false;
 }
 
 std::vector<CalendarEvent*> CalendarWrapper::getEvents(time_t startDate, time_t endDate) {
@@ -386,4 +402,13 @@ void CalendarManager::printStatus() const {
     DEBUG_INFO_PRINTLN("  Loaded: " + String(loadedCount) + "/" + String(calendars.size()));
     DEBUG_INFO_PRINTLN("  Total events: " + String(getTotalEventCount()));
     DEBUG_INFO_PRINTLN("  Total events in range: " + String(totalEventsInRange));
+}
+
+bool CalendarManager::isAnyCalendarStale() const {
+    for (const auto cal : calendars) {
+        if (cal->isLoaded() && cal->isStale) {
+            return true;
+        }
+    }
+    return false;
 }

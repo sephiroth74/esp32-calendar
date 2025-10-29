@@ -1,6 +1,8 @@
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest.h>
-#include <Arduino.h>
+#include "../mock_arduino.h"
 #include "string_utils.h"
+#include "../../src/string_utils.cpp"
 
 TEST_SUITE("StringUtils") {
     TEST_CASE("convertAccents - Italian accented characters") {
@@ -56,9 +58,10 @@ TEST_SUITE("StringUtils") {
     }
 
     TEST_CASE("truncate - Custom suffix") {
-        CHECK(StringUtils::truncate("Hello World", 7, "…") == "Hello …");
-        CHECK(StringUtils::truncate("Hello World", 6, "->") == "Hell->");
-        CHECK(StringUtils::truncate("Test", 2, "...") == "...");
+        // Note: Using "..." instead of "…" because String.length() counts bytes, not Unicode chars
+        CHECK(StringUtils::truncate("Hello World", 9, "...") == "Hello ...");  // 6 chars + 3 = 9
+        CHECK(StringUtils::truncate("Hello World", 6, "->") == "Hell->");      // 4 chars + 2 = 6
+        CHECK(StringUtils::truncate("Test", 2, "...") == "...");               // suffix only
     }
 
     TEST_CASE("truncate - Edge cases") {

@@ -75,8 +75,9 @@ String StringUtils::truncate(const String& text, size_t maxLength, const String&
         return text;
     }
 
+    // If maxLength is too small to fit even part of text + suffix, just return suffix
     if (maxLength <= suffix.length()) {
-        return suffix.substring(0, maxLength);
+        return suffix;
     }
 
     return text.substring(0, maxLength - suffix.length()) + suffix;
@@ -99,6 +100,11 @@ String StringUtils::trim(const String& text) {
 }
 
 String StringUtils::replaceAll(const String& text, const String& from, const String& to) {
+    // Handle empty 'from' string to avoid infinite loop
+    if (from.length() == 0) {
+        return text;
+    }
+
     String result = text;
     int index = 0;
 
@@ -138,7 +144,8 @@ String StringUtils::toTitleCase(const String& text) {
             } else {
                 result[i] = tolower(result[i]);
             }
-        } else if (isspace(result[i])) {
+        } else {
+            // Any non-alphabetic character (space, hyphen, dot, number, etc.) starts a new word
             nextUpper = true;
         }
     }

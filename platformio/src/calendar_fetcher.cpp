@@ -268,57 +268,69 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
             return nullptr;
         }
 
-        // Start HTTP request directly (without explicit WiFiClient)
-        if (debug) Serial.println("Starting HTTP stream request...");
+        int retries = 3;
+        while (retries > 0) {
+            // Start HTTP request directly (without explicit WiFiClient)
+            if (debug) Serial.println("Starting HTTP stream request... (retries left: " + String(retries) + ")");
 
-        if (!http.begin(url)) {
-            if (debug) Serial.println("Error: Failed to begin HTTP request");
-            return nullptr;
-        }
-
-        http.setTimeout(timeout);
-        http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-
-        // Add headers
-        http.addHeader("User-Agent", "ESP32-Calendar/1.0");
-        http.addHeader("Accept", "text/calendar");
-
-        // Perform GET request
-        int httpCode = http.GET();
-
-        if (httpCode <= 0) {
-            if (debug) Serial.println("Error: HTTP request failed: " + http.errorToString(httpCode));
-            http.end();
-            return nullptr;
-        }
-
-        if (debug) Serial.printf("HTTP response code: %d\n", httpCode);
-
-        if (httpCode != HTTP_CODE_OK) {
-            if (debug) Serial.println("Error: HTTP error: " + String(httpCode));
-            http.end();
-            return nullptr;
-        }
-
-        // Get the stream
-        Stream* stream = http.getStreamPtr();
-        if (!stream) {
-            if (debug) Serial.println("Error: Failed to get HTTP stream");
-            http.end();
-            return nullptr;
-        }
-
-        // Get content length for debugging
-        int contentLength = http.getSize();
-        if (debug) {
-            if (contentLength >= 0) {
-                Serial.printf("HTTP stream opened successfully (size: %d bytes)\n", contentLength);
-            } else {
-                Serial.println("HTTP stream opened successfully (chunked transfer)");
+            if (!http.begin(url)) {
+                if (debug) Serial.println("Error: Failed to begin HTTP request");
+                retries--;
+                delay(5000);
+                continue;
             }
-        }
 
-        return stream;
+            http.setTimeout(timeout);
+            http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+
+            // Add headers
+            http.addHeader("User-Agent", "ESP32-Calendar/1.0");
+            http.addHeader("Accept", "text/calendar");
+
+            // Perform GET request
+            int httpCode = http.GET();
+
+            if (httpCode <= 0) {
+                if (debug) Serial.println("Error: HTTP request failed: " + http.errorToString(httpCode));
+                http.end();
+                retries--;
+                delay(5000);
+                continue;
+            }
+
+            if (debug) Serial.printf("HTTP response code: %d\n", httpCode);
+
+            if (httpCode != HTTP_CODE_OK) {
+                if (debug) Serial.println("Error: HTTP error: " + String(httpCode));
+                http.end();
+                retries--;
+                delay(5000);
+                continue;
+            }
+
+            // Get the stream
+            Stream* stream = http.getStreamPtr();
+            if (!stream) {
+                if (debug) Serial.println("Error: Failed to get HTTP stream");
+                http.end();
+                retries--;
+                delay(5000);
+                continue;
+            }
+
+            // Get content length for debugging
+            int contentLength = http.getSize();
+            if (debug) {
+                if (contentLength >= 0) {
+                    Serial.printf("HTTP stream opened successfully (size: %d bytes)\n", contentLength);
+                } else {
+                    Serial.println("HTTP stream opened successfully (chunked transfer)");
+                }
+            }
+
+            return stream; // Success
+        }
+        return nullptr; // All retries failed
     }
 }
 

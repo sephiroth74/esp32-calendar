@@ -120,7 +120,7 @@ private:
     void drawNoEvents(int x, int y);
     void drawError(const String& error);
     void drawStatusBar(bool wifiConnected, int rssi, float batteryVoltage, int batteryPercentage,
-        int currentDay, int currentMonth, int currentYear, const String& currentTime);
+        int currentDay, int currentMonth, int currentYear, const String& currentTime, bool isStale = false);
     void centerText(const String& text, int x, int y, int width, const GFXfont* font);
     String formatTime(const String& timeStr);
     String truncateText(const String& text, int maxWidth);
@@ -180,7 +180,8 @@ public:
         bool wifiConnected = true,
         int rssi = 0,
         float batteryVoltage = 0.0,
-        int batteryPercentage = 0);
+        int batteryPercentage = 0,
+        bool isStale = false);
     void showModernCalendar(const std::vector<CalendarEvent*>& events,
         int currentDay,
         int currentMonth,
@@ -190,7 +191,8 @@ public:
         bool wifiConnected = true,
         int rssi = 0,
         float batteryVoltage = 0.0,
-        int batteryPercentage = 0);
+        int batteryPercentage = 0,
+        bool isStale = false);
     void showMessage(const String& title, const String& message);
     void showError(const String& error);
     void showFullScreenError(const ErrorInfo& error);

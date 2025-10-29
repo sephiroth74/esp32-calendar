@@ -1271,7 +1271,7 @@ void DisplayManager::drawNoEvents(int x, int y)
 
 void DisplayManager::drawStatusBar(bool wifiConnected, int rssi,
     float batteryVoltage, int batteryPercentage,
-    int currentDay, int currentMonth, int currentYear, const String& currentTime)
+    int currentDay, int currentMonth, int currentYear, const String& currentTime, bool isStale)
 {
     display.setFont(nullptr);   // Use default font for status bar
     int y = DISPLAY_HEIGHT; // Position for status bar at bottom edge
@@ -1351,6 +1351,10 @@ void DisplayManager::drawStatusBar(bool wifiConnected, int rssi,
     String dateTimeStr = String(currentDay) + "/" + String(currentMonth) + "/" + String(currentYear) + " " + currentTime;
     String versionStr = "v" + getVersionString();
     String combinedStr = dateTimeStr + "  |  " + versionStr;
+
+    if (isStale) {
+        combinedStr += " (stale)";
+    }
 
     // Center the combined string
     int16_t x1, y1;
@@ -1500,7 +1504,8 @@ void DisplayManager::showCalendar(const std::vector<CalendarEvent*>& events,
     bool wifiConnected,
     int rssi,
     float batteryVoltage,
-    int batteryPercentage)
+    int batteryPercentage,
+    bool isStale)
 {
     // Get current date info
     time_t now;
@@ -1521,7 +1526,7 @@ void DisplayManager::showCalendar(const std::vector<CalendarEvent*>& events,
 
     // Use the modern layout
     showModernCalendar(events, currentDay, currentMonth, currentYear,
-        currentTime, weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage);
+        currentTime, weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage, isStale);
 }
 
 void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& events,
@@ -1533,7 +1538,8 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
     bool wifiConnected,
     int rssi,
     float batteryVoltage,
-    int batteryPercentage)
+    int batteryPercentage,
+    bool isStale)
 {
     // Generate month calendar data
     MonthCalendar monthCal = generateMonthCalendar(currentYear, currentMonth, events);
@@ -1583,7 +1589,7 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
 
         // Draw status bar at the very bottom
         drawStatusBar(wifiConnected, rssi, batteryVoltage, batteryPercentage,
-                     currentDay, currentMonth, currentYear, currentTime);
+                     currentDay, currentMonth, currentYear, currentTime, isStale);
 
     } while (display.nextPage());
 }

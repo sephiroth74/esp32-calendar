@@ -51,6 +51,7 @@ void clearDisplay();
 void testWeatherFetch();
 void testLittleFSConfig();
 void helloWorld();
+void testDisplayCapabilities();
 std::vector<CalendarEvent*> generateMockEvents();
 MonthCalendar generateMockCalendar();
 WeatherData generateMockWeather();
@@ -151,6 +152,7 @@ void showMenu()
     Serial.println("13 - Test Weather Fetch (Real)");
     Serial.println("14 - Test LittleFS Configuration");
     Serial.println("15 - Test Display");
+    Serial.println("16 - Test Display Capabilities");
     Serial.println("h  - Show this menu");
     Serial.println("================================");
     Serial.print("\nEnter command: ");
@@ -216,6 +218,8 @@ void processCommand(String command)
         testLittleFSConfig();
     } else if (command == "15") {
         helloWorld();
+    } else if (command == "16") {
+        testDisplayCapabilities();
     } else if (command == "h") {
         showMenu();
     } else {
@@ -1677,6 +1681,215 @@ void helloWorld()
         display.print(HelloWorld);
     } while (display.nextPage());
     Serial.println("helloWorld done");
+}
+
+void testDisplayCapabilities()
+{
+    Serial.println("\n========================================");
+    Serial.println("Testing Display Capabilities");
+    Serial.println("========================================\n");
+
+    // Get display info
+    int width = display.width();
+    int height = display.height();
+    int pages = display.pages();
+    int pageHeight = display.pageHeight();
+    bool hasColor = display.display.epd2.hasColor();
+    bool hasPartialUpdate = display.display.epd2.hasPartialUpdate();
+    bool hasFastPartialUpdate = display.display.epd2.hasFastPartialUpdate();
+
+    // Print to serial
+    Serial.println("--- Display Information ---");
+    Serial.println("Width: " + String(width) + " pixels");
+    Serial.println("Height: " + String(height) + " pixels");
+    Serial.println("Pages: " + String(pages));
+    if (pages > 1) {
+        Serial.println("Page Height: " + String(pageHeight) + " pixels");
+    }
+    Serial.println("Has Color: " + String(hasColor ? "Yes" : "No"));
+    Serial.println("Supports Partial Update: " + String(hasPartialUpdate ? "Yes" : "No"));
+    Serial.println("Supports Fast Partial Update: " + String(hasFastPartialUpdate ? "Yes" : "No"));
+
+    #ifdef DISP_TYPE_BW
+    Serial.println("Display Type: Black & White (BW)");
+    #elif defined(DISP_TYPE_6C)
+    Serial.println("Display Type: 6-Color (7C)");
+    #endif
+
+    // Display on screen - First page: Info
+    display.display.firstPage();
+    do {
+        display.clear();
+
+        display.display.setFont(&Ubuntu_R_18pt8b);
+        display.display.setCursor(50, 50);
+        display.display.print("Display Capabilities");
+
+        display.display.setFont(&Ubuntu_R_12pt8b);
+        int y = 100;
+        int lineHeight = 30;
+
+        display.display.setCursor(50, y);
+        display.display.print("Resolution: " + String(width) + " x " + String(height) + " pixels");
+        y += lineHeight;
+
+        display.display.setCursor(50, y);
+        display.display.print("Pages: " + String(pages));
+        if (pages > 1) {
+            display.display.print(" (Page Height: " + String(pageHeight) + ")");
+        }
+        y += lineHeight;
+
+        display.display.setCursor(50, y);
+        display.display.print("Has Color: " + String(hasColor ? "Yes" : "No"));
+        y += lineHeight;
+
+        display.display.setCursor(50, y);
+        display.display.print("Partial Update: " + String(hasPartialUpdate ? "Yes" : "No"));
+        y += lineHeight;
+
+        display.display.setCursor(50, y);
+        display.display.print("Fast Partial Update: " + String(hasFastPartialUpdate ? "Yes" : "No"));
+        y += lineHeight;
+
+        display.display.setCursor(50, y);
+        #ifdef DISP_TYPE_BW
+        display.display.print("Type: Black & White");
+        #elif defined(DISP_TYPE_6C)
+        display.display.print("Type: 6-Color (Red/Orange/Yellow)");
+        #endif
+        y += lineHeight + 20;
+
+        display.display.setFont(&Ubuntu_R_9pt8b);
+        display.display.setCursor(50, y);
+        display.display.print("Press any key to see color/dithering test...");
+
+    } while (display.nextPage());
+
+    Serial.println("\nDisplaying info screen. Press any key to continue...");
+
+    // Wait for user input
+    while (!Serial.available()) {
+        delay(100);
+    }
+    // Clear serial buffer
+    while (Serial.available()) {
+        Serial.read();
+    }
+
+    Serial.println("\n--- Displaying Color/Dithering Test ---\n");
+
+    // Second page: Color/Dithering test
+    display.display.firstPage();
+    do {
+        display.clear();
+
+        display.display.setFont(&Ubuntu_R_18pt8b);
+        display.display.setCursor(50, 50);
+
+        #ifdef DISP_TYPE_BW
+        display.display.print("B&W Display - Dithering Test");
+        #elif defined(DISP_TYPE_6C)
+        display.display.print("Color Display Test");
+        #endif
+
+        int startY = 80;
+        int barWidth = 70;
+        int barHeight = 300;
+        int spacing = 20;
+        int x = 50;
+
+        #ifdef DISP_TYPE_BW
+        // For B&W displays: show dithering levels + special colors
+
+        // Dithering levels
+        DitherLevel ditherLevels[] = {
+            DitherLevel::DITHER_10,
+            DitherLevel::DITHER_25,
+            DitherLevel::DITHER_50,
+            DitherLevel::DITHER_75
+        };
+
+        const char* ditherLabels[] = {"10%", "25%", "50%", "75%"};
+
+        for (int i = 0; i < 4; i++) {
+            display.applyFloydSteinbergDithering(x, startY, barWidth, barHeight,
+                                                 static_cast<int>(ditherLevels[i]) / 100.0f);
+
+            display.display.setFont(&Ubuntu_R_9pt8b);
+            display.display.setCursor(x + 10, startY + barHeight + 20);
+            display.display.print(ditherLabels[i]);
+
+            x += barWidth + spacing;
+        }
+
+        // Add special colors: Black, White, Dark Grey, Light Grey
+        uint16_t specialColors[] = {GxEPD_BLACK, GxEPD_WHITE, GxEPD_DARKGREY, GxEPD_LIGHTGREY};
+        const char* colorLabels[] = {"Black", "White", "Dark", "Light"};
+
+        for (int i = 0; i < 4; i++) {
+            display.display.fillRect(x, startY, barWidth, barHeight, specialColors[i]);
+
+            display.display.setFont(&Ubuntu_R_9pt8b);
+            // Use contrasting color for text
+            display.display.setTextColor(i == 0 ? GxEPD_WHITE : GxEPD_BLACK);
+            display.display.setCursor(x + 5, startY + barHeight + 20);
+            display.display.print(colorLabels[i]);
+            display.display.setTextColor(GxEPD_BLACK); // Reset
+
+            x += barWidth + spacing;
+        }
+
+        #elif defined(DISP_TYPE_6C)
+        // For color displays: show all supported colors
+        uint16_t colors[] = {
+            GxEPD_BLACK,
+            GxEPD_WHITE,
+            GxEPD_RED,
+            GxEPD_YELLOW,
+            GxEPD_ORANGE,
+            GxEPD_DARKGREY,
+            GxEPD_LIGHTGREY
+        };
+
+        const char* colorLabels[] = {
+            "Black",
+            "White",
+            "Red",
+            "Yellow",
+            "Orange",
+            "Dark",
+            "Light"
+        };
+
+        for (int i = 0; i < 7; i++) {
+            display.display.fillRect(x, startY, barWidth, barHeight, colors[i]);
+
+            display.display.setFont(&Ubuntu_R_9pt8b);
+            // Use contrasting color for text on white/yellow/orange
+            if (i == 1 || i == 3 || i == 4) {
+                display.display.setTextColor(GxEPD_BLACK);
+            } else {
+                display.display.setTextColor(GxEPD_WHITE);
+            }
+            display.display.setCursor(x + 5, startY + barHeight + 20);
+            display.display.print(colorLabels[i]);
+            display.display.setTextColor(GxEPD_BLACK); // Reset
+
+            x += barWidth + spacing;
+
+            // Move to second row if needed
+            if (i == 3 && x > 600) {
+                x = 50;
+                startY += barHeight + 50;
+            }
+        }
+        #endif
+
+    } while (display.nextPage());
+
+    Serial.println("Color/Dithering test displayed!");
+    Serial.println("========================================\n");
 }
 
 #endif // DEBUG_DISPLAY

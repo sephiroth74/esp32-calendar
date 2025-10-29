@@ -1,10 +1,14 @@
 #ifndef CALENDAR_FETCHER_H
 #define CALENDAR_FETCHER_H
 
+#ifdef NATIVE_TEST
+#include "mock_arduino.h"
+#else
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <LittleFS.h>
 #include <WiFiClient.h>
+#endif
 
 // Result structure for fetch operations
 struct FetchResult {

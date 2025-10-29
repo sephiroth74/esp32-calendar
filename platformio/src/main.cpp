@@ -33,6 +33,7 @@ ErrorCode lastError = ErrorCode::SUCCESS;
 void performUpdate();
 void enterDeepSleep(int retryMinutes = -1); // -1 means calculate next update hour
 void printWakeupReason();
+void clearCache();
 
 void setup()
 {
@@ -72,11 +73,12 @@ void setup()
         DEBUG_VERBOSE_PRINTLN("Button configured on pin " + String(BUTTON_PIN));
 
         // If the wakeup button is pressed for more than CONFIG_RESET_HOLD_TIME during boot, disable the deep sleep
-        if (enableDeepSleep && digitalRead(BUTTON_PIN) == HIGH) {
+        if (digitalRead(BUTTON_PIN) == HIGH) {
             DEBUG_WARN_PRINTLN("Button held during boot... ");
             delay(CONFIG_RESET_HOLD_TIME);
             if (digitalRead(BUTTON_PIN) == HIGH) {
-                DEBUG_WARN_PRINTLN("Button held during boot! Disabling deep sleep.");
+                DEBUG_WARN_PRINTLN("Button held long enough! Clearing cache and disabling deep sleep.");
+                clearCache();
                 enableDeepSleep = false;
             }
         }
@@ -344,6 +346,8 @@ void performUpdate()
         DEBUG_INFO_PRINTLN("Events prepared for display");
     }
 
+    bool isStale = calendarManager->isAnyCalendarStale();
+
     // Update display
     DEBUG_INFO_PRINTLN("\n--- Display Update ---");
     displayMgr.showCalendar(events, currentDate, currentTime,
@@ -351,7 +355,8 @@ void performUpdate()
         wifiManager.isConnected(),
         wifiManager.getRSSI(),
         batteryMonitor.getVoltage(),
-        batteryMonitor.getPercentage());
+        batteryMonitor.getPercentage(),
+        isStale);
 
     DEBUG_INFO_PRINTLN("Display update complete");
 
@@ -363,6 +368,46 @@ void performUpdate()
     delete calendarManager;
     calendarManager = nullptr;
     delete client;
+}
+
+void clearCache() {
+    DEBUG_INFO_PRINTLN("Clearing cache directory...");
+    if (!LittleFS.begin(false)) {
+        DEBUG_ERROR_PRINTLN("Failed to mount LittleFS for cache clearing.");
+        return;
+    }
+
+    if (!LittleFS.exists("/cache")) {
+        DEBUG_INFO_PRINTLN("Cache directory does not exist. Nothing to clear.");
+        return;
+    }
+
+    File cacheDir = LittleFS.open("/cache");
+    if (!cacheDir) {
+        DEBUG_ERROR_PRINTLN("Failed to open cache directory.");
+        return;
+    }
+    if (!cacheDir.isDirectory()) {
+        DEBUG_ERROR_PRINTLN("/cache is not a directory.");
+        cacheDir.close();
+        return;
+    }
+
+    File file = cacheDir.openNextFile();
+    int count = 0;
+    while(file){
+        String fileName = file.name();
+        if (LittleFS.remove(fileName)) {
+            DEBUG_INFO_PRINTLN(" - Removed: " + fileName);
+            count++;
+        } else {
+            DEBUG_ERROR_PRINTLN(" - Failed to remove: " + fileName);
+        }
+        file.close();
+        file = cacheDir.openNextFile();
+    }
+    cacheDir.close();
+    DEBUG_INFO_PRINTLN("Cache cleared. " + String(count) + " files removed.");
 }
 
 void enterDeepSleep(int retryMinutes)

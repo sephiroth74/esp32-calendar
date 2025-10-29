@@ -1,7 +1,11 @@
 #ifndef STRING_UTILS_H
 #define STRING_UTILS_H
 
+#ifdef NATIVE_TEST
+#include "mock_arduino.h"
+#else
 #include <Arduino.h>
+#endif
 
 class StringUtils {
 public:
