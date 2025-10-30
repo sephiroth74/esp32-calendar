@@ -6,6 +6,8 @@
 #include <cstring>
 #include <cstdint>
 #include <ctime>
+#include <iostream>
+#include <cstdio>
 
 // Arduino String class mock
 class String {
@@ -14,7 +16,9 @@ public:
     String(const char* str) : buffer(str ? str : "") {}
     String(const std::string& str) : buffer(str) {}
     String(int val) : buffer(std::to_string(val)) {}
-    String(size_t val) : buffer(std::to_string(val)) {}
+    String(unsigned int val) : buffer(std::to_string(val)) {}
+    String(long val) : buffer(std::to_string(val)) {}
+    String(unsigned long val) : buffer(std::to_string(val)) {}
 
     const char* c_str() const { return buffer.c_str(); }
     size_t length() const { return buffer.length(); }
@@ -156,15 +160,26 @@ private:
 class MockSerial {
 public:
     void begin(int baudrate) {}
-    void println(const String& str) {}
-    void println(const char* str) {}
-    void println(int val) {}
-    void print(const String& str) {}
-    void print(const char* str) {}
+    void println(const String& str) {
+        std::cout << str.c_str() << std::endl;
+    }
+    void println(const char* str) {
+        std::cout << str << std::endl;
+    }
+    void println(int val) {
+        std::cout << val << std::endl;
+    }
+    void print(const String& str) {
+        std::cout << str.c_str();
+    }
+    void print(const char* str) {
+        std::cout << str;
+    }
 
     template<typename... Args>
     void printf(const char* format, Args... args) {
-        // Mock implementation - just ignore for testing
+        std::printf(format, args...);
+        std::fflush(stdout);
     }
 };
 
@@ -247,6 +262,10 @@ public:
 
     void flush() {
         // Mock implementation - do nothing
+    }
+
+    size_t size() const {
+        return content.length();
     }
 
     // For testing purposes

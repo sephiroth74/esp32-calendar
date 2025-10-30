@@ -33,7 +33,7 @@ FilteredEvents* CalendarStreamParser::fetchEventsInRange(const String& url,
     DEBUG_INFO_PRINTLN("=== Stream Parsing Calendar ===");
     DEBUG_INFO_PRINTLN("URL: " + url);
     DEBUG_INFO_PRINTLN("Date range: " + String(startDate) + " to " + String(endDate));
-    DEBUG_INFO_PRINTLN("Max events: " + String(maxEvents));
+    DEBUG_INFO_PRINTLN("Max events: " + String((unsigned long)maxEvents));
 
 
     auto eventCallback = [&](CalendarEvent* event) {
@@ -59,7 +59,7 @@ FilteredEvents* CalendarStreamParser::fetchEventsInRange(const String& url,
                   return a->startTime < b->startTime;
               });
 
-    DEBUG_INFO_PRINTLN("Parsing complete: " + String(result->totalFiltered) + " events filtered");
+    DEBUG_INFO_PRINTLN("Parsing complete: " + String((unsigned long)result->totalFiltered) + " events filtered");
     return result;
 }
 
@@ -176,14 +176,21 @@ bool CalendarStreamParser::streamParse(const String& url,
                         eventCount++;
                         if (event->isRecurring) {
                             std::vector<CalendarEvent*> expanded = expandRecurringEvent(event, startDate, endDate);
+                            int expandedCount = 0;
                             for (auto expandedEvent : expanded) {
                                 if (isEventInRange(expandedEvent, startDate, endDate)) {
                                     callback(expandedEvent);
                                     eventsFiltered++;
+                                    expandedCount++;
                                 }
                                 else {
                                     delete expandedEvent;
                                 }
+                            }
+                            // Debug: show recurring event expansion
+                            if (expandedCount > 0) {
+                                DEBUG_VERBOSE_PRINTF(">>> Recurring event expanded: '%s' (RRULE: %s) → %d occurrences\n",
+                                             event->summary.c_str(), event->rrule.c_str(), expandedCount);
                             }
                             delete event;
                         } else if (isEventInRange(event, startDate, endDate)) {
@@ -235,7 +242,7 @@ bool CalendarStreamParser::streamParse(const String& url,
         cacheFile.flush(); // Ensure all data is written
         size_t cacheSize = cacheFile.size();
         cacheFile.close();
-        DEBUG_INFO_PRINTLN(">>> Cache file closed, size: " + String(cacheSize) + " bytes written to disk");
+        DEBUG_INFO_PRINTLN(">>> Cache file closed, size: " + String((unsigned long)cacheSize) + " bytes written to disk");
     }
 
     fetcher->endStream();
@@ -368,47 +375,59 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandRecurringEvent(CalendarE
                                                                        time_t endDate) {
     std::vector<CalendarEvent*> occurrences;
 
+    // Sanity checks
     if (!event || event->rrule.isEmpty()) {
         return occurrences;
     }
 
+    if (startDate >= endDate) {
+        DEBUG_WARN_PRINTLN(">>> expandRecurringEvent: Invalid date range (startDate >= endDate)");
+        return occurrences;
+    }
+
+    if (endDate - startDate > 63072000) {  // More than 2 years (730 days)
+        DEBUG_WARN_PRINTLN(">>> expandRecurringEvent: Date range too large (> 2 years), limiting expansion");
+        endDate = startDate + 63072000;  // Limit to 2 years
+    }
+
+    // Get original event time components
+    struct tm originalTm;
+    memcpy(&originalTm, localtime(&event->startTime), sizeof(struct tm));
+    int originalDay = originalTm.tm_mday;
+    int originalMonth = originalTm.tm_mon;
+    int originalHour = originalTm.tm_hour;
+    int originalMin = originalTm.tm_min;
+    int originalSec = originalTm.tm_sec;
+
+    // Get start/end date components
+    struct tm startTm, endTm;
+    memcpy(&startTm, localtime(&startDate), sizeof(struct tm));
+    memcpy(&endTm, localtime(&endDate), sizeof(struct tm));
+
+    time_t duration = event->endTime - event->startTime;
 
     // Parse RRULE for different frequencies
     if (event->rrule.indexOf("FREQ=YEARLY") != -1) {
-        // Get the original event date
-        struct tm* eventTm = localtime(&event->startTime);
-        int eventMonth = eventTm->tm_mon;
-        int eventDay = eventTm->tm_mday;
-        int eventHour = eventTm->tm_hour;
-        int eventMin = eventTm->tm_min;
+        // Yearly: Set event month/day to current year, check if in range
+        int startYear = startTm.tm_year + 1900;
+        int endYear = endTm.tm_year + 1900;
 
-        // Get current year from startDate
-        struct tm* startTm = localtime(&startDate);
-        int startYear = startTm->tm_year + 1900;
-
-        struct tm* endTm = localtime(&endDate);
-        int endYear = endTm->tm_year + 1900;
-
-        // Check for occurrences in the current year and next year if needed
-        for (int year = startYear; year <= endYear + 1; year++) {  // Check one extra year
-            // Create occurrence for this year
+        for (int year = startYear; year <= endYear; year++) {
             struct tm occurrenceTm = {0};
             occurrenceTm.tm_year = year - 1900;
-            occurrenceTm.tm_mon = eventMonth;
-            occurrenceTm.tm_mday = eventDay;
-            occurrenceTm.tm_hour = eventHour;
-            occurrenceTm.tm_min = eventMin;
+            occurrenceTm.tm_mon = originalMonth;
+            occurrenceTm.tm_mday = originalDay;
+            occurrenceTm.tm_hour = originalHour;
+            occurrenceTm.tm_min = originalMin;
+            occurrenceTm.tm_sec = originalSec;
 
             time_t occurrenceTime = mktime(&occurrenceTm);
 
-            // Check if this occurrence is in the requested range
             if (occurrenceTime >= startDate && occurrenceTime <= endDate) {
                 CalendarEvent* occurrence = new CalendarEvent(*event);
                 occurrence->startTime = occurrenceTime;
-                occurrence->endTime = event->endTime == event->startTime ? occurrenceTime :
-                                    occurrenceTime + (event->endTime - event->startTime);
+                occurrence->endTime = occurrenceTime + duration;
 
-                // Update the date string for the occurrence
                 char dateBuffer[32];
                 strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", &occurrenceTm);
                 occurrence->date = String(dateBuffer);
@@ -416,41 +435,117 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandRecurringEvent(CalendarE
                 occurrences.push_back(occurrence);
             }
         }
-    } else if (event->rrule.indexOf("FREQ=MONTHLY") != -1 || event->rrule.indexOf("FREQ=WEEKLY") != -1 ||
-               event->rrule.indexOf("FREQ=DAILY") != -1) {
-        // For other recurring patterns, check if the original event is in range
-        // and create occurrences accordingly
+    } else if (event->rrule.indexOf("FREQ=MONTHLY") != -1) {
+        // Monthly: Set event year/month to start range, advance month by month
+        struct tm occurrenceTm = {0};
+        occurrenceTm.tm_year = startTm.tm_year;
+        occurrenceTm.tm_mon = startTm.tm_mon;
+        occurrenceTm.tm_mday = originalDay;
+        occurrenceTm.tm_hour = originalHour;
+        occurrenceTm.tm_min = originalMin;
+        occurrenceTm.tm_sec = originalSec;
 
-        // For now, just add if original is in range or close to range
-        time_t eventTime = event->startTime;
+        int maxIterations = 24;  // Max 2 years of monthly events
+        for (int i = 0; i < maxIterations; i++) {
+            time_t occurrenceTime = mktime(&occurrenceTm);
 
-        // Check up to 1 year of occurrences
-        for (int i = 0; i < 365 && eventTime <= endDate + 86400; i++) {
-            if (eventTime >= startDate && eventTime <= endDate) {
+            if (occurrenceTime > endDate) break;
+
+            if (occurrenceTime >= startDate) {
                 CalendarEvent* occurrence = new CalendarEvent(*event);
-                occurrence->startTime = eventTime;
-                occurrence->endTime = event->endTime == event->startTime ? eventTime :
-                                    eventTime + (event->endTime - event->startTime);
+                occurrence->startTime = occurrenceTime;
+                occurrence->endTime = occurrenceTime + duration;
 
-                // Update the date string
-                struct tm* timeTm = localtime(&eventTime);
                 char dateBuffer[32];
-                strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", timeTm);
+                strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", &occurrenceTm);
                 occurrence->date = String(dateBuffer);
 
                 occurrences.push_back(occurrence);
             }
 
-            // Move to next occurrence based on frequency
-            if (event->rrule.indexOf("FREQ=DAILY") != -1) {
-                eventTime += 86400;  // Add 1 day
-            } else if (event->rrule.indexOf("FREQ=WEEKLY") != -1) {
-                eventTime += 604800;  // Add 7 days
-            } else if (event->rrule.indexOf("FREQ=MONTHLY") != -1) {
-                eventTime += 2592000;  // Add 30 days (approximate)
-            } else {
-                break;  // Unknown frequency
+            // Advance to next month
+            occurrenceTm.tm_mon++;
+            if (occurrenceTm.tm_mon > 11) {
+                occurrenceTm.tm_mon = 0;
+                occurrenceTm.tm_year++;
             }
+        }
+    } else if (event->rrule.indexOf("FREQ=WEEKLY") != -1) {
+        // Weekly: Set event to start range day of week, advance by weeks
+        struct tm occurrenceTm = {0};
+        occurrenceTm.tm_year = startTm.tm_year;
+        occurrenceTm.tm_mon = startTm.tm_mon;
+        occurrenceTm.tm_mday = startTm.tm_mday;
+        occurrenceTm.tm_hour = originalHour;
+        occurrenceTm.tm_min = originalMin;
+        occurrenceTm.tm_sec = originalSec;
+
+        // Normalize to get the correct day of week
+        mktime(&occurrenceTm);
+
+        // Find the first occurrence on or after startDate with the same day of week
+        int originalDayOfWeek = originalTm.tm_wday;
+        int daySearchLimit = 7;  // Safety: max 7 days to find matching weekday
+        for (int i = 0; i < daySearchLimit && occurrenceTm.tm_wday != originalDayOfWeek; i++) {
+            occurrenceTm.tm_mday++;
+            mktime(&occurrenceTm);
+        }
+
+        int maxIterations = 104;  // Max 2 years of weekly events
+        for (int i = 0; i < maxIterations; i++) {
+            time_t occurrenceTime = mktime(&occurrenceTm);
+
+            if (occurrenceTime > endDate) break;
+
+            if (occurrenceTime >= startDate) {
+                CalendarEvent* occurrence = new CalendarEvent(*event);
+                occurrence->startTime = occurrenceTime;
+                occurrence->endTime = occurrenceTime + duration;
+
+                char dateBuffer[32];
+                strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", &occurrenceTm);
+                occurrence->date = String(dateBuffer);
+
+                occurrences.push_back(occurrence);
+            }
+
+            // Advance by 7 days
+            occurrenceTm.tm_mday += 7;
+            mktime(&occurrenceTm);  // Normalize
+        }
+    } else if (event->rrule.indexOf("FREQ=DAILY") != -1) {
+        // Daily: Every day from start to end range
+        struct tm occurrenceTm = {0};
+        occurrenceTm.tm_year = startTm.tm_year;
+        occurrenceTm.tm_mon = startTm.tm_mon;
+        occurrenceTm.tm_mday = startTm.tm_mday;
+        occurrenceTm.tm_hour = originalHour;
+        occurrenceTm.tm_min = originalMin;
+        occurrenceTm.tm_sec = originalSec;
+
+        // Calculate exact iterations needed based on date range (inclusive), coerced to [1, 365]
+        int daysDiff = (endDate - startDate) / 86400 + 1;  // +1 for inclusive range
+        int maxIterations = std::max(1, std::min(daysDiff, 365));
+        for (int i = 0; i < maxIterations; i++) {
+            time_t occurrenceTime = mktime(&occurrenceTm);
+
+            if (occurrenceTime > endDate) break;
+
+            if (occurrenceTime >= startDate) {
+                CalendarEvent* occurrence = new CalendarEvent(*event);
+                occurrence->startTime = occurrenceTime;
+                occurrence->endTime = occurrenceTime + duration;
+
+                char dateBuffer[32];
+                strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", &occurrenceTm);
+                occurrence->date = String(dateBuffer);
+
+                occurrences.push_back(occurrence);
+            }
+
+            // Advance by 1 day
+            occurrenceTm.tm_mday++;
+            mktime(&occurrenceTm);  // Normalize
         }
     } else {
         // For events without recognized RRULE or non-recurring, just check if in range

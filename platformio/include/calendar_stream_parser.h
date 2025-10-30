@@ -97,6 +97,11 @@ public:
     void setCalendarColor(uint16_t color) { calendarColor = color; }
     void setCalendarName(const String& name) { calendarName = name; }
 
+    // Expand recurring events for the date range (public for testing)
+    std::vector<CalendarEvent*> expandRecurringEvent(CalendarEvent* event,
+                                                     time_t startDate,
+                                                     time_t endDate);
+
 private:
     bool debug;
     uint16_t calendarColor;
@@ -116,11 +121,6 @@ private:
 
     // Check if event is within date range
     bool isEventInRange(CalendarEvent* event, time_t startDate, time_t endDate);
-
-    // Expand recurring events for the date range
-    std::vector<CalendarEvent*> expandRecurringEvent(CalendarEvent* event,
-                                                     time_t startDate,
-                                                     time_t endDate);
 
     // Parse a line from stream
     String readLineFromStream(Stream* stream, bool& eof);
