@@ -35,10 +35,23 @@ void enterDeepSleep(int retryMinutes = -1); // -1 means calculate next update ho
 void printWakeupReason();
 void clearCache();
 
+// RGB LED control functions
+#ifdef RGB_LED_PIN
+void initRGBLED();
+void setRGBLED(bool red, bool green, bool blue);
+void turnOffRGBLED();
+#endif
+
 void setup()
 {
     Serial.begin(115200);
     delay(1000);
+
+    // Initialize RGB LED if defined
+#ifdef RGB_LED_PIN
+    initRGBLED();
+    setRGBLED(false, true, false); // Turn on green LED at startup
+#endif
 
     Serial.println("\n\n" + String(PROJECT_NAME) + " v" + VERSION);
     Serial.println("Build: " + String(__DATE__) + " " + String(__TIME__));
@@ -480,6 +493,11 @@ void enterDeepSleep(int retryMinutes)
     // Disconnect WiFi
     wifiManager.disconnect();
 
+    // Turn off RGB LED before sleep
+#ifdef RGB_LED_PIN
+    turnOffRGBLED();
+#endif
+
     DEBUG_INFO_PRINTLN("Going to sleep...");
     Serial.flush();
 
@@ -540,5 +558,66 @@ void printWakeupReason()
     }
     DEBUG_INFO_PRINTLN("=======================\n");
 }
+
+// =============================================================================
+// RGB LED Control Functions (ESP32 Built-in neopixelWrite)
+// =============================================================================
+
+#ifdef RGB_LED_PIN
+
+/**
+ * Initialize RGB LED
+ * No initialization needed - neopixelWrite is built into ESP32 Arduino core
+ */
+void initRGBLED()
+{
+    turnOffRGBLED();  // Start with LED off
+    DEBUG_VERBOSE_PRINTLN("RGB LED initialized on pin " + String(RGB_LED_PIN) + " (using neopixelWrite)");
+}
+
+/**
+ * Set RGB LED color using ESP32 built-in neopixelWrite()
+ *
+ * @param red Enable red color
+ * @param green Enable green color
+ * @param blue Enable blue color
+ */
+void setRGBLED(bool red, bool green, bool blue)
+{
+    uint8_t r = red ? RGB_LED_BRIGHTNESS : 0;
+    uint8_t g = green ? RGB_LED_BRIGHTNESS : 0;
+    uint8_t b = blue ? RGB_LED_BRIGHTNESS : 0;
+
+    neopixelWrite(RGB_LED_PIN, r, g, b);
+
+    DEBUG_VERBOSE_PRINT("RGB LED: ");
+    if (red && !green && !blue) {
+        DEBUG_VERBOSE_PRINTLN("RED");
+    } else if (!red && green && !blue) {
+        DEBUG_VERBOSE_PRINTLN("GREEN");
+    } else if (!red && !green && blue) {
+        DEBUG_VERBOSE_PRINTLN("BLUE");
+    } else if (red && green && !blue) {
+        DEBUG_VERBOSE_PRINTLN("YELLOW");
+    } else if (red && !green && blue) {
+        DEBUG_VERBOSE_PRINTLN("MAGENTA");
+    } else if (!red && green && blue) {
+        DEBUG_VERBOSE_PRINTLN("CYAN");
+    } else if (red && green && blue) {
+        DEBUG_VERBOSE_PRINTLN("WHITE");
+    } else {
+        DEBUG_VERBOSE_PRINTLN("OFF");
+    }
+}
+
+/**
+ * Turn off RGB LED
+ */
+void turnOffRGBLED()
+{
+    neopixelWrite(RGB_LED_PIN, 0, 0, 0);
+    DEBUG_VERBOSE_PRINTLN("RGB LED: Turned OFF");
+}
+#endif
 
 #endif // DEBUG_DISPLAY

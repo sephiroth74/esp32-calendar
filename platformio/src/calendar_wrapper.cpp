@@ -22,16 +22,26 @@ void CalendarWrapper::clearCache() {
 }
 
 String CalendarWrapper::getCacheFilename() const {
-    // Generate a simple cache filename from the URL
-    String filename = config.url;
-    filename.replace("://", "_");
-    filename.replace("/", "_");
-    filename.replace(".", "_");
+    // Generate a unique cache filename using a simple hash of the URL
+    // This prevents filename collisions when multiple calendars have similar URLs
 
-    // Truncate if too long
-    if (filename.length() > 30) {
-        filename = filename.substring(0, 30);
+    unsigned long hash = 5381;
+    for (unsigned int i = 0; i < config.url.length(); i++) {
+        hash = ((hash << 5) + hash) + config.url[i]; // hash * 33 + c
     }
+
+    // Create a safe filename from the calendar name (first 15 chars)
+    String safeName = config.name;
+    safeName.replace(" ", "_");
+    safeName.replace("/", "_");
+    safeName.replace("\\", "_");
+    safeName.replace(":", "_");
+    if (safeName.length() > 15) {
+        safeName = safeName.substring(0, 15);
+    }
+
+    // Combine safe name with hash for uniqueness
+    String filename = safeName + "_" + String(hash, HEX);
 
     return "/cache/" + filename + ".ics";
 }

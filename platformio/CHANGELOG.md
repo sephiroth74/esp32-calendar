@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.6] - 2025-10-29
 
 ### Added
+- **RGB LED Status Indicator** - Optional visual update status indicator using ESP32 built-in support
+  - Define `RGB_LED_PIN` in config.h to enable (default: GPIO 21)
+  - Uses ESP32's built-in `neopixelWrite()` function - no external library needed
+  - Compatible with WS2812B/NeoPixel addressable RGB LEDs
+  - Green LED turns on during entire update cycle (WiFi, calendar fetch, display update)
+  - LED automatically turns off before entering deep sleep
+  - Brightness set to 20% (50/255) for low power consumption
+  - Full RGB color support ready for future status enhancements (red for errors, yellow for warnings, etc.)
+  - Simple API: `setRGBLED(red, green, blue)` for easy color control
+  - Zero library overhead - uses native ESP32 Arduino core functions
 - **Display Capabilities Test** - New debug menu option (16) to test display
   - Shows comprehensive display information: resolution, pages, color support
   - Displays partial update and fast partial update capabilities
@@ -16,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - For B&W displays: Shows 4 dithering levels (10%, 25%, 50%, 75%) plus Black/White/Dark Grey/Light Grey
   - For color displays: Shows all 7 colors (Black, White, Red, Yellow, Orange, Dark Grey, Light Grey)
   - Two-stage test: info screen first, then color/dithering test after keypress
+- **CALENDAR_SPECS.md** - Comprehensive technical documentation
+  - Complete ICS calendar parsing specifications
+  - RFC 5545 compliance matrix
+  - Parsing architecture diagrams
+  - Memory management details
+  - Date/time handling documentation
+  - Known limitations and future roadmap
 
 ### Fixed
 - **Native Tests** - Fixed all compiler errors and infinite loops in native test environment
@@ -31,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **TeeStream Implementation** - Added virtual destructor and readString() method
 - **Mock String Class** - Enhanced with bounds checking and safer character access
-- **Test Infrastructure** - Disabled outdated `test_calendar_stream_parser.cpp` (tested old API)
+- **Test Infrastructure** - Rewrote `test_calendar_stream_parser.cpp` for current API (48 total tests, 192 assertions)
+- **Documentation Consolidation** - Removed BIRTHDAY_SETUP.md and RECURRING_EVENTS.md (merged into CALENDAR_SPECS.md)
 
 ## [1.7.5] - 2025-10-25
 

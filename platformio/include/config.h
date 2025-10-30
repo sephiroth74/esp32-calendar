@@ -303,4 +303,11 @@
 // How long to hold the button to reset WiFi configuration during runtime
 #define CONFIG_RESET_HOLD_TIME 3000
 
+// =============================================================================
+// NeoPixel RGB LED CONFIGURATION
+// =============================================================================
+#define RGB_LED_PIN 21 // GPIO pin for RGB LED (if used)
+
+#define RGB_LED_BRIGHTNESS 50 // About 20% brightness for power efficiency
+
 #endif // CONFIG_H

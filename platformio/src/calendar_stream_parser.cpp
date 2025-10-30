@@ -4,6 +4,7 @@
 
 #include "calendar_stream_parser.h"
 #include "calendar_fetcher.h"
+#include "debug_config.h"
 #include "tee_stream.h"
 #include <algorithm>
 
@@ -28,12 +29,12 @@ FilteredEvents* CalendarStreamParser::fetchEventsInRange(const String& url,
                                                          const String& cachePath) {
     FilteredEvents* result = new FilteredEvents();
 
-    if (debug) {
-        Serial.println("=== Stream Parsing Calendar ===");
-        Serial.println("URL: " + url);
-        Serial.printf("Date range: %ld to %ld\n", startDate, endDate);
-        Serial.printf("Max events: %d\n", maxEvents);
-    }
+
+    DEBUG_INFO_PRINTLN("=== Stream Parsing Calendar ===");
+    DEBUG_INFO_PRINTLN("URL: " + url);
+    DEBUG_INFO_PRINTLN("Date range: " + String(startDate) + " to " + String(endDate));
+    DEBUG_INFO_PRINTLN("Max events: " + String(maxEvents));
+
 
     auto eventCallback = [&](CalendarEvent* event) {
         if (result->events.size() < maxEvents || maxEvents == 0) {
@@ -58,10 +59,7 @@ FilteredEvents* CalendarStreamParser::fetchEventsInRange(const String& url,
                   return a->startTime < b->startTime;
               });
 
-    if (debug) {
-        Serial.printf("Parsing complete: %d events filtered\n", result->totalFiltered);
-    }
-
+    DEBUG_INFO_PRINTLN("Parsing complete: " + String(result->totalFiltered) + " events filtered");
     return result;
 }
 
@@ -77,7 +75,7 @@ bool CalendarStreamParser::streamParse(const String& url,
     // Get stream from fetcher
     Stream* httpStream = fetcher->fetchStream(url);
     if (!httpStream) {
-        if (debug) Serial.println("Error: Failed to open stream");
+        DEBUG_ERROR_PRINTLN("Error: Failed to open stream");
         return false;
     }
 
@@ -89,15 +87,24 @@ bool CalendarStreamParser::streamParse(const String& url,
 
     if (isRemote && !cachePath.isEmpty()) {
         if (!LittleFS.exists("/cache")) {
-            LittleFS.mkdir("/cache");
+            DEBUG_INFO_PRINTLN(">>> Cache directory doesn't exist, creating /cache");
+            if (LittleFS.mkdir("/cache")) {
+                DEBUG_VERBOSE_PRINTLN(">>> Cache directory created successfully");
+            } else {
+                DEBUG_WARN_PRINTLN(">>> WARNING: Failed to create cache directory");
+            }
         }
+
+        DEBUG_INFO_PRINTLN(">>> Opening cache file for writing: " + cachePath);
         cacheFile = LittleFS.open(cachePath, "w");
         if (cacheFile) {
-            if (debug) Serial.println("Caching to: " + cachePath);
+            DEBUG_VERBOSE_PRINTLN(">>> Cache file opened successfully for writing");
+            DEBUG_VERBOSE_PRINTLN("Caching to: " + cachePath);
             teeStream = new TeeStream(*httpStream, cacheFile);
             finalStream = teeStream;
         } else {
-            if (debug) Serial.println("Warning: Could not open cache file " + cachePath);
+            DEBUG_ERROR_PRINTLN(">>> ERROR: Could not open cache file for writing: " + cachePath);
+            DEBUG_WARN_PRINTLN("Warning: Could not open cache file " + cachePath);
         }
     }
 
@@ -106,18 +113,45 @@ bool CalendarStreamParser::streamParse(const String& url,
     String eventBuffer = "";
     bool eof = false;
     int eventCount = 0;
+    int lineCount = 0;
+    int eventsFiltered = 0;
+    int eventsRejected = 0;
     bool parseSuccess = true;
+
+    // Convert timestamps to readable dates for debugging
+    char dateStartStr[32], dateEndStr[32];
+    struct tm tmStartCopy, tmEndCopy;
+
+    // localtime() returns pointer to static buffer, so we need to copy before second call
+    struct tm* tmStart = localtime(&startDate);
+    memcpy(&tmStartCopy, tmStart, sizeof(struct tm));
+
+    struct tm* tmEnd = localtime(&endDate);
+    memcpy(&tmEndCopy, tmEnd, sizeof(struct tm));
+
+    strftime(dateStartStr, sizeof(dateStartStr), "%Y-%m-%d", &tmStartCopy);
+    strftime(dateEndStr, sizeof(dateEndStr), "%Y-%m-%d", &tmEndCopy);
+
+    DEBUG_INFO_PRINTLN(">>> Starting stream parsing...");
+    DEBUG_INFO_PRINTLN(">>> Date range filter: " + String(dateStartStr) + " (" + String(startDate) + ") to " + String(dateEndStr) + " (" + String(endDate) + ")");
 
     while (!eof && state != DONE) {
         currentLine = readLineFromStream(finalStream, eof);
+        lineCount++;
 
         if (currentLine.isEmpty() && !eof) {
             continue;
         }
 
+        // Progress update every 100 lines
+        if (lineCount % 100 == 0) {
+            DEBUG_VERBOSE_PRINTLN(">>> Parse progress: " + String(lineCount) + " lines read, " + String(eventCount) + " events parsed, " + String(eventsFiltered) + " events filtered");
+        }
+
         switch (state) {
             case LOOKING_FOR_CALENDAR:
                 if (currentLine.indexOf("BEGIN:VCALENDAR") != -1) {
+                    DEBUG_VERBOSE_PRINTLN(">>> Found BEGIN:VCALENDAR");
                     state = IN_HEADER;
                 }
                 break;
@@ -127,6 +161,7 @@ bool CalendarStreamParser::streamParse(const String& url,
                     eventBuffer = currentLine + "\n";
                     state = IN_EVENT;
                 } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
+                    DEBUG_VERBOSE_PRINTLN(">>> Found END:VCALENDAR");
                     state = DONE;
                 }
                 break;
@@ -138,11 +173,13 @@ bool CalendarStreamParser::streamParse(const String& url,
                     // Parse event
                     CalendarEvent* event = parseEventFromBuffer(eventBuffer);
                     if (event) {
+                        eventCount++;
                         if (event->isRecurring) {
                             std::vector<CalendarEvent*> expanded = expandRecurringEvent(event, startDate, endDate);
                             for (auto expandedEvent : expanded) {
                                 if (isEventInRange(expandedEvent, startDate, endDate)) {
                                     callback(expandedEvent);
+                                    eventsFiltered++;
                                 }
                                 else {
                                     delete expandedEvent;
@@ -151,10 +188,18 @@ bool CalendarStreamParser::streamParse(const String& url,
                             delete event;
                         } else if (isEventInRange(event, startDate, endDate)) {
                             callback(event);
+                            eventsFiltered++;
                         } else {
+                            // Event rejected - show first few for debugging
+                            if (eventsRejected < 3) {
+                                struct tm* tmEvent = localtime(&event->startTime);
+                                char eventDateStr[32];
+                                strftime(eventDateStr, sizeof(eventDateStr), "%Y-%m-%d", tmEvent);
+                                DEBUG_WARN_PRINTLN(">>> Event rejected (out of range): '" + event->summary + "' on " + String(eventDateStr) + " (" + String(event->startTime) + ")");
+                            }
+                            eventsRejected++;
                             delete event;
                         }
-                        eventCount++;
                     }
 
                     eventBuffer = "";
@@ -164,6 +209,7 @@ bool CalendarStreamParser::streamParse(const String& url,
                         delay(1);
                     }
                 } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
+                    DEBUG_WARN_PRINTLN(">>> Found END:VCALENDAR (unexpected in event)");
                     state = DONE;
                 }
                 break;
@@ -173,17 +219,23 @@ bool CalendarStreamParser::streamParse(const String& url,
         }
 
         if (eventBuffer.length() > 8192) {
+            DEBUG_ERROR_PRINTLN(">>> ERROR: Event buffer exceeded 8192 bytes, skipping event");
             eventBuffer = "";
             state = IN_HEADER;
             parseSuccess = false; // Indicate an error
         }
     }
 
+    DEBUG_INFO_PRINTLN(">>> Stream parsing complete: " + String(lineCount) + " lines read, " + String(eventCount) + " events parsed, " + String(eventsFiltered) + " events filtered, " + String(eventsRejected) + " events rejected");
+
     if (teeStream) {
         delete teeStream;
     }
     if (cacheFile) {
+        cacheFile.flush(); // Ensure all data is written
+        size_t cacheSize = cacheFile.size();
         cacheFile.close();
+        DEBUG_INFO_PRINTLN(">>> Cache file closed, size: " + String(cacheSize) + " bytes written to disk");
     }
 
     fetcher->endStream();
@@ -490,10 +542,8 @@ std::vector<CalendarEvent*> OptimizedCalendarManager::getEventsForRange(time_t s
                                                                         size_t maxEventsPerCalendar) {
     // Check cache first
     if (cacheEnabled && isCacheValid(startDate, endDate)) {
-        if (debug) {
-            Serial.println("Using cached events");
-        }
-        // Return copy of cached events
+        DEBUG_INFO_PRINTLN("Using cached events");
+        /// Return copy of cached events
         std::vector<CalendarEvent*> result;
         for (auto event : cachedEvents) {
             result.push_back(new CalendarEvent(*event));
@@ -511,11 +561,7 @@ std::vector<CalendarEvent*> OptimizedCalendarManager::getEventsForRange(time_t s
         if (!calendars[i].enabled) {
             continue;
         }
-
-        if (debug) {
-            Serial.println("Fetching from: " + calendars[i].name);
-        }
-
+        DEBUG_INFO_PRINTLN("Fetching from: " + calendars[i].name);
         // Calculate date range based on calendar's days_to_fetch
         time_t calStartDate = startDate;
         time_t calEndDate = endDate;
