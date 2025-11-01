@@ -1,5 +1,15 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest.h>
+
+// Main function that runs all tests with verbose output
+int main(int argc, char** argv) {
+    doctest::Context context;
+    context.setOption("success", true);  // Show all successful tests
+    context.setOption("duration", true); // Show test durations
+    context.applyCommandLine(argc, argv);
+    int res = context.run();
+    return res;
+}
 #include "../mock_arduino.h"
 #include "string_utils.h"
 #include "../../src/string_utils.cpp"
@@ -25,6 +35,7 @@ TEST_SUITE("StringUtils") {
         CHECK(StringUtils::convertAccents("Università") == "Universita'");
         CHECK(StringUtils::convertAccents("Lunedì") == "Lunedi'");
         CHECK(StringUtils::convertAccents("È già mezzogiorno") == "E' gia' mezzogiorno");
+        CAPTURE(1);
     }
 
     TEST_CASE("convertAccents - Other European characters") {

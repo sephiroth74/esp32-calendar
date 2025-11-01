@@ -44,9 +44,9 @@
 
 // Display type selection - uncomment ONE option:
 // Option 1: Black & White display
-// #define DISP_TYPE_BW
+#define DISP_TYPE_BW
 // Option 2: 6-color display (Black, White, Red, Yellow, Orange, Green)
-#define DISP_TYPE_6C
+// #define DISP_TYPE_6C
 
 // =============================================================================
 // COLOR SCHEME CONFIGURATION (6-COLOR DISPLAYS ONLY)
@@ -120,10 +120,12 @@
 #define FONT_NO_EVENTS Luna_ITC_Regular14pt7b             // "No Events" message
 
 // Weather Section Fonts
-#define FONT_WEATHER_TEMP_MAIN Montserrat_Regular_14pt8b  // Main temperature display
+#define FONT_WEATHER_TEMP_MAIN Montserrat_Regular_11pt8b  // Main temperature display (reduced from 14pt)
 #define FONT_WEATHER_TEMP_HOURLY Montserrat_Regular_9pt8b // Hourly forecast temps
 #define FONT_WEATHER_TIME Ubuntu_R_9pt8b                  // Sunrise/sunset times
 #define FONT_WEATHER_MESSAGE Luna_ITC_Regular9pt7b        // Weather status messages
+#define FONT_WEATHER_LABEL Ubuntu_R_10pt8b                // Today/Tomorrow labels (reduced from 12pt)
+#define FONT_WEATHER_RAIN Ubuntu_R_9pt8b                  // Rain percentage display
 
 // Error Display Fonts
 #define FONT_ERROR_TITLE Luna_ITC_Std_Bold18pt7b         // Error title
@@ -297,7 +299,7 @@
 // Disable deep sleep for testing
 // When true, device stays awake to test button presses and configuration
 // Set to false for production use to enable battery-saving deep sleep
-#define DISABLE_DEEP_SLEEP false
+#define DISABLE_DEEP_SLEEP true
 
 // Configuration reset button hold time (milliseconds)
 // How long to hold the button to reset WiFi configuration during runtime

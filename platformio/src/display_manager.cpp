@@ -107,6 +107,30 @@ void DisplayManager::firstPage()
     display.firstPage();
 }
 
+void DisplayManager::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+{
+    display.fillRect(x, y, w, h, color);
+}
+
+void DisplayManager::drawInvertedBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color) {
+    display.drawInvertedBitmap(x, y, bitmap, w, h, color);
+}
+
+bool DisplayManager::hasColor()
+{
+    return display.epd2.hasColor;
+}
+
+bool DisplayManager::hasPartialUpdate()
+{
+    return display.epd2.hasPartialUpdate;
+}
+
+bool DisplayManager::hasFastPartialUpdate()
+{
+    return display.epd2.hasFastPartialUpdate;
+}
+
 void DisplayManager::setTextColor(uint16_t c)
 {
     display.setTextColor(c);
@@ -142,22 +166,6 @@ void DisplayManager::refresh(bool partial_update_mode)
 bool DisplayManager::nextPage()
 {
     return display.nextPage();
-}
-
-void DisplayManager::drawHeader(const String& currentDate, const String& currentTime)
-{
-    // Draw header with date and time
-    display.setFont(&FONT_HEADER_MONTH_YEAR);
-    display.setCursor(20, 35);
-    display.print(currentDate);
-
-    display.setFont(&FONT_EVENT_TITLE);
-    display.setCursor(DISPLAY_WIDTH - 150, 35);
-    display.print(currentTime);
-
-    // Draw horizontal line under header
-    display.drawLine(0, HEADER_HEIGHT, DISPLAY_WIDTH, HEADER_HEIGHT, GxEPD_BLACK);
-    display.drawLine(0, HEADER_HEIGHT + 1, DISPLAY_WIDTH, HEADER_HEIGHT + 1, GxEPD_BLACK);
 }
 
 void DisplayManager::drawModernHeader(int currentDay, const String& monthYear, const String& currentTime, const WeatherData* weatherData)
@@ -820,92 +828,88 @@ void DisplayManager::drawWeatherPlaceholder()
 
 void DisplayManager::drawWeatherForecast(const WeatherData& weatherData)
 {
-    // Draw weather forecast at bottom of right section
-    int x = RIGHT_START_X + 20;  // Align with events section
-    int y = WEATHER_START_Y + 6;  // Move down 6 pixels
-
-    // Display today's weather icon and min/max temperatures
-    if (!weatherData.dailyForecast.empty()) {
-        const WeatherDay& today = weatherData.dailyForecast[0];
-
-        // Draw weather icon for today (48x48)
-        WeatherClient tempClient(nullptr);
-        const uint8_t* todayIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 48);
-        if (todayIcon) {
-            // Position icon
-            int iconX = x + 10;  // Slightly offset from left
-            int iconY = y - 14;  // Moved down 6 pixels (was y - 20)
-#ifdef DISP_TYPE_6C
-            // Use red for weather icon on 6-color displays
-            display.drawInvertedBitmap(iconX, iconY, todayIcon, 48, 48, COLOR_WEATHER_ICON);
-#else
-            display.drawInvertedBitmap(iconX, iconY, todayIcon, 48, 48, GxEPD_BLACK);
-#endif
-        }
-
-        // Display min/max temperatures to the right of icon (moved down)
-        display.setFont(&FONT_WEATHER_TEMP_MAIN);
-        String tempRange = String(int(today.tempMin)) + "\260 / " + String(int(today.tempMax)) + "\260";
-        display.setCursor(x + 70, y + 15);  // Moved closer to icon and down
-        display.print(tempRange);
-    }
-
-    y += 40;  // Reduced spacing after removing sunrise/sunset
-
-    // Check if we have hourly data
-    if (weatherData.hourlyForecast.empty()) {
+    // Check if we have daily forecast data
+    if (weatherData.dailyForecast.empty()) {
         display.setFont(&FONT_WEATHER_MESSAGE);
-        display.setCursor(x, y + 20);
+        int x = RIGHT_START_X + 20;
+        int y = WEATHER_START_Y + 50;
+        display.setCursor(x, y);
         display.print(LOC_NO_WEATHER_DATA);
         return;
     }
 
-    // Draw 7 forecasts in a single line (covering 21 hours, one every 3 hours)
-    // Each item is approximately 54 pixels wide to fit 7 items
-    int itemWidth = 54;
-    int itemSpacing = 0;
-    int iconSize = 32;  // Larger 32x32 icons for better visibility
-    int startX = x - 10;  // Adjust to use full width
+    // Weather section dimensions
+    int sectionWidth = RIGHT_WIDTH - 40;  // Total width with margins
+    int halfWidth = sectionWidth / 2;     // Width for each day
+    int startX = RIGHT_START_X + 20;
+    int startY = WEATHER_START_Y + 10;
 
-    for (size_t i = 0; i < weatherData.hourlyForecast.size() && i < 7; i++) {
-        const WeatherHour& hour = weatherData.hourlyForecast[i];
+    WeatherClient tempClient(nullptr);
 
-        // Calculate position (single row)
-        int itemX = startX + (i * (itemWidth + itemSpacing));
-        int itemY = y + 2;  // Moved down 2 pixels
+    // Draw today's weather (left side)
+    if (weatherData.dailyForecast.size() > 0) {
+        const WeatherDay& today = weatherData.dailyForecast[0];
+        int x = startX;
+        int y = startY;
 
-        // Extract hour from time string (format: 2025-10-16T11:00)
-        String hourStr = hour.time.substring(11, 13);
-
-        // Display hour (smaller font)
-        display.setFont(nullptr); // Use default small font
-        int16_t x1, y1;
-        uint16_t w, h;
-        display.getTextBounds(hourStr, 0, 0, &x1, &y1, &w, &h);
-        display.setCursor(itemX + (itemWidth - w) / 2, itemY);
-        display.print(hourStr);
-
-        // Draw weather icon (centered)
-        int iconX = itemX + (itemWidth - iconSize) / 2;
-        int iconY = itemY + 8;
-
-        // Get the appropriate weather icon bitmap
-        const uint8_t* iconBitmap = nullptr;
-        WeatherClient tempClient(nullptr); // Temporary client just for icon access
-        iconBitmap = tempClient.getWeatherIconBitmap(hour.weatherCode, hour.isDay, iconSize);
-
-        if (iconBitmap) {
-            display.drawInvertedBitmap(iconX, iconY, iconBitmap, iconSize, iconSize, GxEPD_BLACK);
+        // Weather icon (64x64)
+        const uint8_t* todayIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 64);
+        if (todayIcon) {
+#ifdef DISP_TYPE_6C
+            display.drawInvertedBitmap(x, y, todayIcon, 64, 64, COLOR_WEATHER_ICON);
+#else
+            display.drawInvertedBitmap(x, y, todayIcon, 64, 64, GxEPD_BLACK);
+#endif
         }
 
-        // Display temperature (smaller font)
-        display.setFont(&FONT_WEATHER_TEMP_HOURLY);
-        String tempStr = String(int(hour.temperature)) + "\260";
-        display.getTextBounds(tempStr, 0, 0, &x1, &y1, &w, &h);
-        display.setCursor(itemX + (itemWidth - w) / 2, iconY + iconSize + 15);
-        display.print(tempStr);
+        // Label "Today" to the right of icon
+        display.setFont(&FONT_WEATHER_LABEL);
+        display.setCursor(x + 74, y + 15);
+        display.print(LOC_TODAY);
 
-        // Precipitation percentage removed to save space
+        // Rain percentage below label
+        display.setFont(&FONT_WEATHER_RAIN);
+        display.setCursor(x + 74, y + 35);
+        display.print(String(today.precipitationProbability) + "% " + LOC_RAIN);
+
+        // Min/Max temperature below rain percentage
+        display.setFont(&FONT_WEATHER_TEMP_MAIN);
+        String tempRange = String(int(today.tempMin)) + "\260 / " + String(int(today.tempMax)) + "\260";
+        display.setCursor(x + 74, y + 55);
+        display.print(tempRange);
+    }
+
+    // Draw tomorrow's weather (right side)
+    if (weatherData.dailyForecast.size() > 1) {
+        const WeatherDay& tomorrow = weatherData.dailyForecast[1];
+        int x = startX + halfWidth;
+        int y = startY;
+
+        // Weather icon (64x64)
+        const uint8_t* tomorrowIcon = tempClient.getWeatherIconBitmap(tomorrow.weatherCode, true, 64);
+        if (tomorrowIcon) {
+#ifdef DISP_TYPE_6C
+            display.drawInvertedBitmap(x, y, tomorrowIcon, 64, 64, COLOR_WEATHER_ICON);
+#else
+            display.drawInvertedBitmap(x, y, tomorrowIcon, 64, 64, GxEPD_BLACK);
+#endif
+        }
+
+        // Label "Tomorrow" to the right of icon
+        display.setFont(&FONT_WEATHER_LABEL);
+        display.setCursor(x + 74, y + 15);
+        display.print(LOC_TOMORROW);
+
+        // Rain percentage below label
+        display.setFont(&FONT_WEATHER_RAIN);
+        display.setCursor(x + 74, y + 35);
+        display.print(String(tomorrow.precipitationProbability) + "% " + LOC_RAIN);
+
+        // Min/Max temperature below rain percentage
+        display.setFont(&FONT_WEATHER_TEMP_MAIN);
+        String tempRange = String(int(tomorrow.tempMin)) + "\260 / " + String(int(tomorrow.tempMax)) + "\260";
+        display.setCursor(x + 74, y + 55);
+        display.print(tempRange);
     }
 }
 
@@ -914,348 +918,6 @@ void DisplayManager::drawDivider()
     // Draw thin vertical line between left and right sides
     // Stop before the bottom status bar area
     display.drawLine(SPLIT_X, 0, SPLIT_X, DISPLAY_HEIGHT - 40, GxEPD_BLACK);
-}
-
-void DisplayManager::drawMonthCalendar(const MonthCalendar& calendar, int x, int y,
-                                      const std::vector<CalendarEvent*>& events)
-{
-    // Local constants for old layout compatibility
-    const int CALENDAR_WIDTH = 400;
-    const int MONTH_HEADER_HEIGHT = 40;
-
-    // Draw month and year header
-    display.setFont(&FONT_EVENT_TITLE);
-    String monthYear = String(MONTH_NAMES[calendar.month]) + " " + String(calendar.year);
-    centerText(monthYear, x, y + 25, CALENDAR_WIDTH - 20, &FONT_EVENT_TITLE);
-
-    // Draw day labels (moved 20 pixels lower)
-    drawDayLabels(x, y + MONTH_HEADER_HEIGHT);
-
-    // Draw calendar grid (adjusted for moved labels)
-    drawCalendarGrid(x, y + MONTH_HEADER_HEIGHT + 45);
-
-    // Calculate days in previous month
-    int prevMonth = calendar.month - 1;
-    int prevYear = calendar.year;
-    if (prevMonth < 0) {
-        prevMonth = 11;
-        prevYear--;
-    }
-    int daysInPrevMonth = getDaysInMonth(prevYear, prevMonth);
-
-    // Draw previous month days (in gray)
-    int row = 0;
-    int col = 0;
-    int prevMonthDay = daysInPrevMonth - calendar.firstDayOfWeek + 1;
-
-    for (col = 0; col < calendar.firstDayOfWeek; col++) {
-        // Check if this day in the previous month has an event
-        bool hasEvent = false;
-        for (auto event : events) {
-            if (event->date.length() >= 10) {
-                int eventYear = event->date.substring(0, 4).toInt();
-                int eventMonth = event->date.substring(5, 7).toInt();
-                int eventDay = event->date.substring(8, 10).toInt();
-
-                // Month is 1-based in the date string
-                if (eventYear == prevYear && eventMonth == (prevMonth + 1) && eventDay == prevMonthDay) {
-                    hasEvent = true;
-                    break;
-                }
-            }
-        }
-
-        drawPreviousNextMonthDay(prevMonthDay, col, row, x, y + MONTH_HEADER_HEIGHT + 45,
-                               prevMonth + 1, prevYear, hasEvent);
-        prevMonthDay++;
-    }
-
-    // Draw current month days
-    int currentDay = 1;
-    col = calendar.firstDayOfWeek;
-
-    while (currentDay <= calendar.daysInMonth) {
-        bool hasEvent = calendar.hasEvent[currentDay];
-        bool isToday = (currentDay == calendar.today);
-
-        drawCalendarDay(currentDay, col, row, x, y + MONTH_HEADER_HEIGHT + 45,
-            hasEvent, isToday);
-
-        currentDay++;
-        col++;
-        if (col >= 7) {
-            col = 0;
-            row++;
-        }
-    }
-
-    // Draw next month days (in gray) to fill remaining cells
-    int nextMonth = calendar.month + 1;
-    int nextYear = calendar.year;
-    if (nextMonth > 12) {
-        nextMonth = 1;
-        nextYear++;
-    }
-
-    int nextMonthDay = 1;
-    while (row < 6) { // Always show 6 rows for consistency
-        while (col < 7) {
-            // Check if this day in the next month has an event
-            bool hasEvent = false;
-            for (auto event : events) {
-                if (event->date.length() >= 10) {
-                    int eventYear = event->date.substring(0, 4).toInt();
-                    int eventMonth = event->date.substring(5, 7).toInt();
-                    int eventDay = event->date.substring(8, 10).toInt();
-
-                    if (eventYear == nextYear && eventMonth == nextMonth && eventDay == nextMonthDay) {
-                        hasEvent = true;
-                        break;
-                    }
-                }
-            }
-
-            drawPreviousNextMonthDay(nextMonthDay, col, row, x, y + MONTH_HEADER_HEIGHT + 45,
-                                   nextMonth, nextYear, hasEvent);
-            nextMonthDay++;
-            col++;
-        }
-        col = 0;
-        row++;
-    }
-}
-
-void DisplayManager::drawDayLabels(int x, int y)
-{
-    // Local constants for old layout compatibility
-    const int OLD_OLD_CELL_WIDTH = 54;
-
-    display.setFont(&FONT_EVENT_TITLE); // Using event font for day labels
-
-    for (int i = 0; i < 7; i++) {
-        // Adjust day index based on first day of week setting
-        int dayIndex = (i + FIRST_DAY_OF_WEEK) % 7;
-        int dayX = x + (i * OLD_OLD_CELL_WIDTH) + (OLD_OLD_CELL_WIDTH / 2) - 12;
-        display.setCursor(dayX, y + 20); // Moved 20 pixels lower total
-        display.print(DAY_NAMES_SHORT[dayIndex]);
-    }
-}
-
-void DisplayManager::drawCalendarGrid(int x, int y)
-{
-    // Local constants for old layout compatibility
-    const int OLD_CELL_WIDTH = 54;
-    const int OLD_CELL_HEIGHT = 50;
-
-    // Draw horizontal lines (6 rows max for any month)
-    for (int row = 0; row <= 6; row++) {
-        int lineY = y + (row * OLD_CELL_HEIGHT);
-        display.drawLine(x, lineY, x + (7 * OLD_CELL_WIDTH), lineY, GxEPD_BLACK);
-    }
-
-    // Draw vertical lines (7 columns for days)
-    for (int col = 0; col <= 7; col++) {
-        int lineX = x + (col * OLD_CELL_WIDTH);
-        display.drawLine(lineX, y, lineX, y + (6 * OLD_CELL_HEIGHT), GxEPD_BLACK);
-    }
-}
-
-void DisplayManager::drawCalendarDay(int day, int col, int row, int x, int y,
-    bool hasEvent, bool isToday)
-{
-    // Local constants for old layout compatibility
-    const int OLD_CELL_WIDTH = 54;
-    const int OLD_CELL_HEIGHT = 50;
-
-    int cellX = x + (col * OLD_CELL_WIDTH);
-    int cellY = y + (row * OLD_CELL_HEIGHT);
-
-    // Apply Floyd-Steinberg dithering for weekend cells (25% gray)
-    // Calculate actual day of week considering FIRST_DAY_OF_WEEK setting
-    int actualDayOfWeek = (col + FIRST_DAY_OF_WEEK) % 7;
-    bool isWeekend = (actualDayOfWeek == 0 || actualDayOfWeek == 6); // Sunday = 0, Saturday = 6
-    if (isWeekend && !isToday) {
-        // Apply dithering pattern for weekend cells
-        drawDitheredRectangle(cellX + 1, cellY + 1, OLD_CELL_WIDTH - 2, OLD_CELL_HEIGHT - 2,
-                            GxEPD_WHITE, GxEPD_BLACK, DitherLevel::DITHER_25);
-    }
-
-    // Highlight today with a border outline
-    if (isToday) {
-        // Draw a 2-pixel thick border for today
-        display.drawRect(cellX + 1, cellY + 1, OLD_CELL_WIDTH - 2, OLD_CELL_HEIGHT - 2, GxEPD_BLACK);
-        display.drawRect(cellX + 2, cellY + 2, OLD_CELL_WIDTH - 4, OLD_CELL_HEIGHT - 4, GxEPD_BLACK);
-    }
-
-    // Draw day number centered in cell
-    display.setFont(&FONT_CALENDAR_DAY_NUMBERS);
-    String dayStr = String(day);
-    int16_t x1, y1;
-    uint16_t w, h;
-    display.getTextBounds(dayStr, 0, 0, &x1, &y1, &w, &h);
-
-    // Center horizontally and vertically
-    // Note: y1 is typically negative for the ascent, so we use -y1 for proper centering
-    int textX = cellX + (OLD_CELL_WIDTH - w) / 2;
-    int textY = cellY + (OLD_CELL_HEIGHT - y1) / 2; // Using -y1 as it represents the ascent
-
-    display.setCursor(textX, textY);
-    display.print(dayStr);
-
-    // Draw event indicator (small triangle in top-right corner)
-    if (hasEvent) {
-        int triangleSize = 8;
-        int triangleX = cellX + OLD_CELL_WIDTH - triangleSize - 3;
-        int triangleY = cellY + 3;
-
-        // Draw black triangle for all days (since we're using outline for today)
-        display.fillTriangle(
-            triangleX, triangleY, // Top-left
-            triangleX + triangleSize, triangleY, // Top-right
-            triangleX + triangleSize, triangleY + triangleSize, // Bottom-right
-            GxEPD_BLACK);
-    }
-}
-
-void DisplayManager::drawEventsList(const std::vector<CalendarEvent*>& events,
-    int x, int y, int maxWidth, int maxHeight)
-{
-    if (events.empty()) {
-        drawNoEvents(x, y);
-        return;
-    }
-
-    // Check if there are any events in the current month
-    [[maybe_unused]]
-    bool hasCurrentMonthEvents
-        = false;
-    for (auto event : events) {
-        if (event->isToday || event->isTomorrow || event->dayOfMonth > 0) {
-            hasCurrentMonthEvents = true;
-            break;
-        }
-    }
-
-    display.setFont(&FONT_EVENT_DATE_HEADER);
-    display.setCursor(x, y);
-
-    // if (!hasCurrentMonthEvents && !events.empty()) {
-    //     // Show "Next Event" header if no events in current month
-    //     display.print("Next Event");
-    // } else {
-    //     display.print(LOC_EVENTS);
-    // }
-
-    // int currentY = y + 30;
-    int currentY = y;
-    int eventHeight = 55;
-    int maxEvents = (maxHeight - 40) / eventHeight;
-    int eventsShown = 0;
-
-    // Group events by day
-    bool todayShown = false;
-    bool tomorrowShown = false;
-    bool dayAfterShown = false;
-
-    for (auto event : events) {
-        if (eventsShown >= maxEvents)
-            break;
-
-        // Add day header if needed
-        if (event->isToday && !todayShown) {
-#ifdef DISP_TYPE_6C
-            display.setTextColor(GxEPD_RED);
-#endif
-            display.setFont(&FONT_EVENT_DATE_HEADER);
-            display.setCursor(x, currentY);
-            display.print(LOC_TODAY);
-#ifdef DISP_TYPE_6C
-            display.setTextColor(GxEPD_BLACK);  // Reset color to black
-#endif
-            currentY += 20;
-            todayShown = true;
-        } else if (event->isTomorrow && !tomorrowShown) {
-            if (todayShown)
-                currentY += 10; // Add spacing
-#ifdef DISP_TYPE_6C
-            display.setTextColor(COLOR_EVENT_TOMORROW_HEADER);  // Use orange for better visibility
-#endif
-            display.setFont(&FONT_EVENT_DATE_HEADER);
-            display.setCursor(x, currentY);
-            display.print(LOC_TOMORROW);
-#ifdef DISP_TYPE_6C
-            display.setTextColor(GxEPD_BLACK);  // Reset color to black
-#endif
-            currentY += 20;
-            tomorrowShown = true;
-        } else if (!event->isToday && !event->isTomorrow && !dayAfterShown) {
-            if (todayShown || tomorrowShown)
-                currentY += 10; // Add spacing
-#ifdef DISP_TYPE_6C
-            display.setTextColor(COLOR_EVENT_TOMORROW_HEADER);  // Use orange for all date headers for visibility
-#endif
-            display.setFont(&FONT_EVENT_DATE_HEADER);
-            display.setCursor(x, currentY);
-
-            // Parse and display the date
-            if (event->date.length() >= 10) {
-                int month = event->date.substring(5, 7).toInt();
-                int day = event->date.substring(8, 10).toInt();
-                display.print(String(MONTH_NAMES_SHORT[month]) + " " + String(day));
-            }
-#ifdef DISP_TYPE_6C
-            display.setTextColor(GxEPD_BLACK);  // Reset color to black
-#endif
-            currentY += 20;
-            dayAfterShown = true;
-        }
-
-        drawEventCompact(event, x + 10, currentY, maxWidth - 20);
-        currentY += eventHeight;
-        eventsShown++;
-    }
-
-    // Show if there are more events
-    if (events.size() > eventsShown) {
-        display.setFont(&FONT_EVENT_DETAILS);
-        display.setCursor(x, currentY + 10);
-        display.print("+" + String(events.size() - eventsShown) + " " + LOC_MORE_EVENTS);
-    }
-}
-
-void DisplayManager::drawEventCompact(const CalendarEvent* event, int x, int y, int maxWidth)
-{
-#ifdef DISP_TYPE_6C
-    // Ensure text color is black for event content
-    display.setTextColor(GxEPD_BLACK);
-#endif
-
-    // Draw time or "All Day"
-    display.setFont(&FONT_EVENT_TIME);
-    display.setCursor(x, y);
-
-    if (event->allDay) {
-        display.print("--");  // Use dashes instead of "All Day" to save space
-    } else {
-        display.print(formatTime(event->startTimeStr));
-    }
-
-    // Draw event title
-    display.setFont(&FONT_EVENT_TITLE);
-    display.setCursor(x, y + 35);
-    String title = truncateText(event->title, maxWidth);
-    display.print(title);
-
-    // Draw location if available
-    if (!event->location.isEmpty()) {
-        display.setFont(&FONT_EVENT_LOCATION);
-        display.setCursor(x, y + 30);
-        String location = truncateText(event->location, maxWidth - 20);
-        display.print(location);
-    }
-
-    // Draw a thin separator line
-    display.drawLine(x - 5, y + 40, x + maxWidth - 10, y + 40, GxEPD_BLACK);
 }
 
 void DisplayManager::drawNoEvents(int x, int y)
@@ -1541,8 +1203,17 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
     int batteryPercentage,
     bool isStale)
 {
+#ifdef DEBUG_DISPLAY
+    Serial.println("[DisplayManager] showModernCalendar started");
+    Serial.println("[DisplayManager] Events count: " + String(events.size()));
+#endif
+
     // Generate month calendar data
     MonthCalendar monthCal = generateMonthCalendar(currentYear, currentMonth, events);
+
+#ifdef DEBUG_DISPLAY
+    Serial.println("[DisplayManager] Month calendar generated");
+#endif
 
     // Set today's date if we're displaying the current month
     if (currentYear > 1970) {  // Only if we have valid time
@@ -1558,8 +1229,20 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
         monthYear = String(MONTH_NAMES[currentMonth]) + " " + String(currentYear);
     }
 
+#ifdef DEBUG_DISPLAY
+    Serial.println("[DisplayManager] Calling firstPage()...");
+#endif
+
     display.firstPage();
+
+#ifdef DEBUG_DISPLAY
+    Serial.println("[DisplayManager] Starting rendering loop...");
+#endif
+
     do {
+#ifdef DEBUG_DISPLAY
+        Serial.println("[DisplayManager] Rendering page...");
+#endif
         // clear();
         fillScreen(GxEPD_WHITE);
 
@@ -1581,7 +1264,7 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
         display.drawLine(RIGHT_START_X + 10, separatorY, DISPLAY_WIDTH - 10, separatorY, GxEPD_BLACK);
 
         // Draw weather section at bottom
-        if (weatherData && !weatherData->hourlyForecast.empty()) {
+        if (weatherData && !weatherData->dailyForecast.empty()) {
             drawWeatherForecast(*weatherData);
         } else {
             drawWeatherPlaceholder();
@@ -1592,6 +1275,10 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
                      currentDay, currentMonth, currentYear, currentTime, isStale);
 
     } while (display.nextPage());
+
+#ifdef DEBUG_DISPLAY
+    Serial.println("[DisplayManager] showModernCalendar completed");
+#endif
 }
 
 void DisplayManager::showMessage(const String& title, const String& message)

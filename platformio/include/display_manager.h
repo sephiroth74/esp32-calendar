@@ -34,17 +34,17 @@ class CalendarEvent;
 
 // Enum for dither percentage levels
 enum class DitherLevel {
-    NONE = 0,         // No dithering (solid fill)
-    DITHER_10 = 10,   // 10% dithering (very light)
-    DITHER_20 = 20,   // 20% dithering (light gray)
-    DITHER_25 = 25,   // 25% dithering
-    DITHER_30 = 30,   // 30% dithering
-    DITHER_40 = 40,   // 40% dithering
-    DITHER_50 = 50,   // 50% dithering (medium gray)
-    DITHER_60 = 60,   // 60% dithering
-    DITHER_70 = 70,   // 70% dithering
-    DITHER_75 = 75,   // 75% dithering (dark gray)
-    SOLID = 100      // Solid fill (100%)
+    NONE = 0, // No dithering (solid fill)
+    DITHER_10 = 10, // 10% dithering (very light)
+    DITHER_20 = 20, // 20% dithering (light gray)
+    DITHER_25 = 25, // 25% dithering
+    DITHER_30 = 30, // 30% dithering
+    DITHER_40 = 40, // 40% dithering
+    DITHER_50 = 50, // 50% dithering (medium gray)
+    DITHER_60 = 60, // 60% dithering
+    DITHER_70 = 70, // 70% dithering
+    DITHER_75 = 75, // 75% dithering (dark gray)
+    SOLID = 100 // Solid fill (100%)
 };
 
 struct MonthCalendar {
@@ -84,7 +84,7 @@ private:
     static const int RIGHT_WIDTH = 400; // Right half of screen
     static const int RIGHT_START_X = SPLIT_X; // Start of right side
     static const int EVENTS_HEIGHT = 340; // More space for events
-    static const int WEATHER_START_Y = DISPLAY_HEIGHT - 130; // Bottom position above status bar (moved down after removing precipitation)
+    static const int WEATHER_START_Y = DISPLAY_HEIGHT - 110; // Bottom position above status bar (moved down 20px)
     static const int WEATHER_HEIGHT = 100; // Compact weather section
 
     // Calendar grid dimensions for left side
@@ -94,26 +94,18 @@ private:
     static const int DAY_LABEL_HEIGHT = 25; // Height for day labels
 
     // Helper methods
-    void drawHeader(const String& currentDate, const String& currentTime);
     void drawModernHeader(int currentDay, const String& monthYear, const String& currentTime, const WeatherData* weatherData = nullptr);
-    void drawMonthCalendar(const MonthCalendar& calendar, int x, int y,
-                          const std::vector<CalendarEvent*>& events);
     void drawCompactCalendar(const MonthCalendar& calendar,
-                            const std::vector<CalendarEvent*>& events);
-    void drawCalendarGrid(int x, int y);
-    void drawCalendarDay(int day, int col, int row, int x, int y, bool hasEvent, bool isToday);
+        const std::vector<CalendarEvent*>& events);
     void drawPreviousNextMonthDay(int day, int col, int row, int x, int y,
-                                  int month, int year, bool hasEvent = false);
-    void drawDayLabels(int x, int y);
+        int month, int year, bool hasEvent = false);
     void drawDitheredRectangle(int x, int y, int width, int height,
-                               uint16_t bgColor, uint16_t fgColor, DitherLevel ditherLevel);
+        uint16_t bgColor, uint16_t fgColor, DitherLevel ditherLevel);
     void applyDithering(int x, int y, int width, int height,
-                       uint16_t bgColor, uint16_t fgColor, float ditherPercent);
+        uint16_t bgColor, uint16_t fgColor, float ditherPercent);
     int getDaysInMonth(int year, int month);
-    void drawEventsList(const std::vector<CalendarEvent*>& events, int x, int y, int maxWidth, int maxHeight);
     String formatEventDate(const String& eventDate, int currentYear, int currentMonth, int currentDay);
     void drawEventsSection(const std::vector<CalendarEvent*>& events);
-    void drawEventCompact(const CalendarEvent* event, int x, int y, int maxWidth);
     void drawWeatherPlaceholder();
     void drawWeatherForecast(const WeatherData& weatherData);
     void drawDivider();
@@ -146,7 +138,7 @@ private:
     int16_t getTextWidth(const String& text, const GFXfont* font);
     int16_t calculateYPosition(int16_t baseY, const GFXfont* font, int16_t spacing = 0);
     void drawTextWithMetrics(const String& text, int16_t x, int16_t y, const GFXfont* font,
-                             bool centerX = false, bool centerY = false, int16_t maxWidth = 0);
+        bool centerX = false, bool centerY = false, int16_t maxWidth = 0);
 
 public:
     DisplayManager();
@@ -169,6 +161,11 @@ public:
     void getTextBounds(const __FlashStringHelper* s, int16_t x, int16_t y, int16_t* x1, int16_t* y1, uint16_t* w, uint16_t* h);
     void getTextBounds(const String& str, int16_t x, int16_t y, int16_t* x1, int16_t* y1, uint16_t* w, uint16_t* h);
     void firstPage();
+    void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+    void drawInvertedBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color);
+    bool hasColor();
+    bool hasPartialUpdate();
+    bool hasFastPartialUpdate();
     size_t print(const Printable& x);
     int16_t width(void);
     int16_t height(void);

@@ -2,8 +2,9 @@
 #include "debug_config.h"
 #include <WiFi.h>
 
-CalendarFetcher::CalendarFetcher() : streamClient(nullptr), timeout(30000), debug(false) {
+CalendarFetcher::CalendarFetcher() : streamClient(nullptr), timeout(120000), debug(false) {  // Increased to 120 seconds for large calendars
     // Initialize HTTP client settings
+    http.useHTTP10(true);
     http.setReuse(false);
     http.setTimeout(timeout);
 }

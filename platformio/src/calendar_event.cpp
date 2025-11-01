@@ -1,6 +1,8 @@
 #include "calendar_event.h"
+#include "timezone_map.h"
 #include <cstring>
 #include <cstdio>
+#include <cstdlib>  // for setenv, getenv
 
 CalendarEvent::CalendarEvent() {
     clear();
@@ -260,5 +262,125 @@ void CalendarEvent::print() const {
 #ifndef NATIVE_TEST
     Serial.println(toString());
 #endif
+}
+
+/**
+ * Helper function to parse ICS datetime string into tm struct
+ *
+ * @param dt ICS datetime string (e.g., "20120119T150000")
+ * @param timeinfo Output tm struct to populate
+ * @return true if parsing succeeded, false otherwise
+ */
+static bool parseICSDateTimeToTm(const String& dt, struct tm& timeinfo) {
+    if (dt.isEmpty() || dt.length() < 8) {
+        return false;
+    }
+
+    memset(&timeinfo, 0, sizeof(struct tm));
+
+    int year, month, day, hour = 0, min = 0, sec = 0;
+
+    // Parse date: YYYYMMDD
+    if (sscanf(dt.c_str(), "%4d%2d%2d", &year, &month, &day) != 3) {
+        return false;
+    }
+
+    // Parse time if present: THHMMSS
+    if (dt.length() >= 15 && dt.charAt(8) == 'T') {
+        if (sscanf(dt.c_str() + 9, "%2d%2d%2d", &hour, &min, &sec) != 3) {
+            return false;
+        }
+    }
+
+    timeinfo.tm_year = year - 1900;
+    timeinfo.tm_mon = month - 1;
+    timeinfo.tm_mday = day;
+    timeinfo.tm_hour = hour;
+    timeinfo.tm_min = min;
+    timeinfo.tm_sec = sec;
+    timeinfo.tm_isdst = -1;  // Let mktime determine DST
+
+    return true;
+}
+
+/**
+ * Parse ICS datetime string with timezone conversion
+ *
+ * Converts a datetime from the specified timezone to UTC using ESP32's built-in
+ * timezone support via POSIX TZ strings.
+ *
+ * @param dt ICS datetime string (e.g., "20120119T150000")
+ * @param tzid IANA timezone identifier (e.g., "Europe/Amsterdam")
+ * @return UTC timestamp, or -1 if parsing fails
+ */
+time_t CalendarEvent::parseICSDateTimeWithTZ(const String& dt, const String& tzid) {
+    if (dt.isEmpty()) {
+        return -1;
+    }
+
+    // Get POSIX TZ string for this IANA timezone ID
+    String posixTZ = getPosixTZ(tzid);
+
+    if (posixTZ.isEmpty()) {
+        // Unknown timezone - fall back to parsing as UTC
+        struct tm timeinfo;
+        if (!parseICSDateTimeToTm(dt, timeinfo)) {
+            return -1;
+        }
+        timeinfo.tm_isdst = 0;  // UTC has no DST
+
+        // For UTC, use timegm (or mktime after setting TZ=UTC)
+#ifndef ARDUINO
+        return timegm(&timeinfo);  // Available in POSIX
+#else
+        // On Arduino, temporarily set UTC
+        char* oldTZ = getenv("TZ");
+        String savedTZ = oldTZ ? String(oldTZ) : "";
+        setenv("TZ", "UTC0", 1);
+        tzset();
+        time_t result = mktime(&timeinfo);
+        if (!savedTZ.isEmpty()) {
+            setenv("TZ", savedTZ.c_str(), 1);
+        } else {
+            unsetenv("TZ");
+        }
+        tzset();
+        return result;
+#endif
+    }
+
+    // Save current TZ environment variable
+    char* oldTZ = getenv("TZ");
+    String savedTZ = oldTZ ? String(oldTZ) : "";
+
+    // Temporarily set TZ to the event's timezone
+    setenv("TZ", posixTZ.c_str(), 1);
+    tzset();  // Apply timezone change
+
+    // Parse datetime string: YYYYMMDDTHHmmSS
+    struct tm timeinfo;
+    if (!parseICSDateTimeToTm(dt, timeinfo)) {
+        // Restore original TZ before returning
+        if (!savedTZ.isEmpty()) {
+            setenv("TZ", savedTZ.c_str(), 1);
+        } else {
+            unsetenv("TZ");
+        }
+        tzset();
+        return -1;
+    }
+
+    // mktime interprets timeinfo as local time (in our set TZ) and returns UTC timestamp
+    time_t result = mktime(&timeinfo);
+
+    // Restore original TZ environment variable
+    if (!savedTZ.isEmpty()) {
+        setenv("TZ", savedTZ.c_str(), 1);
+    } else {
+        unsetenv("TZ");
+    }
+    tzset();  // Apply timezone restoration
+
+    return result;
 }
 

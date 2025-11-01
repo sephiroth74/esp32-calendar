@@ -50,6 +50,11 @@ public:
         return (pos == std::string::npos) ? -1 : static_cast<int>(pos);
     }
 
+    int indexOf(char c, size_t start) const {
+        size_t pos = buffer.find(c, start);
+        return (pos == std::string::npos) ? -1 : static_cast<int>(pos);
+    }
+
     void trim() {
         // Trim leading spaces
         size_t start = buffer.find_first_not_of(" \t\r\n");

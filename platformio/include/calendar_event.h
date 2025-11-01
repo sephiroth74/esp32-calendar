@@ -9,6 +9,19 @@
 
 #include <ctime>
 
+#ifndef POPULATE_TM_DATE_TIME
+#define POPULATE_TM_DATE_TIME(tm_info, year, mon, mday, hour, min, sec, isdst) \
+    do { \
+        tm_info.tm_year = (year) - 1900; \
+        tm_info.tm_mon = (mon) - 1; \
+        tm_info.tm_mday = (mday); \
+        tm_info.tm_hour = (hour); \
+        tm_info.tm_min = (min); \
+        tm_info.tm_sec = (sec); \
+        tm_info.tm_isdst = (isdst); \
+    } while(0)
+#endif // POPULATE_TM_DATE_TIME
+
 /**
  * Represents a single calendar event from an ICS file
  * This is a standalone class with no external dependencies
@@ -98,6 +111,9 @@ public:
     // Set date/time from ICS format
     bool setStartDateTime(const String& dtStart, const String& params = "");
     bool setEndDateTime(const String& dtEnd, const String& params = "");
+
+    // Timezone-aware datetime parsing
+    static time_t parseICSDateTimeWithTZ(const String& dt, const String& tzid);
 
     // Comparison operators
     bool operator<(const CalendarEvent& other) const;

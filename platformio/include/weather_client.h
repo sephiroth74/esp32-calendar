@@ -8,14 +8,6 @@
 #include <vector>
 #include "config.h"
 
-struct WeatherHour {
-    String time;        // ISO format time
-    float temperature;  // Temperature in Celsius
-    int weatherCode;    // WMO weather code
-    int precipitationProbability; // Precipitation probability in %
-    bool isDay;        // Day or night (for icon selection)
-};
-
 struct WeatherDay {
     String date;       // ISO format date
     int weatherCode;   // Daily weather code
@@ -23,6 +15,7 @@ struct WeatherDay {
     float tempMin;     // Minimum temperature
     String sunrise;    // Sunrise time
     String sunset;     // Sunset time
+    int precipitationProbability; // Max precipitation probability for the day in %
 };
 
 struct WeatherData {
@@ -30,9 +23,6 @@ struct WeatherData {
     float currentTemp;
     int currentWeatherCode;
     bool isDay;
-
-    // Hourly forecast (7 items at 3-hour intervals)
-    std::vector<WeatherHour> hourlyForecast;
 
     // Daily forecast (next 3 days)
     std::vector<WeatherDay> dailyForecast;

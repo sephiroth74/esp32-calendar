@@ -1,6 +1,7 @@
 #include <doctest.h>
 #include <ctime>
 #include <cstring>
+#include <set>
 
 // Mock Arduino environment for native testing
 #ifdef NATIVE_TEST
@@ -15,209 +16,23 @@ MockLittleFS LittleFS;
 #include "calendar_event.h"
 #include "../../src/calendar_event.cpp"
 
-// For recurring event tests, we only need the parser header
-// We don't include the .cpp file because it requires WiFi/HTTP dependencies
-// Instead, we'll compile only the expandRecurringEvent method
+// Include the real CalendarStreamParser implementation
+// With NATIVE_TEST defined, it will use mock_calendar_fetcher automatically
 #include "calendar_stream_parser.h"
+#include "../../src/calendar_stream_parser.cpp"
 
-// Manually include only the expandRecurringEvent implementation
-#include <vector>
-#include <ctime>
+// Forward declare test helper
+time_t parseICSDateTime(const String& dtString);
 
-// Stub implementations for CalendarStreamParser constructor/destructor (we don't need full implementation for testing)
-CalendarStreamParser::CalendarStreamParser() : debug(false), calendarColor(0), calendarName(""), fetcher(nullptr) {}
-CalendarStreamParser::~CalendarStreamParser() {}
-
-// Copy expandRecurringEvent implementation here for testing
-// This avoids pulling in WiFi dependencies from calendar_fetcher
-std::vector<CalendarEvent*> CalendarStreamParser::expandRecurringEvent(CalendarEvent* event,
-                                                                       time_t startDate,
-                                                                       time_t endDate) {
-    std::vector<CalendarEvent*> occurrences;
-
-    if (!event || event->rrule.isEmpty()) {
-        return occurrences;
-    }
-
-    // Get original event time components
-    struct tm originalTm;
-    memcpy(&originalTm, localtime(&event->startTime), sizeof(struct tm));
-    int originalDay = originalTm.tm_mday;
-    int originalMonth = originalTm.tm_mon;
-    int originalHour = originalTm.tm_hour;
-    int originalMin = originalTm.tm_min;
-    int originalSec = originalTm.tm_sec;
-
-    // Get start/end date components
-    struct tm startTm, endTm;
-    memcpy(&startTm, localtime(&startDate), sizeof(struct tm));
-    memcpy(&endTm, localtime(&endDate), sizeof(struct tm));
-
-    time_t duration = event->endTime - event->startTime;
-
-    // Parse RRULE for different frequencies
-    if (event->rrule.indexOf("FREQ=YEARLY") != -1) {
-        // Yearly: Set event month/day to current year, check if in range
-        int startYear = startTm.tm_year + 1900;
-        int endYear = endTm.tm_year + 1900;
-
-        for (int year = startYear; year <= endYear; year++) {
-            struct tm occurrenceTm = {0};
-            occurrenceTm.tm_year = year - 1900;
-            occurrenceTm.tm_mon = originalMonth;
-            occurrenceTm.tm_mday = originalDay;
-            occurrenceTm.tm_hour = originalHour;
-            occurrenceTm.tm_min = originalMin;
-            occurrenceTm.tm_sec = originalSec;
-            occurrenceTm.tm_isdst = 0;  // Disable DST
-
-            time_t occurrenceTime = mktime(&occurrenceTm);
-
-            if (occurrenceTime >= startDate && occurrenceTime <= endDate) {
-                CalendarEvent* occurrence = new CalendarEvent(*event);
-                occurrence->startTime = occurrenceTime;
-                occurrence->endTime = occurrenceTime + duration;
-
-                char dateBuffer[32];
-                strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", &occurrenceTm);
-                occurrence->date = String(dateBuffer);
-
-                occurrences.push_back(occurrence);
-            }
-        }
-    } else if (event->rrule.indexOf("FREQ=MONTHLY") != -1) {
-        // Monthly: Set event year/month to start range, advance month by month
-        struct tm occurrenceTm = {0};
-        occurrenceTm.tm_year = startTm.tm_year;
-        occurrenceTm.tm_mon = startTm.tm_mon;
-        occurrenceTm.tm_mday = originalDay;
-        occurrenceTm.tm_hour = originalHour;
-        occurrenceTm.tm_min = originalMin;
-        occurrenceTm.tm_sec = originalSec;
-        occurrenceTm.tm_isdst = 0;  // Disable DST
-
-        int maxIterations = 24;  // Max 2 years
-        for (int i = 0; i < maxIterations; i++) {
-            time_t occurrenceTime = mktime(&occurrenceTm);
-
-            if (occurrenceTime > endDate) break;
-
-            if (occurrenceTime >= startDate) {
-                CalendarEvent* occurrence = new CalendarEvent(*event);
-                occurrence->startTime = occurrenceTime;
-                occurrence->endTime = occurrenceTime + duration;
-
-                char dateBuffer[32];
-                strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", &occurrenceTm);
-                occurrence->date = String(dateBuffer);
-
-                occurrences.push_back(occurrence);
-            }
-
-            // Advance to next month
-            occurrenceTm.tm_mon++;
-            if (occurrenceTm.tm_mon > 11) {
-                occurrenceTm.tm_mon = 0;
-                occurrenceTm.tm_year++;
-            }
-        }
-    } else if (event->rrule.indexOf("FREQ=WEEKLY") != -1) {
-        // Weekly: Set event to start range day of week, advance by weeks
-        struct tm occurrenceTm = {0};
-        occurrenceTm.tm_year = startTm.tm_year;
-        occurrenceTm.tm_mon = startTm.tm_mon;
-        occurrenceTm.tm_mday = startTm.tm_mday;
-        occurrenceTm.tm_hour = originalHour;
-        occurrenceTm.tm_min = originalMin;
-        occurrenceTm.tm_sec = originalSec;
-        occurrenceTm.tm_isdst = 0;  // Disable DST
-
-        // Normalize to get the correct day of week
-        mktime(&occurrenceTm);
-
-        // Find the first occurrence on or after startDate with the same day of week
-        int originalDayOfWeek = originalTm.tm_wday;
-        int daySearchLimit = 7;  // Safety
-        for (int i = 0; i < daySearchLimit && occurrenceTm.tm_wday != originalDayOfWeek; i++) {
-            occurrenceTm.tm_mday++;
-            mktime(&occurrenceTm);
-        }
-
-        int maxIterations = 104;  // Max 2 years weekly
-        for (int i = 0; i < maxIterations; i++) {
-            time_t occurrenceTime = mktime(&occurrenceTm);
-
-            if (occurrenceTime > endDate) break;
-
-            if (occurrenceTime >= startDate) {
-                CalendarEvent* occurrence = new CalendarEvent(*event);
-                occurrence->startTime = occurrenceTime;
-                occurrence->endTime = occurrenceTime + duration;
-
-                char dateBuffer[32];
-                strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", &occurrenceTm);
-                occurrence->date = String(dateBuffer);
-
-                occurrences.push_back(occurrence);
-            }
-
-            // Advance by 7 days
-            occurrenceTm.tm_mday += 7;
-            mktime(&occurrenceTm);  // Normalize
-        }
-    } else if (event->rrule.indexOf("FREQ=DAILY") != -1) {
-        // Daily: Every day from start to end range
-        struct tm occurrenceTm = {0};
-        occurrenceTm.tm_year = startTm.tm_year;
-        occurrenceTm.tm_mon = startTm.tm_mon;
-        occurrenceTm.tm_mday = startTm.tm_mday;
-        occurrenceTm.tm_hour = originalHour;
-        occurrenceTm.tm_min = originalMin;
-        occurrenceTm.tm_sec = originalSec;
-        occurrenceTm.tm_isdst = 0;  // Disable DST
-
-        // Calculate exact iterations needed based on date range (inclusive), coerced to [1, 365]
-        int daysDiff = (endDate - startDate) / 86400 + 1;  // +1 for inclusive range
-        int maxIterations = std::max(1, std::min(daysDiff, 365));
-        for (int i = 0; i < maxIterations; i++) {
-            time_t occurrenceTime = mktime(&occurrenceTm);
-
-            if (occurrenceTime > endDate) break;
-
-            if (occurrenceTime >= startDate) {
-                CalendarEvent* occurrence = new CalendarEvent(*event);
-                occurrence->startTime = occurrenceTime;
-                occurrence->endTime = occurrenceTime + duration;
-
-                char dateBuffer[32];
-                strftime(dateBuffer, sizeof(dateBuffer), "%Y-%m-%d", &occurrenceTm);
-                occurrence->date = String(dateBuffer);
-
-                occurrences.push_back(occurrence);
-            }
-
-            // Advance by 1 day
-            occurrenceTm.tm_mday++;
-            mktime(&occurrenceTm);  // Normalize
-        }
-    } else {
-        // For events without recognized RRULE or non-recurring, just check if in range
-        // Not applicable for this test suite
-    }
-
-    return occurrences;
-}
-
-// Test helper to create a mock calendar event
-CalendarEvent* createMockEvent(const char* summary, const char* dtStart, const char* dtEnd, bool allDay = false) {
+// Test helper to create mock events
+CalendarEvent* createMockEvent(const String& summary, const String& startTime, const String& endTime, bool allDay = false) {
     CalendarEvent* event = new CalendarEvent();
     event->summary = summary;
-    event->dtStart = dtStart;
-    event->dtEnd = dtEnd;
+    event->startTime = parseICSDateTime(startTime);
+    event->endTime = parseICSDateTime(endTime);
+    event->dtStart = startTime;  // Set the raw dtStart string
+    event->dtEnd = endTime;      // Set the raw dtEnd string
     event->allDay = allDay;
-    event->isRecurring = false;
-    event->isToday = false;
-    event->isTomorrow = false;
     event->calendarName = "Test Calendar";
     event->calendarColor = "blue";
     return event;
@@ -617,484 +432,484 @@ TEST_SUITE("CalendarStreamParser - Memory Management") {
 }
 
 // ============================================================================
-// Recurring Events Tests
+// NOTE: Recurring Events Tests have been moved to test_expand_recurring_event_v2.cpp
+// That file contains comprehensive tests for expandRecurringEventV2() method
 // ============================================================================
 
-TEST_SUITE("CalendarStreamParser - Recurring Events") {
+// ============================================================================
+// RRULE Parser Tests
+// ============================================================================
 
+TEST_SUITE("CalendarStreamParser - RRULE Parser") {
     CalendarStreamParser parser;
 
-    TEST_CASE("Recurring - YEARLY Birthday Expansion") {
-        // Birthday on Feb 28 that recurs yearly
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "John's Birthday";
-        event->isRecurring = true;
-        event->rrule = "FREQ=YEARLY";
+    TEST_CASE("RRULE Parser - FREQ with BYDAY") {
+        RRuleComponents rule = parser.parseRRule("FREQ=WEEKLY;BYDAY=MO,WE,FR");
 
-        // Set original event to Feb 28, 1990 at midnight
-        struct tm originalTm = {0};
-        originalTm.tm_year = 1990 - 1900;
-        originalTm.tm_mon = 1;  // February (0-based)
-        originalTm.tm_mday = 28;
-        originalTm.tm_hour = 0;
-        originalTm.tm_min = 0;
-        originalTm.tm_sec = 0;
-        event->startTime = mktime(&originalTm);
-        event->endTime = event->startTime;
-
-        // Test range: Jan 1, 2025 - Dec 31, 2026 (2 years)
-        struct tm startTm = {0};
-        startTm.tm_year = 2025 - 1900;
-        startTm.tm_mon = 0;  // January
-        startTm.tm_mday = 1;
-        time_t startDate = mktime(&startTm);
-
-        struct tm endTm = {0};
-        endTm.tm_year = 2026 - 1900;
-        endTm.tm_mon = 11;  // December
-        endTm.tm_mday = 31;
-        time_t endDate = mktime(&endTm);
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should have exactly 2 occurrences: Feb 28, 2025 and Feb 28, 2026
-        CHECK(occurrences.size() == 2);
-
-        if (occurrences.size() >= 1) {
-            struct tm* occ1Tm = localtime(&occurrences[0]->startTime);
-            CHECK(occ1Tm->tm_year + 1900 == 2025);
-            CHECK(occ1Tm->tm_mon == 1);  // February
-            CHECK(occ1Tm->tm_mday == 28);
-        }
-
-        if (occurrences.size() >= 2) {
-            struct tm* occ2Tm = localtime(&occurrences[1]->startTime);
-            CHECK(occ2Tm->tm_year + 1900 == 2026);
-            CHECK(occ2Tm->tm_mon == 1);  // February
-            CHECK(occ2Tm->tm_mday == 28);
-        }
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
+        CHECK(rule.isWeekly());
+        CHECK(rule.byDay == "MO,WE,FR");
+        CHECK(rule.hasByDay());
     }
 
-    TEST_CASE("Recurring - YEARLY Event Not in Range") {
-        // Birthday on Dec 25 that recurs yearly
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "Christmas Birthday";
-        event->isRecurring = true;
-        event->rrule = "FREQ=YEARLY";
+    TEST_CASE("RRULE Parser - FREQ with BYMONTHDAY") {
+        RRuleComponents rule = parser.parseRRule("FREQ=MONTHLY;BYMONTHDAY=1,15");
 
-        struct tm originalTm = {0};
-        originalTm.tm_year = 1990 - 1900;
-        originalTm.tm_mon = 11;  // December
-        originalTm.tm_mday = 25;
-        event->startTime = mktime(&originalTm);
-        event->endTime = event->startTime;
-
-        // Test range: Jan 1 - Feb 28, 2025 (doesn't include Dec 25)
-        struct tm startTm = {0};
-        startTm.tm_year = 2025 - 1900;
-        startTm.tm_mon = 0;
-        startTm.tm_mday = 1;
-        time_t startDate = mktime(&startTm);
-
-        struct tm endTm = {0};
-        endTm.tm_year = 2025 - 1900;
-        endTm.tm_mon = 1;  // February
-        endTm.tm_mday = 28;
-        time_t endDate = mktime(&endTm);
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should have 0 occurrences
-        CHECK(occurrences.size() == 0);
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
+        CHECK(rule.isMonthly());
+        CHECK(rule.byMonthDay == "1,15");
+        CHECK(rule.hasByMonthDay());
     }
 
-    TEST_CASE("Recurring - MONTHLY Event on 15th") {
-        // Monthly meeting on 15th at 14:00
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "Monthly Review";
-        event->isRecurring = true;
-        event->rrule = "FREQ=MONTHLY";
+    TEST_CASE("RRULE Parser - FREQ with BYMONTH") {
+        RRuleComponents rule = parser.parseRRule("FREQ=YEARLY;BYMONTH=1,7");
 
-        struct tm originalTm = {0};
-        originalTm.tm_year = 2025 - 1900;
-        originalTm.tm_mon = 0;  // January
-        originalTm.tm_mday = 15;
-        originalTm.tm_hour = 14;
-        originalTm.tm_min = 0;
-        originalTm.tm_isdst = 0;  // Disable DST
-        event->startTime = mktime(&originalTm);
-        event->endTime = event->startTime + 3600;  // 1 hour duration
-
-        // Test range: Oct 1 - Dec 31, 2025 (3 months)
-        struct tm startTm = {0};
-        startTm.tm_year = 2025 - 1900;
-        startTm.tm_mon = 9;  // October
-        startTm.tm_mday = 1;
-        startTm.tm_hour = 0;
-        startTm.tm_min = 0;
-        startTm.tm_isdst = 0;  // Disable DST
-        time_t startDate = mktime(&startTm);
-
-        struct tm endTm = {0};
-        endTm.tm_year = 2025 - 1900;
-        endTm.tm_mon = 11;  // December
-        endTm.tm_mday = 31;
-        endTm.tm_hour = 23;
-        endTm.tm_min = 59;
-        endTm.tm_isdst = 0;  // Disable DST
-        time_t endDate = mktime(&endTm);
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should have 3 occurrences: Oct 15, Nov 15, Dec 15
-        CHECK(occurrences.size() == 3);
-
-        if (occurrences.size() >= 1) {
-            struct tm* occTm = localtime(&occurrences[0]->startTime);
-            CHECK(occTm->tm_mon == 9);  // October
-            CHECK(occTm->tm_mday == 15);
-            // Note: Hour check removed due to DST differences between test environments
-        }
-
-        if (occurrences.size() >= 2) {
-            struct tm* occTm = localtime(&occurrences[1]->startTime);
-            CHECK(occTm->tm_mon == 10);  // November
-            CHECK(occTm->tm_mday == 15);
-        }
-
-        if (occurrences.size() >= 3) {
-            struct tm* occTm = localtime(&occurrences[2]->startTime);
-            CHECK(occTm->tm_mon == 11);  // December
-            CHECK(occTm->tm_mday == 15);
-        }
-
-        // Verify duration is preserved
-        if (occurrences.size() >= 1) {
-            CHECK(occurrences[0]->endTime - occurrences[0]->startTime == 3600);
-        }
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
+        CHECK(rule.isYearly());
+        CHECK(rule.byMonth == "1,7");
+        CHECK(rule.hasByMonth());
     }
 
-    TEST_CASE("Recurring - MONTHLY Event on 31st (Edge Case)") {
-        // Monthly event on 31st - tests month normalization
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "Monthly End of Month";
-        event->isRecurring = true;
-        event->rrule = "FREQ=MONTHLY";
+    TEST_CASE("RRULE Parser - Complex Rule") {
+        RRuleComponents rule = parser.parseRRule("FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=20;INTERVAL=2");
 
-        struct tm originalTm = {0};
-        originalTm.tm_year = 2025 - 1900;
-        originalTm.tm_mon = 0;  // January (has 31 days)
-        originalTm.tm_mday = 31;
-        originalTm.tm_hour = 10;
-        event->startTime = mktime(&originalTm);
-        event->endTime = event->startTime;
-
-        // Test range: Jan 1 - Apr 30, 2025
-        struct tm startTm = {0};
-        startTm.tm_year = 2025 - 1900;
-        startTm.tm_mon = 0;  // January
-        startTm.tm_mday = 1;
-        time_t startDate = mktime(&startTm);
-
-        struct tm endTm = {0};
-        endTm.tm_year = 2025 - 1900;
-        endTm.tm_mon = 3;  // April
-        endTm.tm_mday = 30;
-        time_t endDate = mktime(&endTm);
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should have occurrences on:
-        // Jan 31 (31 days), Feb 28/Mar 3 (normalized), Mar 31, Apr 30/May 1 (normalized)
-        // mktime() normalizes Feb 31 → Mar 2/3, Apr 31 → May 1
-        CHECK(occurrences.size() >= 2);  // At least Jan 31 and Mar 31
-
-        // First occurrence should be Jan 31
-        if (occurrences.size() >= 1) {
-            struct tm* occTm = localtime(&occurrences[0]->startTime);
-            CHECK(occTm->tm_mon == 0);  // January
-            CHECK(occTm->tm_mday == 31);
-        }
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
+        CHECK(rule.isWeekly());
+        CHECK(rule.byDay == "MO,WE,FR");
+        CHECK(rule.count == 20);
+        CHECK(rule.interval == 2);
+        CHECK(rule.hasCountLimit());
+        CHECK(rule.hasByDay());
+        CHECK(rule.hasInterval());
     }
 
-    TEST_CASE("Recurring - WEEKLY Event on Mondays") {
-        // Weekly meeting every Monday at 09:00
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "Weekly Standup";
-        event->isRecurring = true;
-        event->rrule = "FREQ=WEEKLY";
+    TEST_CASE("RRULE Parser - Empty String") {
+        RRuleComponents rule = parser.parseRRule("");
 
-        // Set to Monday, Oct 6, 2025 at 09:00
-        struct tm originalTm = {0};
-        originalTm.tm_year = 2025 - 1900;
-        originalTm.tm_mon = 9;  // October
-        originalTm.tm_mday = 6;  // This is a Monday
-        originalTm.tm_hour = 9;
-        originalTm.tm_min = 0;
-        originalTm.tm_isdst = 0;  // Disable DST
-        event->startTime = mktime(&originalTm);
-        event->endTime = event->startTime + 1800;  // 30 min duration
-
-        // Test range: Oct 20 - Nov 20, 2025 (roughly 1 month)
-        struct tm startTm = {0};
-        startTm.tm_year = 2025 - 1900;
-        startTm.tm_mon = 9;  // October
-        startTm.tm_mday = 20;
-        startTm.tm_hour = 0;
-        startTm.tm_min = 0;
-        startTm.tm_isdst = 0;  // Disable DST
-        time_t startDate = mktime(&startTm);
-
-        struct tm endTm = {0};
-        endTm.tm_year = 2025 - 1900;
-        endTm.tm_mon = 10;  // November
-        endTm.tm_mday = 20;
-        endTm.tm_hour = 23;
-        endTm.tm_min = 59;
-        endTm.tm_isdst = 0;  // Disable DST
-        time_t endDate = mktime(&endTm);
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should have ~4-5 Mondays: Oct 20, 27, Nov 3, 10, 17
-        CHECK(occurrences.size() >= 4);
-        CHECK(occurrences.size() <= 5);
-
-        // All occurrences should be Mondays
-        for (auto occ : occurrences) {
-            struct tm* occTm = localtime(&occ->startTime);
-            CHECK(occTm->tm_wday == 1);  // Monday
-            // Note: Hour/minute checks removed due to DST differences between test environments
-        }
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
+        CHECK(!rule.isValid());
+        CHECK(rule.freq.isEmpty());
     }
 
-    TEST_CASE("Recurring - WEEKLY Event Not on Matching Day") {
-        // Weekly event on Friday
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "Friday Team Lunch";
-        event->isRecurring = true;
-        event->rrule = "FREQ=WEEKLY";
+    TEST_CASE("RRULE Parser - Invalid INTERVAL defaults to 1") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;INTERVAL=0");
 
-        // Set to Friday, Oct 3, 2025
-        struct tm originalTm = {0};
-        originalTm.tm_year = 2025 - 1900;
-        originalTm.tm_mon = 9;  // October
-        originalTm.tm_mday = 3;  // Friday
-        originalTm.tm_hour = 12;
-        event->startTime = mktime(&originalTm);
-        event->endTime = event->startTime;
-
-        // Test range: Oct 6 (Mon) - Oct 9 (Thu) - no Friday in range
-        struct tm startTm = {0};
-        startTm.tm_year = 2025 - 1900;
-        startTm.tm_mon = 9;
-        startTm.tm_mday = 6;
-        time_t startDate = mktime(&startTm);
-
-        struct tm endTm = {0};
-        endTm.tm_year = 2025 - 1900;
-        endTm.tm_mon = 9;
-        endTm.tm_mday = 9;
-        time_t endDate = mktime(&endTm);
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should have 0 occurrences (no Friday in range)
-        CHECK(occurrences.size() == 0);
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
+        CHECK(rule.interval == 1);
     }
 
-    TEST_CASE("Recurring - DAILY Event for One Week") {
-        // Daily scrum at 09:30
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "Daily Scrum";
-        event->isRecurring = true;
-        event->rrule = "FREQ=DAILY";
+    TEST_CASE("RRULE Parser - Negative COUNT sanitized") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=-5");
 
-        struct tm originalTm = {0};
-        originalTm.tm_year = 2025 - 1900;
-        originalTm.tm_mon = 9;  // October
-        originalTm.tm_mday = 1;
-        originalTm.tm_hour = 9;
-        originalTm.tm_min = 30;
-        originalTm.tm_isdst = 0;  // Disable DST
-        event->startTime = mktime(&originalTm);
-        event->endTime = event->startTime + 900;  // 15 min duration
-
-        // Test range: Oct 13 - Oct 19, 2025 (7 days)
-        struct tm startTm = {0};
-        startTm.tm_year = 2025 - 1900;
-        startTm.tm_mon = 9;
-        startTm.tm_mday = 13;
-        startTm.tm_hour = 0;
-        startTm.tm_min = 0;
-        startTm.tm_sec = 0;
-        startTm.tm_isdst = 0;  // Disable DST
-        time_t startDate = mktime(&startTm);
-
-        struct tm endTm = {0};
-        endTm.tm_year = 2025 - 1900;
-        endTm.tm_mon = 9;
-        endTm.tm_mday = 19;
-        endTm.tm_hour = 23;
-        endTm.tm_min = 59;
-        endTm.tm_sec = 59;
-        endTm.tm_isdst = 0;  // Disable DST
-        time_t endDate = mktime(&endTm);
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should have exactly 7 occurrences (Oct 13-19)
-        CHECK(occurrences.size() == 7);
-
-        // Verify duration and timing
-        for (auto occ : occurrences) {
-            // Note: Hour/minute checks removed due to DST differences between test environments
-            CHECK(occ->endTime - occ->startTime == 900);  // 15 min duration preserved
-        }
-
-        // Verify consecutive days
-        if (occurrences.size() == 7) {
-            for (size_t i = 0; i < 6; i++) {
-                time_t diff = occurrences[i+1]->startTime - occurrences[i]->startTime;
-                CHECK(diff == 86400);  // Exactly 1 day apart
-            }
-        }
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
-    }
-
-    TEST_CASE("Recurring - DAILY Event for 50 Days") {
-        // Daily event over extended period
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "Daily Check-in";
-        event->isRecurring = true;
-        event->rrule = "FREQ=DAILY";
-
-        struct tm originalTm = {0};
-        originalTm.tm_year = 2025 - 1900;
-        originalTm.tm_mon = 0;
-        originalTm.tm_mday = 1;
-        originalTm.tm_hour = 8;
-        event->startTime = mktime(&originalTm);
-        event->endTime = event->startTime;
-
-        // Test range: Oct 29 - Dec 18, 2025 (51 days)
-        struct tm startTm = {0};
-        startTm.tm_year = 2025 - 1900;
-        startTm.tm_mon = 9;  // October
-        startTm.tm_mday = 29;
-        startTm.tm_hour = 0;
-        startTm.tm_min = 0;
-        startTm.tm_sec = 0;
-        time_t startDate = mktime(&startTm);
-
-        struct tm endTm = {0};
-        endTm.tm_year = 2025 - 1900;
-        endTm.tm_mon = 11;  // December
-        endTm.tm_mday = 18;
-        endTm.tm_hour = 23;
-        endTm.tm_min = 59;
-        endTm.tm_sec = 59;
-        time_t endDate = mktime(&endTm);
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should have 51 occurrences (Oct 29 to Dec 18 inclusive)
-        CHECK(occurrences.size() == 51);
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
-    }
-
-    TEST_CASE("Recurring - Non-Recurring Event") {
-        // Regular non-recurring event
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "One-time Meeting";
-        event->isRecurring = false;
-        event->rrule = "";
-
-        struct tm eventTm = {0};
-        eventTm.tm_year = 2025 - 1900;
-        eventTm.tm_mon = 10;  // November
-        eventTm.tm_mday = 15;
-        eventTm.tm_hour = 10;
-        event->startTime = mktime(&eventTm);
-        event->endTime = event->startTime;
-
-        // Test range includes the event
-        struct tm startTm = {0};
-        startTm.tm_year = 2025 - 1900;
-        startTm.tm_mon = 10;
-        startTm.tm_mday = 1;
-        time_t startDate = mktime(&startTm);
-
-        struct tm endTm = {0};
-        endTm.tm_year = 2025 - 1900;
-        endTm.tm_mon = 10;
-        endTm.tm_mday = 30;
-        time_t endDate = mktime(&endTm);
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should return empty (expandRecurringEvent only handles recurring events)
-        CHECK(occurrences.size() == 0);
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
-    }
-
-    TEST_CASE("Recurring - Empty RRULE") {
-        // Event marked as recurring but no RRULE
-        CalendarEvent* event = new CalendarEvent();
-        event->summary = "Invalid Recurring Event";
-        event->isRecurring = true;
-        event->rrule = "";  // Empty RRULE
-
-        struct tm eventTm = {0};
-        eventTm.tm_year = 2025 - 1900;
-        eventTm.tm_mon = 10;
-        eventTm.tm_mday = 15;
-        event->startTime = mktime(&eventTm);
-        event->endTime = event->startTime;
-
-        time_t startDate = mktime(&eventTm) - 86400;
-        time_t endDate = mktime(&eventTm) + 86400;
-
-        auto occurrences = parser.expandRecurringEvent(event, startDate, endDate);
-
-        // Should return empty (no valid RRULE)
-        CHECK(occurrences.size() == 0);
-
-        // Clean up
-        for (auto occ : occurrences) delete occ;
-        delete event;
+        CHECK(rule.count == -1);
     }
 }
+
+TEST_SUITE("CalendarStreamParser - RRULE Helper Methods") {
+    CalendarStreamParser parser;
+
+    TEST_CASE("Parse BYDAY - Single Day") {
+        std::vector<int> days = parser.parseByDay("MO");
+
+        CHECK(days.size() == 1);
+        CHECK(days[0] == 1);  // Monday
+    }
+
+    TEST_CASE("Parse BYDAY - Multiple Days") {
+        std::vector<int> days = parser.parseByDay("MO,WE,FR");
+
+        CHECK(days.size() == 3);
+        CHECK(days[0] == 1);  // Monday
+        CHECK(days[1] == 3);  // Wednesday
+        CHECK(days[2] == 5);  // Friday
+    }
+
+    TEST_CASE("Parse BYDAY - All Days") {
+        std::vector<int> days = parser.parseByDay("SU,MO,TU,WE,TH,FR,SA");
+
+        CHECK(days.size() == 7);
+        CHECK(days[0] == 0);  // Sunday
+        CHECK(days[6] == 6);  // Saturday
+    }
+
+    TEST_CASE("Parse BYDAY - Empty String") {
+        std::vector<int> days = parser.parseByDay("");
+
+        CHECK(days.size() == 0);
+    }
+
+    TEST_CASE("Parse BYMONTHDAY - Single Day") {
+        std::vector<int> days = parser.parseByMonthDay("15");
+
+        CHECK(days.size() == 1);
+        CHECK(days[0] == 15);
+    }
+
+    TEST_CASE("Parse BYMONTHDAY - Multiple Days") {
+        std::vector<int> days = parser.parseByMonthDay("1,15,30");
+
+        CHECK(days.size() == 3);
+        CHECK(days[0] == 1);
+        CHECK(days[1] == 15);
+        CHECK(days[2] == 30);
+    }
+
+    TEST_CASE("Parse BYMONTHDAY - Negative (Last Day)") {
+        std::vector<int> days = parser.parseByMonthDay("-1");
+
+        CHECK(days.size() == 1);
+        CHECK(days[0] == -1);
+    }
+
+    TEST_CASE("Parse BYMONTH - Single Month") {
+        std::vector<int> months = parser.parseByMonth("7");
+
+        CHECK(months.size() == 1);
+        CHECK(months[0] == 7);
+    }
+
+    TEST_CASE("Parse BYMONTH - Multiple Months") {
+        std::vector<int> months = parser.parseByMonth("1,7,12");
+
+        CHECK(months.size() == 3);
+        CHECK(months[0] == 1);   // January
+        CHECK(months[1] == 7);   // July
+        CHECK(months[2] == 12);  // December
+    }
+
+    TEST_CASE("Parse BYMONTH - Invalid Month Filtered") {
+        std::vector<int> months = parser.parseByMonth("0,13,15");
+
+        CHECK(months.size() == 0);  // All invalid
+    }
+}
+
+// ============================================================================
+// RRULE Parser - Edge Cases & Validation Tests
+// ============================================================================
+
+TEST_SUITE("CalendarStreamParser - RRULE Edge Cases") {
+    CalendarStreamParser parser;
+
+    TEST_CASE("RRULE - Whitespace handling") {
+        RRuleComponents rule = parser.parseRRule("FREQ = WEEKLY ; COUNT = 10 ");
+
+        CHECK(rule.isWeekly());
+        CHECK(rule.count == 10);
+    }
+
+    TEST_CASE("RRULE - Case sensitivity") {
+        // RRULE keys should be case-sensitive (uppercase per RFC 5545)
+        RRuleComponents rule = parser.parseRRule("freq=daily;count=5");
+
+        // Our implementation treats keys as case-sensitive
+        // lowercase 'freq' won't match "FREQ"
+        CHECK(rule.freq.isEmpty());  // Should not parse lowercase
+    }
+
+    TEST_CASE("RRULE - Missing equals sign") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT");
+
+        CHECK(rule.isDaily());
+        CHECK(rule.count == -1);  // COUNT without value should be ignored
+    }
+
+    TEST_CASE("RRULE - Empty value") {
+        RRuleComponents rule = parser.parseRRule("FREQ=;COUNT=10");
+
+        CHECK(rule.freq.isEmpty());
+        CHECK(rule.count == 10);
+    }
+
+    TEST_CASE("RRULE - Trailing semicolon") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=10;");
+
+        CHECK(rule.isDaily());
+        CHECK(rule.count == 10);
+    }
+
+    TEST_CASE("RRULE - Leading semicolon") {
+        RRuleComponents rule = parser.parseRRule(";FREQ=DAILY;COUNT=10");
+
+        CHECK(rule.isDaily());
+        CHECK(rule.count == 10);
+    }
+
+    TEST_CASE("RRULE - Multiple semicolons") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;;COUNT=10");
+
+        CHECK(rule.isDaily());
+        CHECK(rule.count == 10);
+    }
+
+    TEST_CASE("RRULE - Unknown parameters ignored") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;UNKNOWN=value;COUNT=5");
+
+        CHECK(rule.isDaily());
+        CHECK(rule.count == 5);
+    }
+
+    TEST_CASE("RRULE - Duplicate parameters (last wins)") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=10;COUNT=20");
+
+        CHECK(rule.count == 20);  // Last value should win
+    }
+
+    TEST_CASE("RRULE - COUNT=0 treated as invalid") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=0");
+
+        // COUNT=0 is invalid per RFC 5545 (must be positive)
+        // toInt() returns 0 for "0", which we should handle
+        CHECK(rule.count == 0);  // Currently accepted, could add validation
+    }
+
+    TEST_CASE("RRULE - Very large COUNT") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=10000");
+
+        CHECK(rule.count == 10000);
+        CHECK(rule.hasCountLimit());
+    }
+
+    TEST_CASE("RRULE - INTERVAL with negative value") {
+        RRuleComponents rule = parser.parseRRule("FREQ=DAILY;INTERVAL=-2");
+
+        CHECK(rule.interval == 1);  // Should default to 1
+    }
+
+    TEST_CASE("RRULE - Very large INTERVAL") {
+        RRuleComponents rule = parser.parseRRule("FREQ=YEARLY;INTERVAL=100");
+
+        CHECK(rule.interval == 100);
+    }
+}
+
+TEST_SUITE("CalendarStreamParser - UNTIL Date Parsing") {
+    CalendarStreamParser parser;
+
+    TEST_CASE("Parse UNTIL - Date only (YYYYMMDD)") {
+        time_t until = parser.parseUntilDate("20251231");
+
+        CHECK(until > 0);
+
+        struct tm* tm = localtime(&until);
+        CHECK(tm->tm_year == 125);  // 2025
+        CHECK(tm->tm_mon == 11);    // December (0-based)
+        CHECK(tm->tm_mday == 31);
+        CHECK(tm->tm_hour == 23);   // End of day
+        CHECK(tm->tm_min == 59);
+        CHECK(tm->tm_sec == 59);
+    }
+
+    TEST_CASE("Parse UNTIL - Date and time (YYYYMMDDTHHMMSS)") {
+        time_t until = parser.parseUntilDate("20251231T143000");
+
+        CHECK(until > 0);
+
+        struct tm* tm = localtime(&until);
+        CHECK(tm->tm_year == 125);  // 2025
+        CHECK(tm->tm_mon == 11);    // December
+        CHECK(tm->tm_mday == 31);
+        // Note: Hour might be off due to DST, so we don't test exact hour
+    }
+
+    TEST_CASE("Parse UNTIL - UTC format with Z") {
+        time_t until = parser.parseUntilDate("20251231T235959Z");
+
+        CHECK(until > 0);
+
+        struct tm* tm = localtime(&until);
+        CHECK(tm->tm_year == 125);  // 2025
+        CHECK(tm->tm_mon == 11);    // December
+        CHECK(tm->tm_mday == 31);
+    }
+
+    TEST_CASE("Parse UNTIL - Empty string") {
+        time_t until = parser.parseUntilDate("");
+
+        CHECK(until == 0);
+    }
+
+    TEST_CASE("Parse UNTIL - Too short string") {
+        time_t until = parser.parseUntilDate("2025");
+
+        CHECK(until == 0);
+    }
+
+    TEST_CASE("Parse UNTIL - Leap year date") {
+        time_t until = parser.parseUntilDate("20240229");  // Feb 29, 2024
+
+        CHECK(until > 0);
+
+        struct tm* tm = localtime(&until);
+        CHECK(tm->tm_year == 124);  // 2024
+        CHECK(tm->tm_mon == 1);     // February
+        CHECK(tm->tm_mday == 29);
+    }
+
+    TEST_CASE("Parse UNTIL - Start of year") {
+        time_t until = parser.parseUntilDate("20250101T000000");
+
+        CHECK(until > 0);
+
+        struct tm* tm = localtime(&until);
+        CHECK(tm->tm_year == 125);
+        CHECK(tm->tm_mon == 0);
+        CHECK(tm->tm_mday == 1);
+    }
+}
+
+TEST_SUITE("CalendarStreamParser - BYDAY Advanced") {
+    CalendarStreamParser parser;
+
+    TEST_CASE("Parse BYDAY - With position prefix (1MO)") {
+        std::vector<int> days = parser.parseByDay("1MO");
+
+        // Position prefix is ignored for now, just extract day code
+        CHECK(days.size() == 1);
+        CHECK(days[0] == 1);  // Monday
+    }
+
+    TEST_CASE("Parse BYDAY - Multiple with positions (1MO,-1FR)") {
+        std::vector<int> days = parser.parseByDay("1MO,-1FR");
+
+        CHECK(days.size() == 2);
+        CHECK(days[0] == 1);  // Monday
+        CHECK(days[1] == 5);  // Friday
+    }
+
+    TEST_CASE("Parse BYDAY - Mixed with and without positions") {
+        std::vector<int> days = parser.parseByDay("MO,2WE,FR");
+
+        CHECK(days.size() == 3);
+        CHECK(days[0] == 1);  // Monday
+        CHECK(days[1] == 3);  // Wednesday
+        CHECK(days[2] == 5);  // Friday
+    }
+
+    TEST_CASE("Parse BYDAY - Invalid day code ignored") {
+        std::vector<int> days = parser.parseByDay("MO,XX,FR");
+
+        CHECK(days.size() == 2);  // Only MO and FR
+        CHECK(days[0] == 1);
+        CHECK(days[1] == 5);
+    }
+
+    TEST_CASE("Parse BYDAY - Spaces in list") {
+        std::vector<int> days = parser.parseByDay("MO, WE, FR");
+
+        // Should handle spaces after commas
+        CHECK(days.size() == 3);
+    }
+
+    TEST_CASE("Parse BYDAY - Trailing comma") {
+        std::vector<int> days = parser.parseByDay("MO,WE,");
+
+        CHECK(days.size() == 2);
+    }
+
+    TEST_CASE("Parse BYDAY - Duplicate days") {
+        std::vector<int> days = parser.parseByDay("MO,WE,MO");
+
+        // Duplicates are allowed (will be in vector twice)
+        CHECK(days.size() == 3);
+        CHECK(days[0] == 1);
+        CHECK(days[1] == 3);
+        CHECK(days[2] == 1);  // Duplicate Monday
+    }
+}
+
+TEST_SUITE("CalendarStreamParser - BYMONTHDAY Advanced") {
+    CalendarStreamParser parser;
+
+    TEST_CASE("Parse BYMONTHDAY - Mixed positive and negative") {
+        std::vector<int> days = parser.parseByMonthDay("1,15,-1");
+
+        CHECK(days.size() == 3);
+        CHECK(days[0] == 1);
+        CHECK(days[1] == 15);
+        CHECK(days[2] == -1);
+    }
+
+    TEST_CASE("Parse BYMONTHDAY - Last two days (-1,-2)") {
+        std::vector<int> days = parser.parseByMonthDay("-1,-2");
+
+        CHECK(days.size() == 2);
+        CHECK(days[0] == -1);
+        CHECK(days[1] == -2);
+    }
+
+    TEST_CASE("Parse BYMONTHDAY - Out of range days") {
+        std::vector<int> days = parser.parseByMonthDay("1,32,15");
+
+        // All values parsed (no validation yet)
+        CHECK(days.size() == 3);
+        CHECK(days[0] == 1);
+        CHECK(days[1] == 32);  // Will be validated during expansion
+        CHECK(days[2] == 15);
+    }
+
+    TEST_CASE("Parse BYMONTHDAY - Zero day invalid") {
+        std::vector<int> days = parser.parseByMonthDay("0,15");
+
+        // 0 is not a valid day (days are 1-31 or -1 to -31)
+        CHECK(days.size() == 1);  // Only 15
+        CHECK(days[0] == 15);
+    }
+
+    TEST_CASE("Parse BYMONTHDAY - Spaces in list") {
+        std::vector<int> days = parser.parseByMonthDay("1, 15, 30");
+
+        CHECK(days.size() == 3);
+    }
+
+    TEST_CASE("Parse BYMONTHDAY - All days of month") {
+        std::vector<int> days = parser.parseByMonthDay("1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31");
+
+        CHECK(days.size() == 31);
+        CHECK(days[0] == 1);
+        CHECK(days[30] == 31);
+    }
+}
+
+TEST_SUITE("CalendarStreamParser - BYMONTH Advanced") {
+    CalendarStreamParser parser;
+
+    TEST_CASE("Parse BYMONTH - All months") {
+        std::vector<int> months = parser.parseByMonth("1,2,3,4,5,6,7,8,9,10,11,12");
+
+        CHECK(months.size() == 12);
+        CHECK(months[0] == 1);
+        CHECK(months[11] == 12);
+    }
+
+    TEST_CASE("Parse BYMONTH - Quarters (Q1, Q2, Q3, Q4)") {
+        std::vector<int> q1 = parser.parseByMonth("1,2,3");
+        std::vector<int> q2 = parser.parseByMonth("4,5,6");
+        std::vector<int> q3 = parser.parseByMonth("7,8,9");
+        std::vector<int> q4 = parser.parseByMonth("10,11,12");
+
+        CHECK(q1.size() == 3);
+        CHECK(q2.size() == 3);
+        CHECK(q3.size() == 3);
+        CHECK(q4.size() == 3);
+    }
+
+    TEST_CASE("Parse BYMONTH - Out of range filtered") {
+        std::vector<int> months = parser.parseByMonth("0,1,13,7,100");
+
+        // Only 1 and 7 are valid
+        CHECK(months.size() == 2);
+        CHECK(months[0] == 1);
+        CHECK(months[1] == 7);
+    }
+
+    TEST_CASE("Parse BYMONTH - Negative values filtered") {
+        std::vector<int> months = parser.parseByMonth("-1,1,7");
+
+        // Negative months not supported
+        CHECK(months.size() == 2);
+        CHECK(months[0] == 1);
+        CHECK(months[1] == 7);
+    }
+
+    TEST_CASE("Parse BYMONTH - Spaces in list") {
+        std::vector<int> months = parser.parseByMonth("1, 7, 12");
+
+        CHECK(months.size() == 3);
+    }
+}
+

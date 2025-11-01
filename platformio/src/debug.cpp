@@ -53,7 +53,6 @@ void testLittleFSConfig();
 void helloWorld();
 void testDisplayCapabilities();
 std::vector<CalendarEvent*> generateMockEvents();
-MonthCalendar generateMockCalendar();
 WeatherData generateMockWeather();
 int getBatteryPercentage(float voltage); // Battery percentage calculation
 
@@ -111,10 +110,9 @@ void onDeviceBusy(const void*)
     }
 
     // display.display.epd2.setBusyCallback(onDeviceBusy); // Disable busy callback for debug
-    // display.clear();
-    // display.refresh(false);
+    display.clear();
+    display.refresh(false);
 
-    Serial.println("Display initialized!");
     Serial.println("\nDEBUG_DISPLAY mode active - Normal operation bypassed");
 
     // Initialize WiFi client for calendar and weather testing
@@ -151,7 +149,7 @@ void showMenu()
     Serial.println("11 - Clear Display");
     Serial.println("13 - Test Weather Fetch (Real)");
     Serial.println("14 - Test LittleFS Configuration");
-    Serial.println("15 - Test Display");
+    Serial.println("15 - Test Display (hello world)");
     Serial.println("16 - Test Display Capabilities");
     Serial.println("h  - Show this menu");
     Serial.println("================================");
@@ -168,30 +166,32 @@ void processCommand(String command)
 
         // Get current time
         struct tm date;
-
-        date.tm_year = 2025 - 1900; // Number of years since 1900
-        date.tm_mon = 10 - 1; // Number of months since January
-        date.tm_mday = 16;
-        date.tm_hour = 12;
-        date.tm_min = 30;
-        date.tm_sec = 1;
-        date.tm_isdst = -1;
+        POPULATE_TM_DATE_TIME(date, 2025, 10, 16, 12, 30, 1, -1);
         mktime(&date);
 
         int currentDay = date.tm_mday;
         int currentMonth = date.tm_mon + 1;
         int currentYear = date.tm_year + 1900;
 
+        Serial.println("Date set to: " + String(currentDay) + "/" + String(currentMonth) + "/" + String(currentYear));
+
         char timeStr[32];
         strftime(timeStr, sizeof(timeStr), "%I:%M %p", &date);
+        Serial.println("Time: " + String(timeStr));
 
         // Generate mock events
+        Serial.println("Generating mock events...");
         std::vector<CalendarEvent*> mockEvents = generateMockEvents();
+        Serial.println("Generated " + String(mockEvents.size()) + " mock events");
 
         // Generate mock weather data
+        Serial.println("Generating mock weather...");
         WeatherData mockWeather = generateMockWeather();
+        Serial.println("Weather generated: " + String(mockWeather.currentTemp) + "°C");
 
         // Display modern layout with weather
+        Serial.println("Calling showModernCalendar...");
+        display.setRotation(0); // Landscape
         display.showModernCalendar(mockEvents, currentDay, currentMonth, currentYear,
             String(timeStr), &mockWeather, true, -65, 4.2, 85);
 
@@ -227,21 +227,6 @@ void processCommand(String command)
     }
 
     Serial.print("\nEnter command: ");
-}
-
-void testEventList()
-{
-    Serial.println("\nTesting Event List...");
-
-    std::vector<CalendarEvent*> events = generateMockEvents();
-
-    display.display.firstPage();
-    do {
-        display.clear();
-        display.drawEventsList(events, 50, 50, 700, 400);
-    } while (display.nextPage());
-
-    Serial.println("Event list displayed!");
 }
 
 void testFullScreenError()
@@ -356,42 +341,42 @@ void testWifiConnection()
         Serial.println("Signal Quality: " + String(quality) + "%");
 
         // Display connection info on screen
-        display.display.firstPage();
+        display.firstPage();
         do {
             display.clear();
-            display.display.setFont(&Ubuntu_R_18pt8b);
-            display.display.setCursor(50, 40);
-            display.display.print("WiFi Connected");
+            display.setFont(&Ubuntu_R_18pt8b);
+            display.setCursor(50, 40);
+            display.print("WiFi Connected");
 
-            display.display.setFont(&Ubuntu_R_12pt8b);
+            display.setFont(&Ubuntu_R_12pt8b);
             int y = 80;
 
-            display.display.setCursor(50, y);
-            display.display.print("SSID: " + testConfigLoader.getWiFiSSID());
+            display.setCursor(50, y);
+            display.print("SSID: " + testConfigLoader.getWiFiSSID());
             y += 25;
 
-            display.display.setCursor(50, y);
-            display.display.print("IP: " + WiFi.localIP().toString());
+            display.setCursor(50, y);
+            display.print("IP: " + WiFi.localIP().toString());
             y += 25;
 
-            display.display.setCursor(50, y);
-            display.display.print("Gateway: " + WiFi.gatewayIP().toString());
+            display.setCursor(50, y);
+            display.print("Gateway: " + WiFi.gatewayIP().toString());
             y += 25;
 
-            display.display.setCursor(50, y);
-            display.display.print("DNS: " + WiFi.dnsIP().toString());
+            display.setCursor(50, y);
+            display.print("DNS: " + WiFi.dnsIP().toString());
             y += 25;
 
-            display.display.setCursor(50, y);
-            display.display.print("RSSI: " + String(WiFi.RSSI()) + " dBm (" + String(quality) + "%)");
+            display.setCursor(50, y);
+            display.print("RSSI: " + String(WiFi.RSSI()) + " dBm (" + String(quality) + "%)");
             y += 25;
 
-            display.display.setCursor(50, y);
-            display.display.print("Channel: " + String(WiFi.channel()));
+            display.setCursor(50, y);
+            display.print("Channel: " + String(WiFi.channel()));
             y += 25;
 
-            display.display.setCursor(50, y);
-            display.display.print("MAC: " + WiFi.macAddress());
+            display.setCursor(50, y);
+            display.print("MAC: " + WiFi.macAddress());
 
         } while (display.nextPage());
 
@@ -425,90 +410,90 @@ void testIconDisplay()
     Serial.println("\nTesting Icon Display with Inverted Bitmaps...");
     Serial.println("Drawing error and warning icons using actual bitmap files...");
 
-    display.display.firstPage();
+    display.firstPage();
     do {
         display.clear();
 
-        display.display.setFont(&Luna_ITC_Std_Bold12pt7b);
-        display.display.setCursor(50, 30);
-        display.display.print("Icon Test - Error & Warning Icons");
+        display.setFont(&Luna_ITC_Std_Bold12pt7b);
+        display.setCursor(50, 30);
+        display.print("Icon Test - Error & Warning Icons");
 
         // Draw 64x64 icons
         int x = 50;
         int y = 60;
 
         // Error icon (for WiFi errors)
-        display.display.drawInvertedBitmap(x, y, error_icon_64x64, 64, 64, GxEPD_BLACK);
-        display.display.setFont(&Ubuntu_R_9pt8b);
-        display.display.setCursor(x, y + 75);
-        display.display.print("Error 64");
+        display.drawInvertedBitmap(x, y, error_icon_64x64, 64, 64, GxEPD_BLACK);
+        display.setFont(&Ubuntu_R_9pt8b);
+        display.setCursor(x, y + 75);
+        display.print("Error 64");
 
         x += 100;
 
         // Warning icon (for other errors)
-        display.display.drawInvertedBitmap(x, y, warning_icon_64x64, 64, 64, GxEPD_BLACK);
-        display.display.setCursor(x, y + 75);
-        display.display.print("Warning 64");
+        display.drawInvertedBitmap(x, y, warning_icon_64x64, 64, 64, GxEPD_BLACK);
+        display.setCursor(x, y + 75);
+        display.print("Warning 64");
 
         // Draw weather icons
         x = 50;
         y = 160;
 
-        display.display.setFont(&Luna_ITC_Std_Bold12pt7b);
-        display.display.setCursor(x, y);
-        display.display.print("Weather Icons (32x32):");
+        display.setFont(&Luna_ITC_Std_Bold12pt7b);
+        display.setCursor(x, y);
+        display.print("Weather Icons (32x32):");
 
         y += 20;
 
         // Sunny day
-        display.display.drawInvertedBitmap(x, y, wi_day_sunny_32x32, 32, 32, GxEPD_BLACK);
-        display.display.setFont(&Ubuntu_R_9pt8b);
-        display.display.setCursor(x, y + 40);
-        display.display.print("Sun");
+        display.drawInvertedBitmap(x, y, wi_day_sunny_32x32, 32, 32, GxEPD_BLACK);
+        display.setFont(&Ubuntu_R_9pt8b);
+        display.setCursor(x, y + 40);
+        display.print("Sun");
 
         x += 80;
 
         // Cloudy day
-        display.display.drawInvertedBitmap(x, y, wi_day_cloudy_32x32, 32, 32, GxEPD_BLACK);
-        display.display.setCursor(x, y + 40);
-        display.display.print("Cloud");
+        display.drawInvertedBitmap(x, y, wi_day_cloudy_32x32, 32, 32, GxEPD_BLACK);
+        display.setCursor(x, y + 40);
+        display.print("Cloud");
 
         x += 80;
 
         // Rain
-        display.display.drawInvertedBitmap(x, y, wi_rain_32x32, 32, 32, GxEPD_BLACK);
-        display.display.setCursor(x, y + 40);
-        display.display.print("Rain");
+        display.drawInvertedBitmap(x, y, wi_rain_32x32, 32, 32, GxEPD_BLACK);
+        display.setCursor(x, y + 40);
+        display.print("Rain");
 
         x += 80;
 
         // Cloudy night
-        display.display.drawInvertedBitmap(x, y, wi_night_cloudy_32x32, 32, 32, GxEPD_BLACK);
-        display.display.setCursor(x, y + 40);
-        display.display.print("Night");
+        display.drawInvertedBitmap(x, y, wi_night_cloudy_32x32, 32, 32, GxEPD_BLACK);
+        display.setCursor(x, y + 40);
+        display.print("Night");
 
         // Draw smaller icons
         x = 50;
         y = 250;
 
-        display.display.setFont(&Luna_ITC_Std_Bold12pt7b);
-        display.display.setCursor(x, y);
-        display.display.print("48x48 Icons:");
+        display.setFont(&Luna_ITC_Std_Bold12pt7b);
+        display.setCursor(x, y);
+        display.print("48x48 Icons:");
 
         y += 20;
 
         // Error 48x48
-        display.display.drawInvertedBitmap(x, y, error_icon_48x48, 48, 48, GxEPD_BLACK);
-        display.display.setFont(&Ubuntu_R_9pt8b);
-        display.display.setCursor(x, y + 55);
-        display.display.print("Error");
+        display.drawInvertedBitmap(x, y, error_icon_48x48, 48, 48, GxEPD_BLACK);
+        display.setFont(&Ubuntu_R_9pt8b);
+        display.setCursor(x, y + 55);
+        display.print("Error");
 
         x += 80;
 
         // Warning 48x48
-        display.display.drawInvertedBitmap(x, y, warning_icon_48x48, 48, 48, GxEPD_BLACK);
-        display.display.setCursor(x, y + 55);
-        display.display.print("Warning");
+        display.drawInvertedBitmap(x, y, warning_icon_48x48, 48, 48, GxEPD_BLACK);
+        display.setCursor(x, y + 55);
+        display.print("Warning");
 
     } while (display.nextPage());
 
@@ -577,15 +562,15 @@ void testBatteryDisplay()
     analogSetAttenuation(ADC_11db); // Full scale 0-3.3V
 
     // Display initial screen
-    display.display.firstPage();
+    display.firstPage();
     do {
         display.clear();
-        display.display.setFont(&Ubuntu_R_18pt8b);
-        display.display.setCursor(50, 50);
-        display.display.print("Battery Monitor Active");
-        display.display.setFont(&Ubuntu_R_12pt8b);
-        display.display.setCursor(50, 100);
-        display.display.print("Check serial monitor for readings");
+        display.setFont(&Ubuntu_R_18pt8b);
+        display.setCursor(50, 50);
+        display.print("Battery Monitor Active");
+        display.setFont(&Ubuntu_R_12pt8b);
+        display.setCursor(50, 100);
+        display.print("Check serial monitor for readings");
     } while (display.nextPage());
 
     // Monitor battery in a loop
@@ -635,30 +620,30 @@ void testBatteryDisplay()
 
         // Update display every 10 readings
         if (loopCount % 10 == 0) {
-            display.display.firstPage();
+            display.firstPage();
             do {
                 display.clear();
 
                 // Title
-                display.display.setFont(&Ubuntu_R_18pt8b);
-                display.display.setCursor(50, 50);
-                display.display.print("Battery Monitor");
+                display.setFont(&Ubuntu_R_18pt8b);
+                display.setCursor(50, 50);
+                display.print("Battery Monitor");
 
                 // Current readings
-                display.display.setFont(&Ubuntu_R_24pt8b);
-                display.display.setCursor(50, 120);
-                display.display.print(String(batteryVoltage, 2) + "V");
+                display.setFont(&Ubuntu_R_24pt8b);
+                display.setCursor(50, 120);
+                display.print(String(batteryVoltage, 2) + "V");
 
-                display.display.setCursor(250, 120);
-                display.display.print(String(batteryPercentage) + "%");
+                display.setCursor(250, 120);
+                display.print(String(batteryPercentage) + "%");
 
                 // Detailed info
-                display.display.setFont(&Ubuntu_R_12pt8b);
-                display.display.setCursor(50, 180);
-                display.display.print("ADC: " + String(adcValue) + " (" + String(measuredMillivolts, 0) + " mV)");
+                display.setFont(&Ubuntu_R_12pt8b);
+                display.setCursor(50, 180);
+                display.print("ADC: " + String(adcValue) + " (" + String(measuredMillivolts, 0) + " mV)");
 
-                display.display.setCursor(50, 220);
-                display.display.print("Battery: " + String(batteryMillivolts, 0) + " mV");
+                display.setCursor(50, 220);
+                display.print("Battery: " + String(batteryMillivolts, 0) + " mV");
 
                 // Draw battery status bar
                 // Get current date and time for status bar
@@ -694,6 +679,18 @@ void testCalendarFetch()
     Serial.println("\nTesting Real Calendar Fetch...");
     Serial.println("========================================");
 
+    // Show current system time BEFORE doing anything
+    time_t nowBefore = time(nullptr);
+    struct tm* tmBefore = localtime(&nowBefore);
+    char timeStrBefore[64];
+    strftime(timeStrBefore, sizeof(timeStrBefore), "%Y-%m-%d %H:%M:%S %Z", tmBefore);
+    Serial.println("\n>>> SYSTEM TIME AT START <<<");
+    Serial.println("  Current time: " + String(timeStrBefore));
+    Serial.println("  Unix timestamp: " + String(nowBefore));
+    Serial.println("  Year: " + String(tmBefore->tm_year + 1900));
+    Serial.println("  Month: " + String(tmBefore->tm_mon + 1));
+    Serial.println("  Day: " + String(tmBefore->tm_mday));
+
     // Create a test config loader and load configuration
     LittleFSConfig testConfigLoader;
     if (!testConfigLoader.begin()) {
@@ -721,7 +718,7 @@ void testCalendarFetch()
     tzset();
 
     // Try multiple NTP servers for better reliability
-    configTime(0, 0, "pool.ntp.org", "time.nist.gov", "time.google.com");
+    configTime(0, 0, "pool.ntp.org", "0.europe.pool.ntp.org", "time.google.com");
 
     // Wait for time to be set
     time_t now = 0;
@@ -795,58 +792,154 @@ void testCalendarFetch()
     Serial.println("\nFetching calendar events from all configured calendars...");
     bool success = calendarManager->loadAll(false); // false = use cache if available
 
-    std::vector<CalendarEvent*> events;
-    if (success) {
-        // Get events for the next month
-        time_t now = time(nullptr);
-        time_t endDate = now + (31 * 86400);
-        events = calendarManager->getAllEvents(now, endDate);
-        Serial.println("Successfully fetched events from " + String(calendarManager->getCalendarCount()) + " calendars");
-    } else {
-        Serial.println("Calendar fetch failed!");
-    }
+    // Get current time for date range
+    time_t nowTime = time(nullptr);
+    time_t endDate = nowTime + (31 * 86400); // Next 31 days
 
     Serial.println("\n=== CALENDAR FETCH RESULTS ===");
-    Serial.println("Total events found: " + String(events.size()));
 
-    // Print detailed event information
-    Serial.println("\n--- Event Details ---");
-    for (size_t i = 0; i < events.size() && i < 20; i++) { // Limit to first 20 for debug
-        auto event = events[i];
-        Serial.println("\nEvent #" + String(i + 1) + ":");
-        Serial.println("  Title: " + event->summary);
-        Serial.println("  Start: " + event->dtStart);
-        Serial.println("  End: " + event->dtEnd);
-        Serial.println("  All Day: " + String(event->allDay ? "Yes" : "No"));
-        Serial.println("  Calendar: " + event->calendarName);
-        Serial.println("  Color: " + event->calendarColor);
-        if (event->isRecurring)
-            Serial.println("  >>> RECURRING EVENT <<<");
-        if (event->isToday)
-            Serial.println("  >>> MARKED AS TODAY <<<");
-        if (event->isTomorrow)
-            Serial.println("  >>> MARKED AS TOMORROW <<<");
+    // Print results per calendar
+    size_t totalCalendars = calendarManager->getCalendarCount();
+    Serial.println("Total calendars configured: " + String(totalCalendars));
+
+    if (!success) {
+        Serial.println("WARNING: Some calendars failed to load!");
     }
 
-    // Display on screen
-    display.display.firstPage();
-    do {
-        display.clear();
+    // Collect events per calendar for display
+    struct CalendarSummary {
+        String name;
+        String color;
+        size_t eventCount;
+        std::vector<CalendarEvent*> events;
+    };
+    std::vector<CalendarSummary> calendarSummaries;
 
-        display.display.setFont(&Ubuntu_R_18pt8b);
-        display.display.setCursor(50, 50);
-        display.display.print("Calendar Events (" + String(events.size()) + ")");
+    for (size_t i = 0; i < totalCalendars; i++) {
+        CalendarWrapper* cal = calendarManager->getCalendar(i);
+        if (cal && cal->isEnabled()) {
+            CalendarSummary summary;
+            summary.name = cal->getName();
+            summary.color = cal->getColor();
+            summary.events = cal->getEvents(nowTime, endDate);
+            summary.eventCount = summary.events.size();
 
-        if (events.empty()) {
-            display.display.setFont(&Ubuntu_R_12pt8b);
-            display.display.setCursor(50, 100);
-            display.display.print("No events found");
-        } else {
-            display.drawEventsList(events, 50, 80, 700, 400);
+            Serial.println("\n--- Calendar: " + summary.name + " ---");
+            Serial.println("  Color: " + summary.color);
+            Serial.println("  Enabled: Yes");
+            Serial.println("  Events in range: " + String(summary.eventCount));
+            Serial.println("  Is Stale (cached): " + String(cal->isStale ? "Yes" : "No"));
+
+            // Print first few events from this calendar
+            for (size_t j = 0; j < summary.events.size() && j < 5; j++) {
+                auto event = summary.events[j];
+                Serial.println("    Event " + String(j+1) + ": " + event->summary);
+                Serial.println("      Date: " + event->date + " " + event->startTimeStr);
+            }
+            if (summary.eventCount > 5) {
+                Serial.println("    ... and " + String(summary.eventCount - 5) + " more events");
+            }
+
+            calendarSummaries.push_back(summary);
         }
+    }
 
-    } while (display.nextPage());
+    // Calculate total events
+    size_t totalEvents = 0;
+    for (const auto& summary : calendarSummaries) {
+        totalEvents += summary.eventCount;
+    }
+    Serial.println("\nTotal events across all calendars: " + String(totalEvents));
 
+    // Display on screen - per-calendar with user prompts
+    Serial.println("\n[DEBUG] Starting display rendering...");
+
+    display.setRotation(1);
+    display.setTextColor(GxEPD_BLACK);
+
+    // Display each calendar separately
+    for (size_t i = 0; i < calendarSummaries.size(); i++) {
+        const CalendarSummary& summary = calendarSummaries[i];
+
+        Serial.println("\n[DEBUG] Displaying calendar " + String(i+1) + "/" + String(calendarSummaries.size()) + ": " + summary.name);
+
+        display.setFullWindow();
+        display.firstPage();
+
+        do {
+            display.fillScreen(GxEPD_WHITE);
+
+            // Title at top
+            display.setFont(&Ubuntu_R_18pt8b);
+            display.setCursor(20, 40);
+            display.print("Calendar " + String(i+1) + "/" + String(calendarSummaries.size()));
+
+            // Calendar name
+            display.setFont(&Ubuntu_R_14pt8b);
+            display.setCursor(20, 80);
+            display.print(summary.name);
+
+            // Color and event count
+            display.setFont(&Ubuntu_R_12pt8b);
+            display.setCursor(20, 110);
+            display.print("Color: " + summary.color);
+
+            display.setCursor(20, 135);
+            display.print("Events: " + String(summary.eventCount));
+
+            // List events
+            int y = 170;
+            int lineHeight = 25;
+            display.setFont(&Ubuntu_R_9pt8b);
+
+            for (size_t j = 0; j < summary.events.size() && j < 15; j++) {
+                auto event = summary.events[j];
+
+                // Event title
+                display.setCursor(20, y);
+                String eventTitle = event->summary;
+                if (eventTitle.length() > 50) {
+                    eventTitle = eventTitle.substring(0, 47) + "...";
+                }
+                display.print(String(j+1) + ". " + eventTitle);
+                y += lineHeight;
+
+                // Event date/time
+                display.setCursor(40, y);
+                display.print(event->date + " " + event->startTimeStr);
+                y += lineHeight;
+
+                // Check if we're running out of space
+                if (y > display.height() - 50) {
+                    display.setCursor(20, y);
+                    display.print("... and " + String(summary.eventCount - j - 1) + " more events");
+                    break;
+                }
+            }
+
+            // Footer instruction
+            display.setFont(&Ubuntu_R_9pt8b);
+            display.setCursor(20, display.height() - 20);
+            display.print("Press any key to continue...");
+
+        } while (display.nextPage());
+
+        Serial.println("[DEBUG] Display rendered for " + summary.name);
+
+        // Wait for user input before continuing to next calendar
+        if (i < calendarSummaries.size() - 1) {
+            Serial.println("\nPress any key to continue to next calendar...");
+            while (!Serial.available()) {
+                delay(100);
+            }
+            // Clear serial buffer
+            while (Serial.available()) {
+                Serial.read();
+            }
+        }
+    }
+
+    Serial.println("\n[DEBUG] Display rendering complete!");
     Serial.println("\n========================================");
     Serial.println("Calendar fetch test complete!");
 }
@@ -855,13 +948,13 @@ void testErrorLevels()
 {
     Serial.println("\nTesting Error Levels...");
 
-    display.display.firstPage();
+    display.firstPage();
     do {
         display.clear();
 
-        display.display.setFont(&Ubuntu_R_18pt8b);
-        display.display.setCursor(50, 50);
-        display.display.print("Error Level Test");
+        display.setFont(&Ubuntu_R_18pt8b);
+        display.setCursor(50, 50);
+        display.print("Error Level Test");
 
         int y = 100;
 
@@ -876,9 +969,9 @@ void testErrorLevels()
             error.message = String("Test ") + levelNames[i] + " message";
             error.code = static_cast<ErrorCode>(100 + i);
 
-            display.display.setFont(&Ubuntu_R_12pt8b);
-            display.display.setCursor(50, y);
-            display.display.print(levelNames[i]);
+            display.setFont(&Ubuntu_R_12pt8b);
+            display.setCursor(50, y);
+            display.print(levelNames[i]);
 
             // Draw appropriate icon for each level
             int iconX = 200;
@@ -909,13 +1002,13 @@ void testDithering()
 {
     Serial.println("\nTesting Dithering Patterns...");
 
-    display.display.firstPage();
+    display.firstPage();
     do {
         display.clear();
 
-        display.display.setFont(&Ubuntu_R_18pt8b);
-        display.display.setCursor(50, 50);
-        display.display.print("Dithering Test");
+        display.setFont(&Ubuntu_R_18pt8b);
+        display.setCursor(50, 50);
+        display.print("Dithering Test");
 
         // Test different dithering levels
         float levels[] = { 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.75 };
@@ -924,13 +1017,13 @@ void testDithering()
         int boxSize = 80;
 
         for (int i = 0; i < 8; i++) {
-            // Apply dithering to a box
-            display.applyFloydSteinbergDithering(x, y, boxSize, boxSize, levels[i]);
+            // Apply dithering to a box (white background, black foreground)
+            display.applyDithering(x, y, boxSize, boxSize, GxEPD_WHITE, GxEPD_BLACK, levels[i]);
 
             // Draw label
-            display.display.setFont(&Ubuntu_R_9pt8b);
-            display.display.setCursor(x + 10, y + boxSize + 20);
-            display.display.print(String(int(levels[i] * 100)) + "%");
+            display.setFont(&Ubuntu_R_9pt8b);
+            display.setCursor(x + 10, y + boxSize + 20);
+            display.print(String(int(levels[i] * 100)) + "%");
 
             x += boxSize + 20;
             if (x > 650) {
@@ -944,172 +1037,12 @@ void testDithering()
     Serial.println("Dithering test complete!");
 }
 
-void testTimeDisplay()
-{
-    Serial.println("\nTesting Time/Date Display...");
-
-    // Get current time
-    time_t now;
-    time(&now);
-    struct tm* timeinfo = localtime(&now);
-
-    char dateStr[32];
-    char timeStr[32];
-    strftime(dateStr, sizeof(dateStr), "%B %d, %Y", timeinfo);
-    strftime(timeStr, sizeof(timeStr), "%I:%M %p", timeinfo);
-
-    display.display.firstPage();
-    do {
-        display.clear();
-
-        // Test header
-        display.drawHeader(String(dateStr), String(timeStr));
-
-        // Test different date formats
-        display.display.setFont(&Ubuntu_R_12pt8b);
-        int y = 100;
-
-        display.display.setCursor(50, y);
-        display.display.print("ISO Format: ");
-        strftime(dateStr, sizeof(dateStr), "%Y-%m-%d %H:%M:%S", timeinfo);
-        display.display.print(dateStr);
-
-        y += 40;
-        display.display.setCursor(50, y);
-        display.display.print("US Format: ");
-        strftime(dateStr, sizeof(dateStr), "%m/%d/%Y %I:%M %p", timeinfo);
-        display.display.print(dateStr);
-
-        y += 40;
-        display.display.setCursor(50, y);
-        display.display.print("EU Format: ");
-        strftime(dateStr, sizeof(dateStr), "%d.%m.%Y %H:%M", timeinfo);
-        display.display.print(dateStr);
-
-        y += 40;
-        display.display.setCursor(50, y);
-        display.display.print("Full Format: ");
-        strftime(dateStr, sizeof(dateStr), "%A, %B %d, %Y", timeinfo);
-        display.display.print(dateStr);
-
-    } while (display.nextPage());
-
-    Serial.println("Time display test complete!");
-}
-
 void clearDisplay()
 {
     Serial.println("\nClearing display...");
     display.clear();
     display.refresh(false);
     Serial.println("Display cleared!");
-}
-
-void testTimezoneConversion()
-{
-    Serial.println("\nTesting ICS Timezone Conversion...");
-    Serial.println("========================================");
-    Serial.println("This test is temporarily disabled during architecture migration.");
-    return;
-    /*
-
-    // Test cases for UTC to local time conversion
-    struct TestCase {
-        String input;
-        String description;
-    };
-
-    TestCase testCases[] = {
-        {"20251015T080000Z", "UTC 8:00 AM on Oct 15, 2025"},
-        {"20251015T120000Z", "UTC 12:00 PM on Oct 15, 2025"},
-        {"20251015T180000Z", "UTC 6:00 PM on Oct 15, 2025"},
-        {"20250315T100000Z", "UTC 10:00 AM on Mar 15, 2025 (before DST)"},
-        {"20250415T100000Z", "UTC 10:00 AM on Apr 15, 2025 (during DST)"},
-        {"20251105T100000Z", "UTC 10:00 AM on Nov 5, 2025 (after DST)"},
-        {"20251231T235959Z", "UTC 11:59:59 PM on Dec 31, 2025"}
-    };
-
-    // Load configuration for timezone
-    LittleFSConfig testConfigLoader;
-    if (testConfigLoader.begin() && testConfigLoader.loadConfiguration()) {
-        Serial.println("Current configuration:");
-        Serial.println("TIMEZONE: " + testConfigLoader.getTimezone());
-        Serial.println("(System handles DST automatically based on timezone)");
-    } else {
-        Serial.println("Using default timezone configuration");
-    }
-    Serial.println("");
-
-    for (int i = 0; i < 7; i++) {
-        TestCase& tc = testCases[i];
-        Serial.println("Test " + String(i+1) + ": " + tc.description);
-        Serial.println("  Input:  " + tc.input);
-
-        String converted = calendarClient->convertUTCToLocalTime(tc.input);
-        Serial.println("  Output: " + converted);
-
-        // Parse the output to show human-readable format
-        if (converted.length() >= 15) {
-            String year = converted.substring(0, 4);
-            String month = converted.substring(4, 6);
-            String day = converted.substring(6, 8);
-            String hour = converted.substring(9, 11);
-            String minute = converted.substring(11, 13);
-            String second = converted.substring(13, 15);
-
-            Serial.println("  Readable: " + year + "-" + month + "-" + day + " " +
-                         hour + ":" + minute + ":" + second + " (local time)");
-        }
-        Serial.println("");
-    }
-
-    // Display test results on screen
-    display.display.firstPage();
-    do {
-        display.clear();
-
-        display.display.setFont(&Ubuntu_R_18pt8b);
-        display.display.setCursor(50, 50);
-        display.display.print("ICS Timezone Conversion Test");
-
-        display.display.setFont(&Ubuntu_R_12pt8b);
-        int y = 100;
-
-        display.display.setCursor(50, y);
-        display.display.print("TIMEZONE: " + testConfigLoader.getTimezone());
-        y += 30;
-
-        display.display.setCursor(50, y);
-        display.display.print("(DST handled automatically)");
-        y += 40;
-
-        // Show a few test results
-        for (int i = 0; i < 3 && i < 7; i++) {
-            TestCase& tc = testCases[i];
-            String converted = calendarClient->convertUTCToLocalTime(tc.input);
-
-            display.display.setFont(&Ubuntu_R_9pt8b);
-            display.display.setCursor(50, y);
-            display.display.print("UTC: " + tc.input.substring(9, 15));
-
-            display.display.setCursor(250, y);
-            display.display.print("Local: " + converted.substring(9, 15));
-
-            display.display.setCursor(450, y);
-            display.display.print(tc.input.substring(0, 8));
-
-            y += 25;
-        }
-
-        display.display.setFont(&Ubuntu_R_9pt8b);
-        display.display.setCursor(50, y + 20);
-        display.display.print("Check serial monitor for full test results");
-
-    } while (display.display.nextPage());
-
-    Serial.println("Timezone conversion test complete!");
-    Serial.println("========================================");
-    */
 }
 
 void testWeatherFetch()
@@ -1157,16 +1090,6 @@ void testWeatherFetch()
     Serial.println("Temperature: " + String(weatherData.currentTemp) + "°C");
     Serial.println("Weather Code: " + String(weatherData.currentWeatherCode));
     Serial.println("Is Day: " + String(weatherData.isDay ? "Yes" : "No"));
-
-    Serial.println("\n=== Hourly Forecast (7 Items, 3-Hour Intervals) ===");
-    for (size_t i = 0; i < weatherData.hourlyForecast.size() && i < 7; i++) {
-        const WeatherHour& hour = weatherData.hourlyForecast[i];
-        String hourStr = hour.time.substring(11, 13);
-        Serial.print("Hour " + hourStr + ":00 - ");
-        Serial.print("Temp: " + String(hour.temperature, 1) + "°C, ");
-        Serial.print("Code: " + String(hour.weatherCode) + ", ");
-        Serial.println("Rain%: " + String(hour.precipitationProbability) + "%");
-    }
 
     Serial.println("\n=== Daily Forecast ===");
     for (size_t i = 0; i < weatherData.dailyForecast.size(); i++) {
@@ -1344,28 +1267,6 @@ std::vector<CalendarEvent*> generateMockEvents()
     return events;
 }
 
-MonthCalendar generateMockCalendar()
-{
-    MonthCalendar calendar;
-    calendar.year = 2025;
-    calendar.month = 10; // October
-    calendar.daysInMonth = 31;
-    calendar.firstDayOfWeek = 3; // Wednesday
-    calendar.today = 16; // October 16th
-
-    // Mark some days as having events
-    for (int i = 0; i < 32; i++) {
-        calendar.hasEvent[i] = false;
-    }
-    calendar.hasEvent[16] = true; // Today
-    calendar.hasEvent[17] = true; // Tomorrow
-    calendar.hasEvent[20] = true; // Birthday
-    calendar.hasEvent[25] = true; // Random event
-    calendar.hasEvent[28] = true; // Random event
-
-    return calendar;
-}
-
 WeatherData generateMockWeather()
 {
     WeatherData weatherData;
@@ -1375,25 +1276,7 @@ WeatherData generateMockWeather()
     weatherData.currentWeatherCode = 2; // Partly cloudy
     weatherData.isDay = true;
 
-    // Generate hourly forecast (7 items at 3-hour intervals starting at 6am)
-    int hours[] = { 6, 9, 12, 15, 18, 21, 0 }; // 6am to midnight coverage
-    float temps[] = { 10.2, 14.5, 18.3, 19.2, 15.2, 12.1, 9.5 };
-    int codes[] = { 2, 1, 0, 0, 2, 3, 3 }; // Various weather conditions
-    int rainProb[] = { 10, 5, 0, 0, 5, 15, 20 };
-
-    for (int i = 0; i < 7; i++) {
-        WeatherHour hour;
-        char timeStr[20];
-        sprintf(timeStr, "2025-10-16T%02d:00", hours[i]);
-        hour.time = String(timeStr);
-        hour.temperature = temps[i];
-        hour.weatherCode = codes[i];
-        hour.precipitationProbability = rainProb[i];
-        hour.isDay = (hours[i] >= 6 && hours[i] <= 18);
-        weatherData.hourlyForecast.push_back(hour);
-    }
-
-    // Daily forecast (for sunrise/sunset)
+    // Daily forecast (today and tomorrow)
     WeatherDay today;
     today.date = "2025-10-16";
     today.weatherCode = 2;
@@ -1401,7 +1284,18 @@ WeatherData generateMockWeather()
     today.tempMin = 8.0;
     today.sunrise = "2025-10-16T06:42";
     today.sunset = "2025-10-16T18:15";
+    today.precipitationProbability = 15; // 15% chance of rain
     weatherData.dailyForecast.push_back(today);
+
+    WeatherDay tomorrow;
+    tomorrow.date = "2025-10-17";
+    tomorrow.weatherCode = 3;
+    tomorrow.tempMax = 16.2;
+    tomorrow.tempMin = 9.5;
+    tomorrow.sunrise = "2025-10-17T06:44";
+    tomorrow.sunset = "2025-10-17T18:13";
+    tomorrow.precipitationProbability = 45; // 45% chance of rain
+    weatherData.dailyForecast.push_back(tomorrow);
 
     return weatherData;
 }
@@ -1611,43 +1505,61 @@ void testLittleFSConfig()
     // Display on screen as well
     Serial.println("\n--- Displaying on Screen ---");
 
-    display.display.firstPage();
+    display.setRotation(0);
+    display.setFullWindow();
+    display.firstPage();
     do {
-        display.clear();
+        display.fillScreen(GxEPD_WHITE);
+        display.setTextColor(GxEPD_BLACK);
+        display.setFont(&Ubuntu_R_18pt8b);
+        display.setCursor(50, 40);
+        display.print("LittleFS Configuration");
 
-        display.display.setFont(&Ubuntu_R_18pt8b);
-        display.display.setCursor(50, 40);
-        display.display.print("LittleFS Configuration");
-
-        display.display.setFont(&Ubuntu_R_12pt8b);
+        display.setFont(&Ubuntu_R_12pt8b);
         int y = 80;
 
-        display.display.setCursor(50, y);
-        display.display.print("WiFi: " + testConfigLoader.getWiFiSSID());
+        // LittleFS space information
+        display.setCursor(50, y);
+        display.print("FS Total: " + String(totalBytes / 1024.0, 1) + " KB");
         y += 25;
 
-        display.display.setCursor(50, y);
-        display.display.print("Timezone: " + testConfigLoader.getTimezone());
+        display.setCursor(50, y);
+        display.print("FS Used: " + String(usedBytes / 1024.0, 1) + " KB");
         y += 25;
 
-        display.display.setCursor(50, y);
-        display.display.print("Location: " + String(testConfigLoader.getLatitude(), 2) + ", " + String(testConfigLoader.getLongitude(), 2));
+        display.setCursor(50, y);
+        display.print("FS Free: " + String((totalBytes - usedBytes) / 1024.0, 1) + " KB");
         y += 25;
 
-        display.display.setCursor(50, y);
-        display.display.print("Calendars: " + String(calendars.empty() ? 1 : calendars.size()));
+        // Add separator
+        y += 10;
+
+        display.setCursor(50, y);
+        display.print("WiFi: " + testConfigLoader.getWiFiSSID());
         y += 25;
 
-        display.display.setCursor(50, y);
-        display.display.print("Language: " + String(DISPLAY_LANGUAGE));
+        display.setCursor(50, y);
+        display.print("Timezone: " + testConfigLoader.getTimezone());
         y += 25;
 
-        display.display.setCursor(50, y);
-        display.display.print("Update Hour: " + String(testConfigLoader.getUpdateHour()) + ":00");
+        display.setCursor(50, y);
+        display.print("Location: " + String(testConfigLoader.getLatitude(), 2) + ", " + String(testConfigLoader.getLongitude(), 2));
         y += 25;
 
-        display.display.setCursor(50, y);
-        display.display.print("First Day: " + String(FIRST_DAY_OF_WEEK == 0 ? "Sunday" : "Monday"));
+        display.setCursor(50, y);
+        display.print("Calendars: " + String(calendars.empty() ? 1 : calendars.size()));
+        y += 25;
+
+        display.setCursor(50, y);
+        display.print("Language: " + String(DISPLAY_LANGUAGE));
+        y += 25;
+
+        display.setCursor(50, y);
+        display.print("Update Hour: " + String(testConfigLoader.getUpdateHour()) + ":00");
+        y += 25;
+
+        display.setCursor(50, y);
+        display.print("First Day: " + String(FIRST_DAY_OF_WEEK == 0 ? "Sunday" : "Monday"));
 
     } while (display.nextPage());
 
@@ -1664,7 +1576,7 @@ void helloWorld()
     Serial.println("helloWorld");
     display.setRotation(1);
     display.setFont(&FreeMonoBold9pt7b);
-    if (display.display.epd2.WIDTH < 104)
+    if (display.width() < 104)
         display.setFont(0);
     display.setTextColor(GxEPD_BLACK);
     int16_t tbx, tby;
@@ -1694,9 +1606,9 @@ void testDisplayCapabilities()
     int height = display.height();
     int pages = display.pages();
     int pageHeight = display.pageHeight();
-    bool hasColor = display.display.epd2.hasColor();
-    bool hasPartialUpdate = display.display.epd2.hasPartialUpdate();
-    bool hasFastPartialUpdate = display.display.epd2.hasFastPartialUpdate();
+    bool hasColor = display.hasColor();
+    bool hasPartialUpdate = display.hasPartialUpdate();
+    bool hasFastPartialUpdate = display.hasFastPartialUpdate();
 
     // Print to serial
     Serial.println("--- Display Information ---");
@@ -1710,59 +1622,60 @@ void testDisplayCapabilities()
     Serial.println("Supports Partial Update: " + String(hasPartialUpdate ? "Yes" : "No"));
     Serial.println("Supports Fast Partial Update: " + String(hasFastPartialUpdate ? "Yes" : "No"));
 
-    #ifdef DISP_TYPE_BW
+#ifdef DISP_TYPE_BW
     Serial.println("Display Type: Black & White (BW)");
-    #elif defined(DISP_TYPE_6C)
+#elif defined(DISP_TYPE_6C)
     Serial.println("Display Type: 6-Color (7C)");
-    #endif
+#endif
 
     // Display on screen - First page: Info
-    display.display.firstPage();
+    display.setFullWindow();
+    display.firstPage();
     do {
         display.clear();
 
-        display.display.setFont(&Ubuntu_R_18pt8b);
-        display.display.setCursor(50, 50);
-        display.display.print("Display Capabilities");
+        display.setFont(&Ubuntu_R_18pt8b);
+        display.setCursor(50, 50);
+        display.print("Display Capabilities");
 
-        display.display.setFont(&Ubuntu_R_12pt8b);
+        display.setFont(&Ubuntu_R_12pt8b);
         int y = 100;
         int lineHeight = 30;
 
-        display.display.setCursor(50, y);
-        display.display.print("Resolution: " + String(width) + " x " + String(height) + " pixels");
+        display.setCursor(50, y);
+        display.print("Resolution: " + String(width) + " x " + String(height) + " pixels");
         y += lineHeight;
 
-        display.display.setCursor(50, y);
-        display.display.print("Pages: " + String(pages));
+        display.setCursor(50, y);
+        display.print("Pages: " + String(pages));
         if (pages > 1) {
-            display.display.print(" (Page Height: " + String(pageHeight) + ")");
+            display.print(" (Page Height: " + String(pageHeight) + ")");
         }
         y += lineHeight;
 
-        display.display.setCursor(50, y);
-        display.display.print("Has Color: " + String(hasColor ? "Yes" : "No"));
+        display.setCursor(50, y);
+        display.print("Has Color: " + String(hasColor ? "Yes" : "No"));
         y += lineHeight;
 
-        display.display.setCursor(50, y);
-        display.display.print("Partial Update: " + String(hasPartialUpdate ? "Yes" : "No"));
+        display.setCursor(50, y);
+        display.print("Partial Update: " + String(hasPartialUpdate ? "Yes" : "No"));
         y += lineHeight;
 
-        display.display.setCursor(50, y);
-        display.display.print("Fast Partial Update: " + String(hasFastPartialUpdate ? "Yes" : "No"));
+        display.setCursor(50, y);
+        display.print("Fast Partial Update: " + String(hasFastPartialUpdate ? "Yes" : "No"));
         y += lineHeight;
 
-        display.display.setCursor(50, y);
-        #ifdef DISP_TYPE_BW
-        display.display.print("Type: Black & White");
-        #elif defined(DISP_TYPE_6C)
-        display.display.print("Type: 6-Color (Red/Orange/Yellow)");
-        #endif
+        display.setCursor(50, y);
+    #ifdef DISP_TYPE_BW
+        display.print("Type: Black & White");
+    #elif defined(DISP_TYPE_6C)
+        display.print("Type: 6-Color (Red/Orange/Yellow)");
+    #endif
         y += lineHeight + 20;
 
-        display.display.setFont(&Ubuntu_R_9pt8b);
-        display.display.setCursor(50, y);
-        display.display.print("Press any key to see color/dithering test...");
+        display.setFont(&Ubuntu_R_9pt8b);
+        display.setCursor(50, y);
+        display.print("Press any key to see color/dithering test...");
 
     } while (display.nextPage());
 
@@ -1780,18 +1693,18 @@ void testDisplayCapabilities()
     Serial.println("\n--- Displaying Color/Dithering Test ---\n");
 
     // Second page: Color/Dithering test
-    display.display.firstPage();
+    display.firstPage();
     do {
         display.clear();
 
-        display.display.setFont(&Ubuntu_R_18pt8b);
-        display.display.setCursor(50, 50);
+        display.setFont(&Ubuntu_R_18pt8b);
+        display.setCursor(50, 50);
 
-        #ifdef DISP_TYPE_BW
-        display.display.print("B&W Display - Dithering Test");
-        #elif defined(DISP_TYPE_6C)
-        display.display.print("Color Display Test");
-        #endif
+    #ifdef DISP_TYPE_BW
+        display.print("B&W Display - Dithering");
+    #elif defined(DISP_TYPE_6C)
+        display.print("Color Display Test");
+    #endif
 
         int startY = 80;
         int barWidth = 70;
@@ -1799,7 +1712,7 @@ void testDisplayCapabilities()
         int spacing = 20;
         int x = 50;
 
-        #ifdef DISP_TYPE_BW
+    #ifdef DISP_TYPE_BW
         // For B&W displays: show dithering levels + special colors
 
         // Dithering levels
@@ -1813,12 +1726,13 @@ void testDisplayCapabilities()
         const char* ditherLabels[] = {"10%", "25%", "50%", "75%"};
 
         for (int i = 0; i < 4; i++) {
-            display.applyFloydSteinbergDithering(x, startY, barWidth, barHeight,
-                                                 static_cast<int>(ditherLevels[i]) / 100.0f);
+            display.applyDithering(x, startY, barWidth, barHeight,
+                                  GxEPD_WHITE, GxEPD_BLACK,
+                                  static_cast<int>(ditherLevels[i]) / 100.0f);
 
-            display.display.setFont(&Ubuntu_R_9pt8b);
-            display.display.setCursor(x + 10, startY + barHeight + 20);
-            display.display.print(ditherLabels[i]);
+            display.setFont(&Ubuntu_R_9pt8b);
+            display.setCursor(x + 10, startY + barHeight + 20);
+            display.print(ditherLabels[i]);
 
             x += barWidth + spacing;
         }
@@ -1828,19 +1742,19 @@ void testDisplayCapabilities()
         const char* colorLabels[] = {"Black", "White", "Dark", "Light"};
 
         for (int i = 0; i < 4; i++) {
-            display.display.fillRect(x, startY, barWidth, barHeight, specialColors[i]);
+            display.fillRect(x, startY, barWidth, barHeight, specialColors[i]);
 
-            display.display.setFont(&Ubuntu_R_9pt8b);
+            display.setFont(&Ubuntu_R_9pt8b);
             // Use contrasting color for text
-            display.display.setTextColor(i == 0 ? GxEPD_WHITE : GxEPD_BLACK);
-            display.display.setCursor(x + 5, startY + barHeight + 20);
-            display.display.print(colorLabels[i]);
-            display.display.setTextColor(GxEPD_BLACK); // Reset
+            display.setTextColor(i == 0 ? GxEPD_WHITE : GxEPD_BLACK);
+            display.setCursor(x + 5, startY + barHeight + 20);
+            display.print(colorLabels[i]);
+            display.setTextColor(GxEPD_BLACK); // Reset
 
             x += barWidth + spacing;
         }
 
-        #elif defined(DISP_TYPE_6C)
+    #elif defined(DISP_TYPE_6C)
         // For color displays: show all supported colors
         uint16_t colors[] = {
             GxEPD_BLACK,
@@ -1863,18 +1777,18 @@ void testDisplayCapabilities()
         };
 
         for (int i = 0; i < 7; i++) {
-            display.display.fillRect(x, startY, barWidth, barHeight, colors[i]);
+            display.fillRect(x, startY, barWidth, barHeight, colors[i]);
 
-            display.display.setFont(&Ubuntu_R_9pt8b);
+            display.setFont(&Ubuntu_R_9pt8b);
             // Use contrasting color for text on white/yellow/orange
             if (i == 1 || i == 3 || i == 4) {
-                display.display.setTextColor(GxEPD_BLACK);
+                display.setTextColor(GxEPD_BLACK);
             } else {
-                display.display.setTextColor(GxEPD_WHITE);
+                display.setTextColor(GxEPD_WHITE);
             }
-            display.display.setCursor(x + 5, startY + barHeight + 20);
-            display.display.print(colorLabels[i]);
-            display.display.setTextColor(GxEPD_BLACK); // Reset
+            display.setCursor(x + 5, startY + barHeight + 20);
+            display.print(colorLabels[i]);
+            display.setTextColor(GxEPD_BLACK); // Reset
 
             x += barWidth + spacing;
 
@@ -1884,7 +1798,7 @@ void testDisplayCapabilities()
                 startY += barHeight + 50;
             }
         }
-        #endif
+    #endif
 
     } while (display.nextPage());
 

@@ -1,9 +1,13 @@
 #include "weather_client.h"
 #include <assets/icons/icons.h>
 
-static const char OPEN_WEATHER_REST_URL[] = "https://api.open-meteo.com/v1/forecast?latitude={LOC_LATITUDE}&longitude={LOC_LONGITUDE}&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code,apparent_temperature,precipitation_probability&current=apparent_temperature,is_day,weather_code,precipitation&timezone=auto&forecast_days=3";
+// static const char OPEN_WEATHER_REST_URL[] = "https://api.open-meteo.com/v1/forecast?latitude={LOC_LATITUDE}&longitude={LOC_LONGITUDE}&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code,apparent_temperature,precipitation_probability&current=apparent_temperature,is_day,weather_code,precipitation&timezone=auto&forecast_days=3";
 
-WeatherClient::WeatherClient(WiFiClientSecure* wifiClient) : client(wifiClient) {
+static const char OPEN_WEATHER_REST_URL[] = "https://api.open-meteo.com/v1/forecast?latitude={LOC_LATITUDE}&longitude={LOC_LONGITUDE}&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto&forecast_days=3";
+
+WeatherClient::WeatherClient(WiFiClientSecure * wifiClient)
+    : client(wifiClient)
+{
     if (client) {
         client->setInsecure(); // Skip certificate validation for simplicity
     }
@@ -83,84 +87,6 @@ bool WeatherClient::parseWeatherData(const String& jsonData, WeatherData& data) 
         data.isDay = current["is_day"] == 1;
     }
 
-    // Parse hourly forecast (7 items starting at 6am with 3-hour intervals)
-    data.hourlyForecast.clear();
-    if (doc.containsKey("hourly")) {
-        JsonObject hourly = doc["hourly"];
-        JsonArray times = hourly["time"];
-        JsonArray temps = hourly["temperature_2m"];
-        JsonArray codes = hourly["weather_code"];
-        JsonArray precip = hourly["precipitation_probability"];
-
-        // Get current hour
-        time_t now;
-        time(&now);
-        struct tm* timeinfo = localtime(&now);
-        int currentHour = timeinfo->tm_hour;
-
-        // Start at 6am for the forecast
-        int startHour = 6;
-
-        // Find today's data starting from startHour
-        int todayStartIdx = -1;
-        String todayDate = "";
-
-        for (int i = 0; i < times.size(); i++) {
-            String timeStr = times[i].as<String>();
-            String date = timeStr.substring(0, 10);
-            int hour = timeStr.substring(11, 13).toInt();
-
-            // Get today's date from first entry
-            if (i == 0 || todayDate.isEmpty()) {
-                if (hour <= currentHour) {
-                    todayDate = date;
-                }
-            }
-
-            // Find first entry matching our start hour on today's date
-            if (date == todayDate && hour == startHour) {
-                todayStartIdx = i;
-                break;
-            }
-        }
-
-        // If we couldn't find today's start hour, use current hour
-        if (todayStartIdx < 0) {
-            for (int i = 0; i < times.size(); i++) {
-                String timeStr = times[i].as<String>();
-                int hour = timeStr.substring(11, 13).toInt();
-                if (hour >= currentHour) {
-                    todayStartIdx = i;
-                    break;
-                }
-            }
-        }
-
-        if (todayStartIdx >= 0) {
-            // Get 7 data points at 3-hour intervals starting from 6am
-            // This gives us: 6, 9, 12, 15, 18, 21, 0 (next day)
-            int added = 0;
-            for (int i = 0; i < 21 && added < 7; i++) {
-                int idx = todayStartIdx + (i * 3); // 3-hour intervals
-
-                if (idx >= times.size()) break;
-
-                WeatherHour hour;
-                hour.time = times[idx].as<String>();
-                hour.temperature = temps[idx];
-                hour.weatherCode = codes[idx];
-                hour.precipitationProbability = precip[idx];
-
-                // Determine if it's day or night based on hour
-                int h = hour.time.substring(11, 13).toInt();
-                hour.isDay = (h >= 6 && h < 18);
-
-                data.hourlyForecast.push_back(hour);
-                added++;
-            }
-        }
-    }
-
     // Parse daily forecast
     data.dailyForecast.clear();
     if (doc.containsKey("daily")) {
@@ -171,6 +97,7 @@ bool WeatherClient::parseWeatherData(const String& jsonData, WeatherData& data) 
         JsonArray minTemps = daily["temperature_2m_min"];
         JsonArray sunrises = daily["sunrise"];
         JsonArray sunsets = daily["sunset"];
+        JsonArray precipProb = daily["precipitation_probability_max"];
 
         for (int i = 0; i < dates.size() && i < 3; i++) {
             WeatherDay day;
@@ -180,6 +107,7 @@ bool WeatherClient::parseWeatherData(const String& jsonData, WeatherData& data) 
             day.tempMin = minTemps[i];
             day.sunrise = sunrises[i].as<String>();
             day.sunset = sunsets[i].as<String>();
+            day.precipitationProbability = precipProb[i];
 
             data.dailyForecast.push_back(day);
         }
@@ -187,7 +115,6 @@ bool WeatherClient::parseWeatherData(const String& jsonData, WeatherData& data) 
 
     Serial.println("Weather data parsed successfully");
     Serial.println("Current temp: " + String(data.currentTemp) + "°C");
-    Serial.println("Hourly forecast items: " + String(data.hourlyForecast.size()));
     Serial.println("Daily forecast items: " + String(data.dailyForecast.size()));
 
     return true;

@@ -64,6 +64,7 @@
 #define LOC_NO_WEATHER_DATA "Dati meteo non disponibili"
 #define LOC_TEMPERATURE "Temperatura"
 #define LOC_HUMIDITY "Umidità"
+#define LOC_RAIN "pioggia"
 
 // System messages
 #define LOC_CALENDAR_DISPLAY "Calendario"
