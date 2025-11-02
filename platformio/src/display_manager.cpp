@@ -355,7 +355,7 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar,
         int x = startX + (col * cellWidth);
         int y = startY + (row * CELL_HEIGHT);
 
-        // Highlight weekends
+        // Highlight weekends and holidays
         bool isWeekend = false;
         if (FIRST_DAY_OF_WEEK == 0) {
             // Sunday first: Sunday=0, Saturday=6
@@ -364,7 +364,12 @@ void DisplayManager::drawCompactCalendar(const MonthCalendar& calendar,
             // Monday first: Saturday=5, Sunday=6
             isWeekend = (col == 5 || col == 6);
         }
-        if (isWeekend) {
+
+        // Check if this day is a holiday
+        bool isHoliday = calendar.hasHoliday[currentDay];
+
+        // Apply weekend/holiday background
+        if (isWeekend || isHoliday) {
 #ifdef DISP_TYPE_6C
             // Use the new dithered rectangle method with config-defined dithering level
             drawDitheredRectangle(x, y, cellWidth, CELL_HEIGHT,
@@ -710,90 +715,39 @@ void DisplayManager::drawEventsSection(const std::vector<CalendarEvent*>& events
         display.setCursor(x, y);
         display.print(timeStr);
 
-        // Event title with smaller font
+        // Event title with smaller font - SINGLE LINE with ellipsis
         display.setFont(&FONT_EVENT_TITLE);
         String title = StringUtils::convertAccents(event->title);
-        int eventTextX = x + timeColumnWidth; // Reduced spacing
+        int eventTextX = x + timeColumnWidth - 8; // Moved 8px left closer to time
         int maxPixelWidth = DISPLAY_WIDTH - eventTextX - 10;
 
-        // Improved text wrapping with word boundaries
+        // Single line truncation with ellipsis
         int16_t x1, y1;
         uint16_t w, h;
+        String displayText = title;
+        bool needsTruncation = false;
 
-        // Find optimal break point considering word boundaries
-        String line1 = "";
-        int lastSpaceIdx = -1;
-        int maxChars = 0;
-
-        for (int i = 0; i < title.length(); i++) {
-            if (title[i] == ' ') lastSpaceIdx = i;
-
-            String testStr = title.substring(0, i + 1);
-            display.getTextBounds(testStr, 0, 0, &x1, &y1, &w, &h);
-
-            if (w > maxPixelWidth) {
-                // Try to break at last space if available
-                if (lastSpaceIdx > 0 && lastSpaceIdx > maxChars - 10) {
-                    line1 = title.substring(0, lastSpaceIdx);
-                } else {
-                    line1 = title.substring(0, i);
+        // Check if text fits
+        display.getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
+        if (w > maxPixelWidth) {
+            needsTruncation = true;
+            // Find how much fits with ellipsis
+            for (int i = title.length() - 1; i > 0; i--) {
+                String testStr = title.substring(0, i) + "...";
+                display.getTextBounds(testStr, 0, 0, &x1, &y1, &w, &h);
+                if (w <= maxPixelWidth) {
+                    displayText = testStr;
+                    break;
                 }
-                break;
             }
-            maxChars = i + 1;
-            line1 = testStr;
         }
 
-        // Draw first line
+        // Draw single line
         display.setCursor(eventTextX, y);
-        display.print(line1);
+        display.print(displayText);
 
-        // Handle second line if needed
-        bool hasSecondLine = false;
-        if (title.length() > line1.length()) {
-            String remaining = title.substring(line1.length());
-            remaining.trim();
-
-            if (remaining.length() > 0 && y + 13 <= maxY) { // Check space for second line
-                hasSecondLine = true;
-
-                // Smart truncation for second line
-                String line2 = "";
-                for (int i = 0; i < remaining.length(); i++) {
-                    String testStr = remaining.substring(0, i + 1);
-                    display.getTextBounds(testStr + "...", 0, 0, &x1, &y1, &w, &h);
-
-                    if (w > maxPixelWidth) {
-                        // Need to truncate
-                        if (i > 0) {
-                            // Try to break at word boundary
-                            int breakPoint = i - 1;
-                            while (breakPoint > 0 && remaining[breakPoint] != ' ') {
-                                breakPoint--;
-                            }
-                            if (breakPoint > i - 8) { // Don't go back too far
-                                line2 = remaining.substring(0, breakPoint) + "...";
-                            } else {
-                                line2 = remaining.substring(0, i - 1) + "...";
-                            }
-                        }
-                        break;
-                    }
-                    line2 = testStr;
-                }
-
-                // Draw second line
-                display.setCursor(eventTextX, y + 13);  // Reduced line spacing
-                display.print(line2);
-            }
-        }
-
-        // Adjust spacing based on whether we had a second line
-        if (hasSecondLine) {
-            y += 33;  // 20px base + 13px for second line
-        } else {
-            y += 20;  // Just base spacing for single line
-        }
+        // Single line spacing (allows for more events to fit)
+        y += 20;
 
         eventCount++;
     }
@@ -862,20 +816,20 @@ void DisplayManager::drawWeatherForecast(const WeatherData& weatherData)
 #endif
         }
 
-        // Label "Today" to the right of icon
+        // Label "Today" to the right of icon (moved 4px left)
         display.setFont(&FONT_WEATHER_LABEL);
-        display.setCursor(x + 74, y + 15);
+        display.setCursor(x + 70, y + 15);
         display.print(LOC_TODAY);
 
-        // Rain percentage below label
+        // Rain percentage below label (moved 4px left)
         display.setFont(&FONT_WEATHER_RAIN);
-        display.setCursor(x + 74, y + 35);
+        display.setCursor(x + 70, y + 35);
         display.print(String(today.precipitationProbability) + "% " + LOC_RAIN);
 
-        // Min/Max temperature below rain percentage
+        // Min/Max temperature below rain percentage (moved 4px left)
         display.setFont(&FONT_WEATHER_TEMP_MAIN);
         String tempRange = String(int(today.tempMin)) + "\260 / " + String(int(today.tempMax)) + "\260";
-        display.setCursor(x + 74, y + 55);
+        display.setCursor(x + 70, y + 55);
         display.print(tempRange);
     }
 
@@ -895,20 +849,20 @@ void DisplayManager::drawWeatherForecast(const WeatherData& weatherData)
 #endif
         }
 
-        // Label "Tomorrow" to the right of icon
+        // Label "Tomorrow" to the right of icon (moved 4px left)
         display.setFont(&FONT_WEATHER_LABEL);
-        display.setCursor(x + 74, y + 15);
+        display.setCursor(x + 70, y + 15);
         display.print(LOC_TOMORROW);
 
-        // Rain percentage below label
+        // Rain percentage below label (moved 4px left)
         display.setFont(&FONT_WEATHER_RAIN);
-        display.setCursor(x + 74, y + 35);
+        display.setCursor(x + 70, y + 35);
         display.print(String(tomorrow.precipitationProbability) + "% " + LOC_RAIN);
 
-        // Min/Max temperature below rain percentage
+        // Min/Max temperature below rain percentage (moved 4px left)
         display.setFont(&FONT_WEATHER_TEMP_MAIN);
         String tempRange = String(int(tomorrow.tempMin)) + "\260 / " + String(int(tomorrow.tempMax)) + "\260";
-        display.setCursor(x + 74, y + 55);
+        display.setCursor(x + 70, y + 55);
         display.print(tempRange);
     }
 }
@@ -1086,9 +1040,10 @@ MonthCalendar DisplayManager::generateMonthCalendar(int year, int month,
     calendar.year = year;
     calendar.month = month;
 
-    // Initialize hasEvent array and event colors
+    // Initialize hasEvent array, hasHoliday array, and event colors
     for (int i = 0; i < 32; i++) {
         calendar.hasEvent[i] = false;
+        calendar.hasHoliday[i] = false;
         for (int j = 0; j < MAX_CALENDARS; j++) {
             calendar.eventColors[i][j] = "";
         }
@@ -1131,6 +1086,11 @@ MonthCalendar DisplayManager::generateMonthCalendar(int year, int month,
 
             if (eventYear == year && eventMonth == month && eventDay >= 1 && eventDay <= 31) {
                 calendar.hasEvent[eventDay] = true;
+
+                // Mark as holiday if this is a holiday event
+                if (event->isHoliday) {
+                    calendar.hasHoliday[eventDay] = true;
+                }
 
                 // Store calendar color for this day (up to 3 different colors)
                 if (!event->calendarColor.isEmpty()) {
@@ -1285,7 +1245,7 @@ void DisplayManager::showMessage(const String& title, const String& message)
 {
     display.firstPage();
     do {
-        clear();
+        fillScreen(GxEPD_WHITE);
         display.setFont(&FONT_ERROR_TITLE);
         centerText(title, 0, 100, DISPLAY_WIDTH, &FONT_ERROR_TITLE);
 

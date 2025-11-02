@@ -19,6 +19,22 @@ public:
     String(unsigned int val) : buffer(std::to_string(val)) {}
     String(long val) : buffer(std::to_string(val)) {}
     String(unsigned long val) : buffer(std::to_string(val)) {}
+    String(double val, int decimalPlaces = 2) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "%.*f", decimalPlaces, val);
+        buffer = buf;
+    }
+    String(unsigned long val, int base) {
+        char buf[64];
+        if (base == 16) {
+            snprintf(buf, sizeof(buf), "%lx", val);
+        } else if (base == 8) {
+            snprintf(buf, sizeof(buf), "%lo", val);
+        } else {
+            snprintf(buf, sizeof(buf), "%lu", val);
+        }
+        buffer = buf;
+    }
 
     const char* c_str() const { return buffer.c_str(); }
     size_t length() const { return buffer.length(); }
@@ -145,6 +161,15 @@ public:
         return buffer.find(prefix) == 0;
     }
 
+    String repeat(size_t count) const {
+        std::string result;
+        result.reserve(buffer.length() * count);
+        for (size_t i = 0; i < count; i++) {
+            result += buffer;
+        }
+        return String(result);
+    }
+
     friend String operator+(const String& a, const String& b) {
         return String(a.buffer + b.buffer);
     }
@@ -199,6 +224,7 @@ public:
     virtual int read() = 0;
     virtual int peek() = 0;
     virtual void flush() {}
+    virtual size_t readBytes(uint8_t* buffer, size_t length) = 0;
 };
 
 // Mock StringStream for testing
@@ -233,6 +259,18 @@ public:
         return content.charAt(position);
     }
 
+    size_t readBytes(uint8_t* buffer, size_t length) override {
+        if (!buffer || position >= content.length()) return 0;
+
+        size_t available = content.length() - position;
+        size_t toRead = (length < available) ? length : available;
+
+        for (size_t i = 0; i < toRead; i++) {
+            buffer[i] = content.charAt(position++);
+        }
+        return toRead;
+    }
+
     void reset() {
         position = 0;
     }
@@ -242,102 +280,8 @@ private:
     size_t position;
 };
 
-// Mock File class
-class File {
-public:
-    File() : isOpen(false), position(0) {}
-    File(bool open) : isOpen(open), position(0) {}
-    File(const String& data) : isOpen(true), content(data), position(0) {}
-
-    operator bool() const { return isOpen; }
-    bool available() const { return isOpen && position < content.length(); }
-    String readString() {
-        if (!isOpen) return "";
-        String result = content.substring(position);
-        position = content.length();
-        return result;
-    }
-    void close() { isOpen = false; position = 0; }
-
-    size_t write(uint8_t c) {
-        if (!isOpen) return 0;
-        content += String((char)c);
-        return 1;
-    }
-
-    void flush() {
-        // Mock implementation - do nothing
-    }
-
-    size_t size() const {
-        return content.length();
-    }
-
-    // For testing purposes
-    void setContent(const String& data) { content = data; position = 0; }
-
-private:
-    bool isOpen;
-    String content;
-    size_t position;
-};
-
-// Mock LittleFS
-#include <map>
-
-class MockLittleFS {
-public:
-    bool begin(bool format = false) {
-        if (mountFails) {
-            return false;
-        }
-        mounted = true;
-        return true;
-    }
-
-    bool exists(const String& path) {
-        auto it = files.find(path.c_str());
-        return it != files.end();
-    }
-
-    File open(const String& path, const char* mode) {
-        auto it = files.find(path.c_str());
-        if (it != files.end()) {
-            return File(it->second);
-        }
-        return File(false);
-    }
-
-    // For testing - add a file to the mock filesystem
-    void addFile(const String& path, const String& content) {
-        files[path.c_str()] = content;
-    }
-
-    // For testing - clear all files
-    void clear() {
-        files.clear();
-        mounted = false;
-    }
-
-    // For testing - simulate mount failure
-    void setMountFails(bool fails) {
-        mountFails = fails;
-    }
-
-    bool mkdir(const String& path) {
-        // Mock implementation - just return success
-        return true;
-    }
-
-private:
-    std::map<std::string, String> files;
-    bool mounted = false;
-    bool mountFails = false;
-
-    friend class MockLittleFS;
-};
-
-extern MockLittleFS LittleFS;
+// Mock File and LittleFS - using separate header for proper file persistence
+#include "mock_littlefs.h"
 
 // Mock HTTPClient
 class HTTPClient {

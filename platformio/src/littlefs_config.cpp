@@ -16,6 +16,7 @@ LittleFSConfig::LittleFSConfig() {
     defaultCal.color = "default";
     defaultCal.enabled = true;
     defaultCal.days_to_fetch = DEFAULT_DAYS_TO_FETCH;
+    defaultCal.holiday_calendar = false;
     config.calendars.push_back(defaultCal);
 }
 
@@ -153,6 +154,7 @@ bool LittleFSConfig::loadConfiguration() {
                 calConfig.color = cal["color"] | String("default");
                 calConfig.enabled = cal["enabled"] | true;
                 calConfig.days_to_fetch = cal["days_to_fetch"] | DEFAULT_DAYS_TO_FETCH;
+                calConfig.holiday_calendar = cal["holiday_calendar"] | false;
 
                 Serial.println("  Calendar " + String(calendarCount + 1) + ":");
                 Serial.println("    Name: " + calConfig.name);
@@ -160,6 +162,7 @@ bool LittleFSConfig::loadConfiguration() {
                 Serial.println("    Color: " + calConfig.color);
                 Serial.println("    Enabled: " + String(calConfig.enabled));
                 Serial.println("    Days to fetch: " + String(calConfig.days_to_fetch));
+                Serial.println("    Holiday calendar: " + String(calConfig.holiday_calendar ? "yes" : "no"));
 
                 if (!calConfig.url.isEmpty()) {
                     config.calendars.push_back(calConfig);

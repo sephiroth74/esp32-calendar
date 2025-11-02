@@ -9,11 +9,12 @@
 
 // Structure for individual calendar configuration
 struct CalendarConfig {
-    String name;        // Display name for the calendar
-    String url;         // ICS URL
-    String color;       // Optional: color code for this calendar's events
-    bool enabled;       // Whether this calendar is active
-    int days_to_fetch;  // How many days ahead to fetch for this calendar
+    String name;              // Display name for the calendar
+    String url;               // ICS URL
+    String color;             // Optional: color code for this calendar's events
+    bool enabled;             // Whether this calendar is active
+    int days_to_fetch;        // How many days ahead to fetch for this calendar
+    bool holiday_calendar;    // True if full-day events from this calendar are holidays
 };
 
 struct RuntimeConfig {

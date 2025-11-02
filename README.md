@@ -357,6 +357,12 @@ Add new languages by creating a header file in `include/lang/`:
 
 Then update `include/localization.h` to include your language file.
 
+## Documentation
+
+- **[Architecture Guide](platformio/docs/ARCHITECTURE.md)** - Comprehensive system architecture, design decisions, and data flow
+- **[Changelog](CHANGELOG.md)** - Version history and release notes
+- **[Migration Guide](platformio/MIGRATION_GUIDE.md)** - Upgrading from previous versions
+
 ## Project Structure
 
 ```
@@ -380,6 +386,9 @@ platformio/
 │   └── wifi_manager.cpp       # WiFi management
 ├── lib/
 │   └── esp32-calendar-assets/ # Icons and fonts
+├── docs/
+│   ├── ARCHITECTURE.md        # System architecture and design
+│   └── CALENDAR_SPECS.md      # ICS format specification
 └── platformio.ini             # Build configuration
 ```
 

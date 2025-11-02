@@ -94,6 +94,7 @@ public:
     bool isToday;         // True if event is today
     bool isTomorrow;      // True if event is tomorrow
     int dayOfMonth;       // Day of month (1-31) for calendar display
+    bool isHoliday;       // True if this is a holiday (from holiday_calendar)
 
     // Compatibility fields for DisplayManager (set by CalendarDisplayAdapter)
     String title;         // Alias for summary (for backward compatibility)

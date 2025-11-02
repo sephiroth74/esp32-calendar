@@ -5,6 +5,87 @@ All notable changes to the ESP32 E-Paper Calendar project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.7] - 2025-11-01
+
+### Added
+- **Comprehensive Code Documentation** - Added Doxygen-style documentation to all public APIs
+  - CalendarWrapper class: Full documentation of calendar loading, caching, and event filtering
+  - CalendarManager class: Documentation of multi-calendar coordination and event merging
+  - WeatherClient class: Complete API documentation for Open-Meteo integration
+  - DisplayManager class: Comprehensive documentation of all display methods
+  - WeatherData/WeatherDay structs: Detailed field documentation
+  - All public methods now have parameter descriptions and return value documentation
+  - Added brief descriptions for all class member variables
+- **LittleFS Statistics Logging** - Added filesystem status logging before cache file writes
+  - Logs total, used, and free space in KB
+  - Logs filesystem usage percentage
+  - Helps debug remote caching issues and storage capacity
+  - Logged at DEBUG_INFO level in calendar_stream_parser.cpp
+
+### Changed
+- **Calendar Cache Naming** - Improved cache filename generation to prevent duplicates
+  - Cache filenames now use only URL hash (djb2 algorithm) instead of name+hash
+  - Format changed from `/cache/{name}_{hash}.ics` to `/cache/cal_{hash}.ics`
+  - Ensures the same URL always maps to the same cache file regardless of calendar name
+  - Prevents duplicate cache files for the same calendar URL
+- **Calendar Fetch Debug Display** - Enhanced per-calendar display with user interaction
+  - Each calendar now displays individually with summary information
+  - Shows calendar name, color, event count, and up to 15 events per screen
+  - User must press a key to continue to the next calendar
+  - Improved debugging workflow for multi-calendar setups
+- **Flash Partition Scheme** - Optimized partition layout for LittleFS storage
+  - Removed OTA update partition (not used)
+  - Reduced app partition from 2MB to 1.5MB
+  - Increased LittleFS from 1.875MB to 2.375MB (+500KB)
+  - Changed app type from `ota_0` to `factory` for simpler bootloader config
+- **Weather Display Redesign** - Completely redesigned weather section with side-by-side layout
+  - Today's weather on left, tomorrow's weather on right
+  - Weather icons increased from 48x48 to 64x64 pixels
+  - Icons positioned on left, labels/data on right for each day
+  - Shows weather icon, "Today"/"Tomorrow" label, rain percentage, min/max temp
+  - Temperature moved below rain percentage for better layout balance
+  - Weather section moved down 20px (WEATHER_START_Y: 130→110) for better spacing
+  - Font sizes decreased: temp 14pt→11pt, labels 12pt→10pt for compact layout
+- **LittleFS Configuration Display** - Added filesystem statistics to testLittleFSConfig
+  - Displays FS Total, FS Used, FS Free in KB at top of configuration screen
+  - Added 10px spacing separator before configuration details
+  - Better visibility of storage capacity during debugging
+
+### Removed
+- **Hourly Weather Forecast** - Removed to save code space and simplify weather display
+  - Removed `WeatherHour` struct from weather_client.h
+  - Removed `hourlyForecast` vector from `WeatherData` structure
+  - Removed ~80 lines of hourly forecast parsing code from weather_client.cpp
+  - Removed hourly forecast rendering code from debug mock data
+  - Saved approximately 640 bytes of flash space
+- **Unused Debug Functions** - Removed obsolete test functions to save flash
+  - Removed `testEventList()` from debug.cpp (14 lines)
+  - Removed `testTimeDisplay()` from debug.cpp (52 lines)
+  - Removed `testTimezoneConversion()` from debug.cpp (106 lines)
+  - Removed `generateMockCalendar()` from debug.cpp (21 lines)
+- **Legacy Display Layout Functions** - Removed old calendar layout code
+  - Removed `drawHeader()` from display_manager.cpp (15 lines)
+  - Removed `drawMonthCalendar()` from display_manager.cpp (108 lines)
+  - Removed `drawDayLabels()` from display_manager.cpp (15 lines)
+  - Removed `drawCalendarGrid()` from display_manager.cpp (18 lines)
+  - Removed `drawCalendarDay()` from display_manager.cpp (56 lines)
+  - Removed `drawEventsList()` from display_manager.cpp (105 lines)
+  - Removed `drawEventCompact()` from display_manager.cpp (34 lines)
+  - Total: ~544 lines removed, approximately 640 bytes flash saved
+  - All functionality replaced by modern split-screen layout
+
+### Fixed
+- **Weather Data Structure Compilation** - Fixed compilation error after hourly forecast removal
+  - Changed line 1625 in display_manager.cpp from `hourlyForecast` to `dailyForecast`
+  - Updated weather data validation to check daily forecast instead of removed hourly forecast
+
+### Technical Details
+- Flash usage: 1,404,769 bytes (89.3% of 1,536KB app partition)
+- LittleFS space: 2,375MB available for configuration and cache files
+- Cache file naming uses djb2 hash algorithm for deterministic URL-to-filename mapping
+- Weather API: Open-Meteo with current weather + 3-day forecast + precipitation probability
+- All code compiles cleanly with no warnings
+
 ## [1.7.6] - 2025-10-29
 
 ### Added

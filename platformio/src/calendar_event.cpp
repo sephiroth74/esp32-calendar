@@ -62,6 +62,7 @@ void CalendarEvent::clear() {
     isToday = false;
     isTomorrow = false;
     dayOfMonth = 0;
+    isHoliday = false;
 }
 
 bool CalendarEvent::isValid() const {

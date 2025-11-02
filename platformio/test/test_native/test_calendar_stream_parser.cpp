@@ -6,8 +6,7 @@
 // Mock Arduino environment for native testing
 #ifdef NATIVE_TEST
 #include "../mock_arduino.h"
-MockSerial Serial;
-MockLittleFS LittleFS;
+// Global mock instances are now defined in mock_arduino.cpp
 #else
 #include <Arduino.h>
 #endif

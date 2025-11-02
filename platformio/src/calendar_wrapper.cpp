@@ -1,5 +1,7 @@
 #include "calendar_wrapper.h"
+#include "event_cache.h"
 #include "debug_config.h"
+#include "config.h"
 #include <algorithm>
 
 // CalendarWrapper implementation
@@ -32,16 +34,15 @@ String CalendarWrapper::getCacheFilename() const {
     }
 
     // Use only the hash for the filename to ensure URL uniqueness
-    // Format: /cache/cal_{hash}.ics
-    String filename = "cal_" + String(hash, HEX);
+    // Format: /cache/events_{hash}.bin (binary event cache)
+    String filename = "events_" + String(hash, HEX);
 
-    return "/cache/" + filename + ".ics";
+    return "/cache/" + filename + ".bin";
 }
 
 bool CalendarWrapper::isCacheValid() const {
-    // For now, don't use caching with the stream parser
-    // The stream parser handles its own optimization
-    return false;
+    String cachePath = getCacheFilename();
+    return EventCache::isValid(cachePath, EVENT_CACHE_VALIDITY_SECONDS);
 }
 
 bool CalendarWrapper::load(bool forceRefresh) {
@@ -51,6 +52,7 @@ bool CalendarWrapper::load(bool forceRefresh) {
         DEBUG_VERBOSE_PRINTLN("URL: " + config.url);
         DEBUG_VERBOSE_PRINTLN("Enabled: " + String(config.enabled ? "Yes" : "No"));
         DEBUG_VERBOSE_PRINTLN("Days to fetch: " + String(config.days_to_fetch));
+        DEBUG_VERBOSE_PRINTLN("Force refresh: " + String(forceRefresh ? "Yes" : "No"));
     }
 
     // Clear previous events
@@ -71,6 +73,9 @@ bool CalendarWrapper::load(bool forceRefresh) {
         return false;
     }
 
+    // Get binary cache path
+    String cachePath = getCacheFilename();
+
     // Configure parser with calendar metadata
     parser.setCalendarName(config.name);
     parser.setDebug(debug);
@@ -80,54 +85,84 @@ bool CalendarWrapper::load(bool forceRefresh) {
     time_t endDate = now + (config.days_to_fetch * 86400); // days_to_fetch days from now
 
     if (debug) {
-        DEBUG_INFO_PRINTLN("Fetching events from now to " + String(config.days_to_fetch) + " days ahead");
+        DEBUG_INFO_PRINTLN("Fetching calendar from remote: " + config.url);
+        DEBUG_INFO_PRINTLN("Date range: now to +" + String(config.days_to_fetch) + " days");
     }
 
-    String cachePath = getCacheFilename();
+    // Try fetching from remote with retries (cache only used as fallback)
+    FilteredEvents* result = nullptr;
+    int retryCount = 0;
+    bool fetchSuccess = false;
 
-    // Fetch events using the stream parser
-    FilteredEvents* result = parser.fetchEventsInRange(config.url, now, endDate, 500, cachePath);
+    while (retryCount < CALENDAR_FETCH_MAX_RETRIES && !fetchSuccess) {
+        if (retryCount > 0) {
+            if (debug) DEBUG_INFO_PRINTLN("Retry attempt " + String(retryCount) + "/" + String(CALENDAR_FETCH_MAX_RETRIES));
+            delay(CALENDAR_FETCH_RETRY_DELAY_MS);
+        }
 
-    if (result && result->success) {
+        // Stream parse directly from HTTP (no ICS file cache)
+        result = parser.fetchEventsInRange(config.url, now, endDate, 500, "");
+
+        if (result && result->success && !result->events.empty()) {
+            fetchSuccess = true;
+        } else {
+            retryCount++;
+            if (result && !result->error.isEmpty()) {
+                lastError = result->error;
+                if (debug) DEBUG_WARN_PRINTLN("Fetch failed: " + result->error);
+            }
+            if (result) {
+                delete result;
+                result = nullptr;
+            }
+        }
+    }
+
+    // Successfully fetched from remote
+    if (fetchSuccess && result) {
         cachedEvents = std::move(result->events);
         result->events.clear(); // Prevent double deletion
+
         if (debug) {
-            DEBUG_INFO_PRINTLN("Successfully loaded calendar from remote");
-            DEBUG_INFO_PRINTLN("Cached events: " + String(cachedEvents.size()));
+            DEBUG_INFO_PRINTLN("Successfully fetched " + String(cachedEvents.size()) + " events from remote");
         }
+
         delete result;
+
+        // Save to binary cache for future use
+        if (EventCache::save(cachePath, cachedEvents, config.url)) {
+            if (debug) DEBUG_INFO_PRINTLN("Saved events to binary cache");
+        } else {
+            if (debug) DEBUG_WARN_PRINTLN("Failed to save events to binary cache");
+        }
+
         loaded = true;
+        isStale = false;
         lastFetchTime = time(nullptr);
         return true;
     }
 
-    // Remote fetch failed, try cache
-    if (debug) DEBUG_WARN_PRINTLN("Remote fetch failed. Trying cache.");
-    if (result) {
-        lastError = result->error;
-        delete result;
+    // Remote fetch failed after all retries - try loading binary cache as fallback
+    if (debug) {
+        DEBUG_WARN_PRINTLN("Remote fetch failed after " + String(retryCount) + " attempts");
+        DEBUG_INFO_PRINTLN("Attempting to load stale binary cache as fallback");
     }
 
-    if (LittleFS.exists(cachePath)) {
-        if (debug) DEBUG_INFO_PRINTLN("Found cache file: " + cachePath);
-        String fileUrl = "file://" + cachePath;
-        result = parser.fetchEventsInRange(fileUrl, now, endDate, 500, ""); // No cache path for file URL
+    cachedEvents = EventCache::load(cachePath, config.url);
 
-        if (result && result->success) {
-            if (debug) DEBUG_INFO_PRINTLN("Successfully loaded from cache.");
-            cachedEvents = std::move(result->events);
-            result->events.clear();
-            delete result;
-            loaded = true;
-            isStale = true; // Mark data as stale
-            return true;
+    if (!cachedEvents.empty()) {
+        if (debug) {
+            DEBUG_WARN_PRINTLN("Using stale cached data (" + String(cachedEvents.size()) + " events)");
         }
-        if (result) {
-            delete result;
-        }
+        loaded = true;
+        isStale = true;
+        lastError = "Using stale cached data - remote fetch failed after " + String(retryCount) + " retries";
+        return true;
     }
 
-    if (debug) DEBUG_ERROR_PRINTLN("Failed to load from remote and cache.");
+    // Total failure - no remote data and no cache available
+    if (debug) DEBUG_ERROR_PRINTLN("Failed to load from remote and no cache available");
+    lastError = "Failed to fetch calendar after " + String(retryCount) + " retries and no cache available";
     loaded = false;
     return false;
 }
@@ -182,6 +217,8 @@ std::vector<CalendarEvent*> CalendarWrapper::getEvents(time_t startDate, time_t 
                 // Add calendar metadata to each event
                 event->calendarName = config.name;
                 event->calendarColor = config.color;
+                // Mark as holiday if it's from a holiday calendar and is all-day
+                event->isHoliday = (config.holiday_calendar && event->allDay);
                 result.push_back(event);
                 if (isTargetEvent) {
                     DEBUG_INFO_PRINTF("    >>> PASSED FILTER - ADDED TO RESULTS <<<\n");
@@ -207,6 +244,8 @@ std::vector<CalendarEvent*> CalendarWrapper::getAllEvents() {
         if (event) {
             event->calendarName = config.name;
             event->calendarColor = config.color;
+            // Mark as holiday if it's from a holiday calendar and is all-day
+            event->isHoliday = (config.holiday_calendar && event->allDay);
         }
     }
 

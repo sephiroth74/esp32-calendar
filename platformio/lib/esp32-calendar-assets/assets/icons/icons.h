@@ -64,6 +64,7 @@ typedef enum icon_name {
   house_raindrops,
   house_thermometer,
   ionizing_radiation_symbol,
+  sync_problem,
   visibility_icon,
   warning_icon,
   wi_alien,
@@ -1732,6 +1733,20 @@ constexpr const unsigned char* getBitmap(icon_name_t icon, size_t size)
     case 128: return ionizing_radiation_symbol_128x128;
     case 160: return ionizing_radiation_symbol_160x160;
     case 196: return ionizing_radiation_symbol_196x196;
+    default:
+      return nullptr;
+    }
+  case sync_problem:
+    switch (size) {
+    case 16: return sync_problem_16x16;
+    case 24: return sync_problem_24x24;
+    case 32: return sync_problem_32x32;
+    case 48: return sync_problem_48x48;
+    case 64: return sync_problem_64x64;
+    case 96: return sync_problem_96x96;
+    case 128: return sync_problem_128x128;
+    case 160: return sync_problem_160x160;
+    case 196: return sync_problem_196x196;
     default:
       return nullptr;
     }

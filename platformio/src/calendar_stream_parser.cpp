@@ -245,105 +245,50 @@ bool CalendarStreamParser::streamParse(const String& url,
 
     bool isRemote = !url.startsWith("file://");
 
-    // PHASE 1: Download remote calendar to cache (if remote)
-    if (isRemote && !cachePath.isEmpty()) {
-        DEBUG_INFO_PRINTLN(">>> PHASE 1: Downloading remote calendar to cache");
+    if (isRemote) {
+        // Parse directly from HTTP stream (no ICS file caching)
+        DEBUG_INFO_PRINTLN(">>> Opening HTTP stream for direct parsing: " + url);
 
-        // Create cache directory if needed
-        if (!LittleFS.exists("/cache")) {
-            DEBUG_INFO_PRINTLN(">>> Creating /cache directory");
-            if (!LittleFS.mkdir("/cache")) {
-                DEBUG_ERROR_PRINTLN(">>> ERROR: Failed to create cache directory");
-            }
-        }
-
-        // Open HTTP stream
-        DEBUG_INFO_PRINTLN(">>> Opening HTTP stream: " + url);
         Stream* httpStream = fetcher->fetchStream(url);
         if (!httpStream) {
             DEBUG_ERROR_PRINTLN(">>> ERROR: Failed to open HTTP stream");
             return false;
         }
 
-        // Log LittleFS statistics before opening cache file
-        size_t totalBytes = LittleFS.totalBytes();
-        size_t usedBytes = LittleFS.usedBytes();
-        size_t freeBytes = totalBytes - usedBytes;
-        DEBUG_INFO_PRINTLN(">>> LittleFS Status:");
-        DEBUG_INFO_PRINTLN("    Total: " + String(totalBytes / 1024.0, 2) + " KB");
-        DEBUG_INFO_PRINTLN("    Used:  " + String(usedBytes / 1024.0, 2) + " KB");
-        DEBUG_INFO_PRINTLN("    Free:  " + String(freeBytes / 1024.0, 2) + " KB");
-        DEBUG_INFO_PRINTLN("    Usage: " + String(usedBytes * 100.0 / totalBytes, 1) + "%");
+        DEBUG_INFO_PRINTLN(">>> Stream opened, starting direct parse...");
+        unsigned long parseStart = millis();
 
-        // Open cache file for writing
-        DEBUG_INFO_PRINTLN(">>> Opening cache file for writing: " + cachePath);
-        File cacheFile = LittleFS.open(cachePath, "w");
-        if (!cacheFile) {
-            DEBUG_ERROR_PRINTLN(">>> ERROR: Could not open cache file for writing");
-            fetcher->endStream();
+        // Parse directly from HTTP stream
+        bool parseSuccess = streamParseFromStream(httpStream, callback, startDate, endDate);
+
+        fetcher->endStream();
+
+        unsigned long parseDuration = millis() - parseStart;
+        DEBUG_INFO_PRINTLN(">>> Parse complete in " + String(parseDuration) + "ms, success: " + String(parseSuccess ? "true" : "false"));
+
+        return parseSuccess;
+    } else {
+        // Parse from local file
+        String parseFile = url.substring(7); // Remove "file://" prefix
+        DEBUG_INFO_PRINTLN(">>> Opening local file for parsing: " + parseFile);
+
+        File file = LittleFS.open(parseFile, "r");
+        if (!file) {
+            DEBUG_ERROR_PRINTLN(">>> ERROR: Could not open file for parsing: " + parseFile);
             return false;
         }
 
-        // Download data to cache
-        DEBUG_INFO_PRINTLN(">>> Downloading data to cache...");
-        size_t bytesWritten = 0;
-        unsigned long downloadStart = millis();
+        DEBUG_INFO_PRINTLN(">>> File opened, size: " + String((unsigned long)file.size()) + " bytes");
+        DEBUG_INFO_PRINTLN(">>> Starting parse...");
 
-        while (httpStream->available() || bytesWritten == 0) {
-            if (httpStream->available()) {
-                uint8_t buffer[512];
-                size_t bytesRead = httpStream->readBytes(buffer, sizeof(buffer));
-                if (bytesRead > 0) {
-                    size_t written = cacheFile.write(buffer, bytesRead);
-                    bytesWritten += written;
+        // Parse from the file stream
+        bool parseSuccess = streamParseFromStream(&file, callback, startDate, endDate);
 
-                    // Progress update every 10KB
-                    if (bytesWritten % 10240 == 0 || bytesWritten < 10240) {
-                        DEBUG_VERBOSE_PRINTLN(">>> Downloaded: " + String(bytesWritten) + " bytes");
-                    }
-                }
-            } else {
-                // Wait a bit for more data
-                delay(10);
+        file.close();
+        DEBUG_INFO_PRINTLN(">>> Parse complete, success: " + String(parseSuccess ? "true" : "false"));
 
-                // Timeout after 120 seconds of no data
-                if (millis() - downloadStart > 120000) {
-                    DEBUG_ERROR_PRINTLN(">>> ERROR: Download timeout");
-                    break;
-                }
-            }
-        }
-
-        cacheFile.flush();
-        cacheFile.close();
-        fetcher->endStream();
-
-        unsigned long downloadDuration = millis() - downloadStart;
-        DEBUG_INFO_PRINTLN(">>> Download complete: " + String(bytesWritten) + " bytes in " + String(downloadDuration) + "ms");
+        return parseSuccess;
     }
-
-    // PHASE 2: Parse from cache file (or local file)
-    DEBUG_INFO_PRINTLN(">>> PHASE 2: Parsing from cache file");
-
-    String parseFile = isRemote ? cachePath : url.substring(7); // Remove "file://" prefix
-    DEBUG_INFO_PRINTLN(">>> Opening file for parsing: " + parseFile);
-
-    File file = LittleFS.open(parseFile, "r");
-    if (!file) {
-        DEBUG_ERROR_PRINTLN(">>> ERROR: Could not open file for parsing: " + parseFile);
-        return false;
-    }
-
-    DEBUG_INFO_PRINTLN(">>> File opened, size: " + String((unsigned long)file.size()) + " bytes");
-    DEBUG_INFO_PRINTLN(">>> Starting parse...");
-
-    // Parse from the file stream
-    bool parseSuccess = streamParseFromStream(&file, callback, startDate, endDate);
-
-    file.close();
-    DEBUG_INFO_PRINTLN(">>> Parse complete, success: " + String(parseSuccess ? "true" : "false"));
-
-    return parseSuccess;
 }
 
 bool CalendarStreamParser::parseMetadata(const String& url,
@@ -1064,7 +1009,7 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandRecurringEventV2(Calenda
     // Step 3: Handle Recurring Events
     // ========================================================================
 
-    DEBUG_INFO_PRINTLN("expandRecurringEventV2: Recurring event");
+    DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: Recurring event");
 
     // Parse RRULE
     RRuleComponents rule = parseRRule(event->rrule);
@@ -1079,19 +1024,19 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandRecurringEventV2(Calenda
     // Dispatch to frequency-specific handler
     switch (freq) {
         case RecurrenceFrequency::YEARLY:
-            DEBUG_INFO_PRINTLN("expandRecurringEventV2: YEARLY frequency");
+            DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: YEARLY frequency");
             return expandYearlyV2(event, rule, startDate, endDate);
 
         case RecurrenceFrequency::MONTHLY:
-            DEBUG_INFO_PRINTLN("expandRecurringEventV2: MONTHLY frequency");
+            DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: MONTHLY frequency");
             return expandMonthlyV2(event, rule, startDate, endDate);
 
         case RecurrenceFrequency::WEEKLY:
-            DEBUG_INFO_PRINTLN("expandRecurringEventV2: WEEKLY frequency");
+            DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: WEEKLY frequency");
             return expandWeeklyV2(event, rule, startDate, endDate);
 
         case RecurrenceFrequency::DAILY:
-            DEBUG_INFO_PRINTLN("expandRecurringEventV2: DAILY frequency");
+            DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: DAILY frequency");
             return expandDailyV2(event, rule, startDate, endDate);
 
         case RecurrenceFrequency::HOURLY:
