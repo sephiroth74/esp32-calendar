@@ -5,6 +5,48 @@ All notable changes to the ESP32 E-Paper Calendar project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.8] - 2025-11-03
+
+### Fixed
+- **Critical Compilation Error** - Fixed ESP32 assembler jump range error
+  - Error: "operand 1 of 'j' has out of range value" at line 87329 in generated assembly
+  - Root cause: Large functions in display_manager.cpp and icons.h exceeded jump instruction range
+  - Solution: Combined approach of code refactoring and icon library optimization
+
+### Changed
+- **Display Manager Refactoring** - Improved code organization and maintainability
+  - Split display_manager.cpp into specialized modules (1,592 lines → 525 lines)
+  - Created display_calendar.cpp (437 lines) - All calendar drawing functions
+  - Created display_weather.cpp (198 lines) - Weather and header drawing functions
+  - Created display_events_status.cpp (465 lines) - Events, status bar, and error display
+  - Extracted helper methods from drawCompactCalendar for better modularity
+  - Improved code maintainability with clear separation of concerns
+- **Icon Library Optimization** - Massive reduction in icon library size
+  - Reduced from 159 icon types to 46 icon types (71% reduction)
+  - Reduced icons.h from 15,673 lines to 734 lines (95% reduction)
+  - File size reduced from ~600KB to ~150KB
+  - Removed 113 unused icon types while keeping all size variants of used icons
+  - Added ICONS_TO_KEEP.md documentation for future icon generation
+  - Kept all essential icons: WiFi (5), Battery (17), Weather (18), Status/Error (3)
+- **Removed Conflicting Compiler Flags** - Cleaned up build configuration
+  - Removed manual `-Os -O2 -mlongcalls` flags from platformio.ini
+  - Framework already applies optimal flags automatically
+  - Eliminated duplicate and conflicting optimization flags
+
+### Added
+- **ICONS_TO_KEEP.md** - Documentation for icon library maintenance
+  - Lists the 41 icon types that should be kept (46 in current implementation)
+  - Includes usage locations and size requirements for each icon
+  - Prevents accidental re-addition of unused icons in future regeneration
+
+### Technical Details
+- Flash usage: 1,206,057 bytes (40.0% of 3,014,656 bytes)
+- RAM usage: 89,800 bytes (27.4% of 327,680 bytes)
+- Build time: 7.4 seconds
+- All compilation errors resolved
+- No warnings during compilation
+- Code now compiles cleanly on ESP32-S3 platform
+
 ## [1.7.7] - 2025-11-01
 
 ### Added

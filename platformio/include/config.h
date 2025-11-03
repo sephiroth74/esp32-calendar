@@ -303,7 +303,7 @@
 // Disable deep sleep for testing
 // When true, device stays awake to test button presses and configuration
 // Set to false for production use to enable battery-saving deep sleep
-#define DISABLE_DEEP_SLEEP true
+#define DISABLE_DEEP_SLEEP false
 
 // Configuration reset button hold time (milliseconds)
 // How long to hold the button to reset WiFi configuration during runtime

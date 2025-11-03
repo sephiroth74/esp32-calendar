@@ -2,21 +2,17 @@
 
 A feature-rich calendar display using ESP32 (S3/C6) and Waveshare/Good Display 7.5" e-paper displays (B/W or 6-color) with split-screen layout, comprehensive error handling, and multiple language support.
 
-**Version 1.6.1** - Streaming ICS parser, multiple calendars, and robust test framework!
+**Version 1.7.8** - Improved code organization and compilation fixes!
 
-## What's New in v1.6.1
+## What's New in v1.7.8
 
-- 🔄 **Streaming ICS Parser**: Handles large calendar files (165KB+) without memory issues
-- 📚 **Multiple Calendars**: Support for up to 3 calendar sources with color coding
-- 🧪 **Robust Test Framework**: Comprehensive unit tests for embedded and native environments
-- 🔋 **Battery Improvements**: Deep sleep on configuration errors prevents battery drain
-- 🔐 **Secure Configuration**: WiFi credentials and location data now in separate, git-ignored file
-- 🔄 **Smart Error Recovery**: Automatic retry with intelligent intervals based on error type
-- 🔋 **Critical Battery Handling**: No wake on low battery to prevent damage
-- 🛠️ **Button Noise Fix**: Enhanced filtering and hardware recommendations for stable operation
-- 📝 **Improved Documentation**: Comprehensive setup guide and configuration examples
+- 🔧 **Fixed Critical Compilation Error**: Resolved ESP32 assembler jump range error
+- 📁 **Improved Code Organization**: Split display_manager.cpp into specialized modules for better maintainability
+- 🎨 **Icon Library Optimization**: Reduced icon library size by 95% (15,673 lines → 734 lines)
+- 🧹 **Cleaner Build Configuration**: Removed conflicting compiler flags
+- 📚 **Better Documentation**: Added ICONS_TO_KEEP.md for future maintenance
 
-See [CHANGELOG.md](CHANGELOG.md) for complete details.
+See [CHANGELOG.md](platformio/CHANGELOG.md) for complete details.
 
 ## Features
 
@@ -378,12 +374,15 @@ platformio/
 │       ├── en.h               # English
 │       └── it.h               # Italian
 ├── src/
-│   ├── main.cpp               # Main program
-│   ├── debug.cpp              # Debug mode
-│   ├── display_manager.cpp    # Display implementation
-│   ├── calendar_client.cpp    # Calendar parsing
-│   ├── error_manager.cpp      # Error handling
-│   └── wifi_manager.cpp       # WiFi management
+│   ├── main.cpp                      # Main program
+│   ├── debug.cpp                     # Debug mode
+│   ├── display_manager.cpp           # Core display functions
+│   ├── display_calendar.cpp          # Calendar drawing functions
+│   ├── display_weather.cpp           # Weather & header drawing
+│   ├── display_events_status.cpp     # Events, status bar, errors
+│   ├── calendar_client.cpp           # Calendar parsing
+│   ├── error_manager.cpp             # Error handling
+│   └── wifi_manager.cpp              # WiFi management
 ├── lib/
 │   └── esp32-calendar-assets/ # Icons and fonts
 ├── docs/
@@ -396,20 +395,22 @@ platformio/
 
 Typical resource usage (ESP32-S3 with 4MB flash):
 
-- **Flash**: ~1.8MB (57% of 3.1MB available)
-- **RAM**: ~95KB (29% of 320KB)
+- **Flash**: ~1.2MB (40% of 3.0MB available)
+- **RAM**: ~90KB (27% of 320KB)
 - **PSRAM**: Used for large calendar data when available
+
+*Note: v1.7.8 reduced flash usage by ~600KB through code refactoring and icon optimization*
 
 ## Version Information
 
-Current version: **1.6.1**
+Current version: **1.7.8**
 
 The project uses semantic versioning (MAJOR.MINOR.PATCH):
 - **MAJOR**: Incompatible API changes
 - **MINOR**: Backwards-compatible functionality additions
 - **PATCH**: Backwards-compatible bug fixes
 
-Version details are in `include/version.h` and displayed on serial startup.
+Version details are in `platformio/include/version.h` and displayed on serial startup.
 
 ## Known Issues
 

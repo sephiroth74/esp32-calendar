@@ -145,12 +145,10 @@ void setup()
     DEBUG_INFO_PRINTLN("Initializing LittleFS...");
     if (!configLoader.begin()) {
         DEBUG_ERROR_PRINTLN("Failed to initialize LittleFS!");
-        displayMgr.showMessage("Configuration Error",
-            "Failed to mount filesystem\n\n"
-            "Device will sleep indefinitely.\n"
-            "Fix filesystem and reset device.");
+        lastError = ErrorCode::CONFIG_INVALID;
+        errorMgr.setError(lastError);
+        displayMgr.showFullScreenError(errorMgr.getCurrentError());
         delay(10000); // Give user time to read the message
-
         if (enableDeepSleep) {
             DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to filesystem error...");
             enterDeepSleep(0); // 0 means no wake-up timer - sleep indefinitely
@@ -163,12 +161,9 @@ void setup()
     // Load configuration from LittleFS
     if (!configLoader.loadConfiguration()) {
         DEBUG_ERROR_PRINTLN("No valid configuration found in LittleFS!");
-        displayMgr.showMessage("Configuration Missing",
-            "Please upload config.json:\n\n"
-            "1. Edit data/config.json\n"
-            "2. Run: pio run -t uploadfs\n\n"
-            "Device will sleep indefinitely.");
-
+        lastError = ErrorCode::CONFIG_MISSING;
+        errorMgr.setError(lastError);
+        displayMgr.showFullScreenError(errorMgr.getCurrentError());
         if (enableDeepSleep) {
             delay(15000); // Give user more time to read instructions
             DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to missing configuration...");
@@ -182,6 +177,9 @@ void setup()
 
     // Perform calendar update
     performUpdate();
+
+    // Power off display to save power
+    displayMgr.powerOff();
 
     DEBUG_INFO_PRINTLN("\n--- Setup Complete ---");
 

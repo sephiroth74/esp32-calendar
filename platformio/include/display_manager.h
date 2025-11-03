@@ -98,6 +98,16 @@ private:
     void drawModernHeader(int currentDay, const String& monthYear, const String& currentTime, const WeatherData* weatherData = nullptr);
     void drawCompactCalendar(const MonthCalendar& calendar,
         const std::vector<CalendarEvent*>& events);
+
+    // Calendar helper methods (extracted from drawCompactCalendar)
+    void drawCalendarDayLabels(int startX, int startY, int cellWidth);
+    void drawCalendarPrevMonthDays(int startX, int startY, int cellWidth, const MonthCalendar& calendar,
+        const std::vector<CalendarEvent*>& events, int& row, int& col);
+    void drawCalendarCurrentMonthDays(int startX, int startY, int cellWidth, const MonthCalendar& calendar,
+        int& row, int& col);
+    void drawCalendarNextMonthDays(int startX, int startY, int cellWidth, const MonthCalendar& calendar,
+        const std::vector<CalendarEvent*>& events, int& row, int& col);
+
     void drawPreviousNextMonthDay(int day, int col, int row, int x, int y,
         int month, int year, bool hasEvent = false);
     void drawDitheredRectangle(int x, int y, int width, int height,
@@ -118,21 +128,6 @@ private:
     String formatTime(const String& timeStr);
     String truncateText(const String& text, int maxWidth);
     MonthCalendar generateMonthCalendar(int year, int month, const std::vector<CalendarEvent*>& events);
-
-    // Error icon drawing functions
-    void drawWiFiIcon(int x, int y, int size, bool error = false);
-    void drawCalendarIcon(int x, int y, int size);
-    void drawBatteryIcon(int x, int y, int size);
-    void drawClockIcon(int x, int y, int size);
-    void drawNetworkIcon(int x, int y, int size);
-    void drawMemoryIcon(int x, int y, int size);
-    void drawSettingsIcon(int x, int y, int size);
-    void drawUpdateIcon(int x, int y, int size);
-    void drawWarningIcon(int x, int y, int size);
-    void drawErrorIcon(int x, int y, int size);
-    void drawInfoIcon(int x, int y, int size);
-    void drawIcon(ErrorIcon icon, int x, int y, int size);
-
     // Font metrics helper functions
     int16_t getFontHeight(const GFXfont* font);
     int16_t getFontBaseline(const GFXfont* font);
