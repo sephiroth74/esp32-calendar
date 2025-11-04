@@ -569,8 +569,8 @@ void printWakeupReason()
  */
 void initRGBLED()
 {
-    turnOffRGBLED();  // Start with LED off
-    DEBUG_VERBOSE_PRINTLN("RGB LED initialized on pin " + String(RGB_LED_PIN) + " (using neopixelWrite)");
+    DEBUG_INFO_PRINTLN("Initializing RGB LED on pin " + String(RGB_LED_PIN) + " (using neopixelWrite)");
+    turnOffRGBLED();
 }
 
 /**
@@ -582,30 +582,11 @@ void initRGBLED()
  */
 void setRGBLED(bool red, bool green, bool blue)
 {
+    DEBUG_INFO_PRINTF("Setting RGB LED - R:%d G:%d B:%d\n", red ? 1 : 0, green ? 1 : 0, blue ? 1 : 0);
     uint8_t r = red ? RGB_LED_BRIGHTNESS : 0;
     uint8_t g = green ? RGB_LED_BRIGHTNESS : 0;
     uint8_t b = blue ? RGB_LED_BRIGHTNESS : 0;
-
     neopixelWrite(RGB_LED_PIN, r, g, b);
-
-    DEBUG_VERBOSE_PRINT("RGB LED: ");
-    if (red && !green && !blue) {
-        DEBUG_VERBOSE_PRINTLN("RED");
-    } else if (!red && green && !blue) {
-        DEBUG_VERBOSE_PRINTLN("GREEN");
-    } else if (!red && !green && blue) {
-        DEBUG_VERBOSE_PRINTLN("BLUE");
-    } else if (red && green && !blue) {
-        DEBUG_VERBOSE_PRINTLN("YELLOW");
-    } else if (red && !green && blue) {
-        DEBUG_VERBOSE_PRINTLN("MAGENTA");
-    } else if (!red && green && blue) {
-        DEBUG_VERBOSE_PRINTLN("CYAN");
-    } else if (red && green && blue) {
-        DEBUG_VERBOSE_PRINTLN("WHITE");
-    } else {
-        DEBUG_VERBOSE_PRINTLN("OFF");
-    }
 }
 
 /**
@@ -613,8 +594,8 @@ void setRGBLED(bool red, bool green, bool blue)
  */
 void turnOffRGBLED()
 {
+    DEBUG_INFO_PRINTLN("RGB LED: Turning OFF");
     neopixelWrite(RGB_LED_PIN, 0, 0, 0);
-    DEBUG_VERBOSE_PRINTLN("RGB LED: Turned OFF");
 }
 #endif
 
