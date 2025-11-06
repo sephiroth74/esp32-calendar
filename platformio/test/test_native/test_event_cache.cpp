@@ -33,8 +33,7 @@ CalendarEvent* createTestEvent(const char* title, const char* location,
     event->summary = String(title);
     event->location = String(location);
     event->date = String(date);
-    event->startTimeStr = String(startTime);
-    event->endTimeStr = String("17:00");
+    // Note: startTimeStr and endTimeStr are now computed on-demand via getters
     event->calendarName = String("TestCalendar");
     event->calendarColor = String("#FF5733");
 
@@ -68,8 +67,8 @@ bool eventsEqual(const CalendarEvent* a, const CalendarEvent* b) {
            a->summary == b->summary &&
            a->location == b->location &&
            a->date == b->date &&
-           a->startTimeStr == b->startTimeStr &&
-           a->endTimeStr == b->endTimeStr &&
+           a->getStartTimeStr() == b->getStartTimeStr() &&
+           a->getEndTimeStr() == b->getEndTimeStr() &&
            a->calendarName == b->calendarName &&
            a->calendarColor == b->calendarColor &&
            a->startTime == b->startTime &&
@@ -372,8 +371,7 @@ TEST_SUITE("EventCache") {
         event->summary = event->title;
         event->location = String("B").repeat(100); // Longer than 64 char limit
         event->date = "2025-11-15";
-        event->startTimeStr = "10:00";
-        event->endTimeStr = "11:00";
+        // Note: startTimeStr and endTimeStr are now computed on-demand via getters
         event->calendarName = String("C").repeat(50); // Longer than 32 char limit
         event->calendarColor = String("#").repeat(20); // Longer than 16 char limit
         event->startTime = time(nullptr);

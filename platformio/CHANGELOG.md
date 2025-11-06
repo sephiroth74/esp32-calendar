@@ -5,6 +5,88 @@ All notable changes to the ESP32 E-Paper Calendar project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2025-01-06
+
+### Fixed
+- **WEEKLY Recurring Event Timezone Bug** - Fixed 2-day offset in WEEKLY recurring events with COUNT limit
+  - Root cause: Mixed use of `localtime()`/`mktime()` (local timezone) and UTC timestamps
+  - Test environment runs in CET (UTC+1), causing timezone conversion issues with ICS events (which use UTC)
+  - Solution: Use GMT/UTC consistently throughout all time calculations
+  - Added `portable_timegm()` helper function for cross-platform UTC time conversion
+    - Uses native `timegm()` on POSIX systems (test environment)
+    - On ESP32/Arduino: temporarily sets TZ=UTC, calls `mktime()`, then restores TZ
+  - Updated `findFirstOccurrence()` to use `gmtime()` and `portable_timegm()` throughout
+  - Updated `expandWeeklyV2()` to use `gmtime()` and `portable_timegm()` throughout
+  - Test suite: **240/240 tests passing (100%)** - all WEEKLY recurring event tests now pass
+
+### Changed
+- **Display Manager API Refactoring** - Simplified API by using `time_t` instead of separate date/time parameters
+  - `showModernCalendar()` signature simplified:
+    - **Before**: `showModernCalendar(events, now, currentDay, currentMonth, currentYear, currentTime, ...)`
+    - **After**: `showModernCalendar(events, now, weatherData, ...)`
+    - Date/time components now extracted from `time_t now` internally
+  - Orientation-specific methods updated:
+    - `drawLandscapeHeader(time_t now, weatherData)` - was `(int day, String monthYear, String time, weatherData)`
+    - `drawPortraitHeader(time_t now, weatherData)` - was `(int day, String monthYear, weatherData)`
+    - `drawLandscapeStatusBar(..., time_t now, isStale)` - was `(..., int day, month, year, String time, isStale)`
+    - `drawPortraitStatusBar(..., time_t now, isStale)` - already used `time_t` ✓
+  - Benefits:
+    - Cleaner API: Single `time_t` parameter instead of 5 separate date/time parameters
+    - Less duplication: Callers don't need to extract and format date/time components
+    - Consistency: All date/time extraction happens in one place using `localtime()`
+    - Easier maintenance: Changes to date/time formatting only need to happen in display methods
+
+### Technical Details
+- Flash: 1,326,221 bytes (44.0% of 3.0MB)
+- RAM: 111,920 bytes (34.2% of 320KB)
+- Test coverage: 240/240 tests passing (100%)
+- Timezone handling: All recurring event calculations now use GMT/UTC consistently
+
+## [1.8.0] - 2025-11-05
+
+### Added
+- **Dual Orientation Support** - Choose between landscape and portrait display modes
+  - New `DISPLAY_ORIENTATION` constant in config.h (LANDSCAPE or PORTRAIT)
+  - **Landscape Mode (800x480)**: Split-screen with calendar on left (400px), events and weather on right (400px)
+  - **Portrait Mode (480x800)**: Calendar on top (410px), events and weather side-by-side below (340px)
+  - Automatic display rotation based on orientation setting
+  - Compile-time optimization: Only selected orientation code is compiled, saving ~6KB flash
+- **Portrait Mode Layout**
+  - Compact centered header with day number and month/year
+  - Full-width calendar grid (7 columns × 480px width, 35px cell height)
+  - Weather panel on left (180px) with vertical stacked layout and 48x48 icons
+  - Events panel on right (290px) with smart date grouping
+  - Status bar at bottom with WiFi, battery, and version info
+- **New Display Module Organization** - Modular architecture for maintainability
+  - `display_landscape.cpp` - Complete landscape implementation (compiled only when LANDSCAPE)
+  - `display_portrait.cpp` - Complete portrait implementation (compiled only when PORTRAIT)
+  - `display_calendar_helpers.cpp` - Shared calendar utilities used by both orientations
+  - `display_shared.cpp` - Shared functions like status bar and error screens
+  - Method naming convention with orientation prefixes (drawLandscape*, drawPortrait*)
+
+### Changed
+- Display rotation now automatically set in `DisplayManager::init()` based on `DISPLAY_ORIENTATION`
+- `showModernCalendar()` now dispatches to orientation-specific implementations at compile-time
+- Updated debug.cpp to work with automatic rotation system
+- README fully updated to document dual orientation support and compile-time optimization
+- Configuration section updated to reference config.json for calendar and weather settings
+
+### Removed
+- All references to obsolete config.local configuration system from documentation
+- Old display module files replaced by new modular architecture:
+  - `display_calendar.cpp` → replaced by `display_calendar_helpers.cpp`
+  - `display_weather.cpp` → split into landscape and portrait implementations
+  - `display_events_status.cpp` → replaced by `display_shared.cpp`
+  - `display_portrait_events.cpp` → replaced by `display_portrait.cpp`
+
+### Technical Details
+- Flash (Landscape): 1,339,773 bytes (44.4% of 3.0MB)
+- Flash (Portrait): 1,333,213 bytes (44.2% of 3.0MB) - *6KB smaller due to compile-time optimization*
+- RAM: 112,084 bytes (34.2% of 320KB)
+- Display rotation: 0 for landscape, 1 for portrait (90° clockwise)
+- Orientation selection via `#define DISPLAY_ORIENTATION` in config.h
+- Preprocessor conditionals (`#if DISPLAY_ORIENTATION == LANDSCAPE`) ensure only needed code compiles
+
 ## [1.7.8] - 2025-11-03
 
 ### Fixed

@@ -47,10 +47,12 @@ public:
     // Parsed date/time for convenience
     time_t startTime;     // Start time as Unix timestamp
     time_t endTime;       // End time as Unix timestamp
-    String startDate;     // Start date in YYYY-MM-DD format
-    String endDate;       // End date in YYYY-MM-DD format
-    String startTimeStr;  // Start time in HH:MM format
-    String endTimeStr;    // End time in HH:MM format
+
+    // Computed properties (memory optimization - computed on-demand instead of stored)
+    String getStartDate() const;     // Start date in YYYY-MM-DD format
+    String getEndDate() const;       // End date in YYYY-MM-DD format
+    String getStartTimeStr() const;  // Start time in HH:MM format
+    String getEndTimeStr() const;    // End time in HH:MM format
 
     // Recurrence properties
     String rrule;         // Recurrence rule (RRULE)

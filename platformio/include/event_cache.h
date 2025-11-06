@@ -109,13 +109,12 @@ private:
 
     /**
      * @brief Serialized event structure (fixed-size binary format)
+     * Note: startTimeStr and endTimeStr removed in v2 (computed on-demand from timestamps)
      */
     struct __attribute__((packed)) SerializedEvent {
         char title[128];             ///< Event title/summary
         char location[64];           ///< Event location
         char date[16];               ///< Date in YYYY-MM-DD format
-        char startTimeStr[8];        ///< Start time in HH:MM format
-        char endTimeStr[8];          ///< End time in HH:MM format
         time_t startTime;            ///< Start timestamp (Unix epoch)
         time_t endTime;              ///< End timestamp (Unix epoch)
         uint8_t flags;               ///< Bit flags: allDay, isToday, isTomorrow, isMultiDay

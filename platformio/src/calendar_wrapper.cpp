@@ -185,33 +185,6 @@ std::vector<CalendarEvent*> CalendarWrapper::getEvents(time_t startDate, time_t 
                 eventEnd = eventStart;
             }
 
-            // Debug: Track specific event
-            bool isTargetEvent = (event->uid.indexOf("cor64p3165hjabb364qm2b9k68o3abb26gs3gbb5cco3gc1mcorm8p1o68") >= 0);
-
-            if (isTargetEvent || debug) {
-                struct tm* tmStart = localtime(&eventStart);
-                struct tm* tmEnd = localtime(&eventEnd);
-                struct tm* tmQueryStart = localtime(&startDate);
-                struct tm* tmQueryEnd = localtime(&endDate);
-                char startStr[32], endStr[32], qStartStr[32], qEndStr[32];
-                strftime(startStr, sizeof(startStr), "%Y-%m-%d %H:%M:%S", tmStart);
-                strftime(endStr, sizeof(endStr), "%Y-%m-%d %H:%M:%S", tmEnd);
-                strftime(qStartStr, sizeof(qStartStr), "%Y-%m-%d %H:%M:%S", tmQueryStart);
-                strftime(qEndStr, sizeof(qEndStr), "%Y-%m-%d %H:%M:%S", tmQueryEnd);
-
-                DEBUG_INFO_PRINTF("  [%s] Event: %s\n", config.name.c_str(), event->summary.c_str());
-                if (isTargetEvent) {
-                    DEBUG_INFO_PRINTF("  >>> TARGET EVENT (Cambio gomme) FOUND <<<\n");
-                }
-                DEBUG_INFO_PRINTF("    Event Start: %s (unix: %ld)\n", startStr, eventStart);
-                DEBUG_INFO_PRINTF("    Event End: %s (unix: %ld)\n", endStr, eventEnd);
-                DEBUG_INFO_PRINTF("    Query Range: %s to %s\n", qStartStr, qEndStr);
-                DEBUG_INFO_PRINTF("    Query Unix: %ld to %ld\n", startDate, endDate);
-                DEBUG_INFO_PRINTF("    Filter check: (%ld <= %ld) && (%ld >= %ld) = %s\n",
-                    eventStart, endDate, eventEnd, startDate,
-                    ((eventStart <= endDate) && (eventEnd >= startDate)) ? "PASS" : "FAIL");
-            }
-
             // Check if event overlaps with the date range
             if ((eventStart <= endDate) && (eventEnd >= startDate)) {
                 // Add calendar metadata to each event
@@ -220,13 +193,6 @@ std::vector<CalendarEvent*> CalendarWrapper::getEvents(time_t startDate, time_t 
                 // Mark as holiday if it's from a holiday calendar and is all-day
                 event->isHoliday = (config.holiday_calendar && event->allDay);
                 result.push_back(event);
-                if (isTargetEvent) {
-                    DEBUG_INFO_PRINTF("    >>> PASSED FILTER - ADDED TO RESULTS <<<\n");
-                }
-            } else {
-                if (isTargetEvent) {
-                    DEBUG_INFO_PRINTF("    >>> FILTERED OUT - NOT ADDED <<<\n");
-                }
             }
         }
     }

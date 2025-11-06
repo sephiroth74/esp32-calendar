@@ -41,6 +41,28 @@ public:
 
 #include <algorithm>
 
+// Helper function for portable timegm (converts tm in UTC to time_t)
+static time_t portable_timegm(struct tm* tm) {
+#ifndef ARDUINO
+    // POSIX systems (including test environment) have timegm
+    return timegm(tm);
+#else
+    // On Arduino/ESP32, temporarily set timezone to UTC
+    char* oldTZ = getenv("TZ");
+    String savedTZ = oldTZ ? String(oldTZ) : "";
+    setenv("TZ", "UTC0", 1);
+    tzset();
+    time_t result = mktime(tm);
+    if (!savedTZ.isEmpty()) {
+        setenv("TZ", savedTZ.c_str(), 1);
+    } else {
+        unsetenv("TZ");
+    }
+    tzset();
+    return result;
+#endif
+}
+
 // Constructor
 CalendarStreamParser::CalendarStreamParser()
     : debug(false), calendarColor(0), fetcher(nullptr) {
@@ -385,12 +407,8 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
         if (!dtStartTZID.isEmpty()) {
             // Parse with timezone conversion
             event->startTime = CalendarEvent::parseICSDateTimeWithTZ(dtStart, dtStartTZID);
-            if (event->startTime > 0) {
-                event->startDate = event->formatDate(event->startTime);
-                if (!event->allDay) {
-                    event->startTimeStr = event->formatTime(event->startTime);
-                }
-            }
+            // Note: startDate and startTimeStr are now computed on-demand via getters
+            // No need to store them
         } else {
             // Parse without timezone (UTC or all-day)
             event->setStartDateTime(dtStart);
@@ -723,14 +741,8 @@ RecurrenceFrequency CalendarStreamParser::frequencyFromString(const String& freq
 time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t startDate, time_t endDate,
                                                   int interval, RecurrenceFrequency freq, int count) {
     // Validate input
-    if (eventStart < 0 || startDate < 0 || endDate < 0 || startDate > endDate) {
+    if (eventStart < 0 || startDate < 0 || endDate < 0 || startDate > endDate || interval < 1) {
         return -1;  // Invalid parameters
-    }
-
-    // Ensure interval is valid (prevent division by zero)
-    if (interval < 1) {
-        DEBUG_ERROR_PRINTLN("findFirstOccurrence: Invalid interval (" + String(interval) + "), defaulting to 1");
-        interval = 1;
     }
 
     // If event starts after query range, no occurrence in range
@@ -740,9 +752,9 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
 
     // If COUNT is specified, check if the recurrence would complete before startDate
     if (count > 0) {
-        // Calculate where the Nth (last) occurrence would be
+        // Calculate where the Nth (last) occurrence would be (using GMT)
         struct tm lastOccurrenceTm;
-        memcpy(&lastOccurrenceTm, localtime(&eventStart), sizeof(struct tm));
+        memcpy(&lastOccurrenceTm, gmtime(&eventStart), sizeof(struct tm));
 
         switch (freq) {
             case RecurrenceFrequency::YEARLY:
@@ -761,7 +773,7 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
                 break;
         }
 
-        time_t lastOccurrence = mktime(&lastOccurrenceTm);
+        time_t lastOccurrence = portable_timegm(&lastOccurrenceTm);
 
         // If the last occurrence is before startDate, the recurrence is complete
         if (lastOccurrence < startDate) {
@@ -775,9 +787,10 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
     }
 
     // Event starts before query range - calculate first occurrence >= startDate
+    // Use GMT/UTC consistently to avoid timezone conversion issues
     struct tm eventTm, startTm;
-    memcpy(&eventTm, localtime(&eventStart), sizeof(struct tm));
-    memcpy(&startTm, localtime(&startDate), sizeof(struct tm));
+    memcpy(&eventTm, gmtime(&eventStart), sizeof(struct tm));
+    memcpy(&startTm, gmtime(&startDate), sizeof(struct tm));
 
     if (freq == RecurrenceFrequency::YEARLY) {
         // Calculate years between event start and query start
@@ -790,11 +803,11 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
             int intervalsToSkip = (yearsDiff + interval - 1) / interval;  // Ceiling division
             eventTm.tm_year += intervalsToSkip * interval;
 
-            time_t candidate = mktime(&eventTm);
+            time_t candidate = portable_timegm(&eventTm);
             // If we undershot, advance one interval
             if (candidate < startDate) {
                 eventTm.tm_year += interval;
-                candidate = mktime(&eventTm);
+                candidate = portable_timegm(&eventTm);
             }
             // Validate candidate is within range
             return (candidate <= endDate) ? candidate : -1;
@@ -810,11 +823,11 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
             int intervalsToSkip = (monthsDiff + interval - 1) / interval;  // Ceiling division
             eventTm.tm_mon += intervalsToSkip * interval;
 
-            time_t candidate = mktime(&eventTm);  // mktime normalizes year overflow
+            time_t candidate = portable_timegm(&eventTm);  // portable_timegm normalizes year overflow
             // If we undershot, advance one interval
             if (candidate < startDate) {
                 eventTm.tm_mon += interval;
-                candidate = mktime(&eventTm);
+                candidate = portable_timegm(&eventTm);
             }
             // Validate candidate is within range
             return (candidate <= endDate) ? candidate : -1;
@@ -830,11 +843,11 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
             int intervalsToSkip = (weeksDiff + interval - 1) / interval;  // Ceiling division
             eventTm.tm_mday += intervalsToSkip * interval * 7;
 
-            time_t candidate = mktime(&eventTm);  // mktime normalizes
+            time_t candidate = portable_timegm(&eventTm);  // portable_timegm normalizes
             // If we undershot, advance one interval
             if (candidate < startDate) {
                 eventTm.tm_mday += interval * 7;
-                candidate = mktime(&eventTm);
+                candidate = portable_timegm(&eventTm);
             }
             // Validate candidate is within range
             return (candidate <= endDate) ? candidate : -1;
@@ -849,11 +862,11 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
             int intervalsToSkip = (daysDiff + interval - 1) / interval;  // Ceiling division
             eventTm.tm_mday += intervalsToSkip * interval;
 
-            time_t candidate = mktime(&eventTm);  // mktime normalizes
+            time_t candidate = portable_timegm(&eventTm);  // portable_timegm normalizes
             // If we undershot, advance one interval
             if (candidate < startDate) {
                 eventTm.tm_mday += interval;
-                candidate = mktime(&eventTm);
+                candidate = portable_timegm(&eventTm);
             }
             // Validate candidate is within range
             return (candidate <= endDate) ? candidate : -1;
@@ -1449,10 +1462,13 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
         DEBUG_VERBOSE_PRINTLN("    Using UNTIL as effective end date");
     }
 
-    struct tm* eventTm = localtime(&event->startTime);
+    // Use GMT/UTC consistently to avoid timezone conversion issues
+    struct tm eventTmCopy;
+    memcpy(&eventTmCopy, gmtime(&event->startTime), sizeof(struct tm));
+    struct tm* eventTm = &eventTmCopy;
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
-    struct tm* startTm = localtime(&startDate);
-    struct tm* endTm = localtime(&effectiveEndDate);
+    struct tm* startTm = gmtime(&startDate);
+    struct tm* endTm = gmtime(&effectiveEndDate);
 
     DEBUG_VERBOSE_PRINTF("    Query range: %04d-%02d-%02d to %04d-%02d-%02d\n",
                       startTm->tm_year + 1900, startTm->tm_mon + 1, startTm->tm_mday,
@@ -1483,7 +1499,7 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
     }
 
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
-    struct tm* firstTm = localtime(&firstOccurrence);
+    struct tm* firstTm = gmtime(&firstOccurrence);
     DEBUG_VERBOSE_PRINTF("    First occurrence: %04d-%02d-%02d %02d:%02d:%02d (day: %d)\n",
                       firstTm->tm_year + 1900, firstTm->tm_mon + 1, firstTm->tm_mday,
                       firstTm->tm_hour, firstTm->tm_min, firstTm->tm_sec,
@@ -1527,12 +1543,12 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
 
     // Start iterating from the beginning of the week containing firstOccurrence
     struct tm currentTm;
-    memcpy(&currentTm, localtime(&firstOccurrence), sizeof(struct tm));
+    memcpy(&currentTm, gmtime(&firstOccurrence), sizeof(struct tm));
 
     // Move back to Sunday (start of week) to check all BYDAY days in this week
     int daysToSunday = currentTm.tm_wday;
     currentTm.tm_mday -= daysToSunday;
-    mktime(&currentTm);  // Normalize
+    portable_timegm(&currentTm);  // Normalize
 
     int absoluteOccurrenceIndex = occurrencesBeforeRange;
     int maxCount = (count > 0) ? count : INT_MAX;
@@ -1547,7 +1563,7 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
             // Calculate date for this target day in current week
             struct tm occurrenceTm = currentTm;
             occurrenceTm.tm_mday += targetDay;
-            time_t occurrenceTime = mktime(&occurrenceTm);
+            time_t occurrenceTime = portable_timegm(&occurrenceTm);
 
             // Skip if this occurrence is before event start time
             if (occurrenceTime < event->startTime) {
@@ -1594,7 +1610,7 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
 
         // Advance to next week (respecting interval)
         currentTm.tm_mday += interval * 7;
-        mktime(&currentTm);  // Normalize
+        portable_timegm(&currentTm);  // Normalize
     }
 
 done:

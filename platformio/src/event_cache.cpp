@@ -70,8 +70,6 @@ void EventCache::serializeEvent(const CalendarEvent* event, SerializedEvent& ser
     strncpy(serialized.title, event->title.c_str(), sizeof(serialized.title) - 1);
     strncpy(serialized.location, event->location.c_str(), sizeof(serialized.location) - 1);
     strncpy(serialized.date, event->date.c_str(), sizeof(serialized.date) - 1);
-    strncpy(serialized.startTimeStr, event->startTimeStr.c_str(), sizeof(serialized.startTimeStr) - 1);
-    strncpy(serialized.endTimeStr, event->endTimeStr.c_str(), sizeof(serialized.endTimeStr) - 1);
     strncpy(serialized.calendarName, event->calendarName.c_str(), sizeof(serialized.calendarName) - 1);
     strncpy(serialized.calendarColor, event->calendarColor.c_str(), sizeof(serialized.calendarColor) - 1);
     strncpy(serialized.summary, event->summary.c_str(), sizeof(serialized.summary) - 1);
@@ -97,8 +95,7 @@ CalendarEvent* EventCache::deserializeEvent(const SerializedEvent& serialized) {
     event->title = String(serialized.title);
     event->location = String(serialized.location);
     event->date = String(serialized.date);
-    event->startTimeStr = String(serialized.startTimeStr);
-    event->endTimeStr = String(serialized.endTimeStr);
+    // Note: startTimeStr and endTimeStr from cache are ignored - they're computed on-demand
     event->calendarName = String(serialized.calendarName);
     event->calendarColor = String(serialized.calendarColor);
     event->summary = String(serialized.summary);
@@ -307,7 +304,7 @@ bool EventCache::isValid(const String& cachePath, time_t maxAge) {
     time_t now = time(nullptr);
     time_t age = now - header.timestamp;
 
-    if (age < 0 || age > maxAge) {
+    if (age < 0 || age >= maxAge) {
         DEBUG_INFO_PRINTLN("Cache expired: age=" + String(age) + "s, maxAge=" + String(maxAge) + "s");
         return false;
     }

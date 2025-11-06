@@ -1,7 +1,12 @@
 #ifndef DATE_UTILS_H
 #define DATE_UTILS_H
 
-#include <Arduino.h>
+#ifdef NATIVE_TEST
+    #include "../test/mock_arduino.h"
+#else
+    #include <Arduino.h>
+#endif
+
 #include <time.h>
 
 class DateUtils {

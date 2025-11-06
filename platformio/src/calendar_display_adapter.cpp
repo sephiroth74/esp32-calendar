@@ -24,11 +24,10 @@ void CalendarDisplayAdapter::prepareEventForDisplay(CalendarEvent* event) {
     // DisplayManager expects 'title' but CalendarEvent uses 'summary'
     event->title = event->summary;
 
-    // Format date and time for display
+    // Format date for display
     if (event->startTime > 0) {
         event->date = formatDate(event->startTime);
-        event->startTimeStr = formatTime(event->startTime);
-        event->startDate = event->date;  // Alias for compatibility
+        // Note: startTimeStr and startDate are now computed on-demand via getters
 
         // Set day of month for calendar highlighting
         event->dayOfMonth = getDayOfMonth(event->startTime);
@@ -42,28 +41,13 @@ void CalendarDisplayAdapter::prepareEventForDisplay(CalendarEvent* event) {
         if (event->date.indexOf('T') > 0) {
             event->date = event->date.substring(0, event->date.indexOf('T'));
         }
-        event->startDate = event->date;
+        // Note: startDate is now computed on-demand via getStartDate()
         event->dayOfMonth = 0;
         event->isToday = false;
         event->isTomorrow = false;
     }
 
-    if (event->endTime > 0) {
-        event->endTimeStr = formatTime(event->endTime);
-        event->endDate = formatDate(event->endTime);
-    } else if (!event->dtEnd.isEmpty()) {
-        // Parse time from dtEnd if available
-        int tPos = event->dtEnd.indexOf('T');
-        if (tPos > 0 && tPos + 5 < event->dtEnd.length()) {
-            event->endTimeStr = event->dtEnd.substring(tPos + 1, tPos + 6); // HH:MM
-        }
-    }
-
-    // For all-day events, clear the time strings
-    if (event->allDay) {
-        event->startTimeStr = "";
-        event->endTimeStr = "";
-    }
+    // Note: endTimeStr and endDate are now computed on-demand via getters
 
     // Ensure location is set (even if empty)
     if (event->location.isEmpty()) {
@@ -72,28 +56,11 @@ void CalendarDisplayAdapter::prepareEventForDisplay(CalendarEvent* event) {
 }
 
 String CalendarDisplayAdapter::formatDate(time_t timestamp) {
-    if (timestamp == 0) return "";
-
-    struct tm* timeinfo = localtime(&timestamp);
-    // Buffer size: YYYY-MM-DD = 10 chars + null terminator
-    // But compiler wants space for theoretical max int values
-    char buffer[64];  // Large enough for any possible output
-    snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d",
-            timeinfo->tm_year + 1900,
-            timeinfo->tm_mon + 1,
-            timeinfo->tm_mday);
-    return String(buffer);
+    return DateUtils::formatDate(timestamp);
 }
 
 String CalendarDisplayAdapter::formatTime(time_t timestamp) {
-    if (timestamp == 0) return "";
-
-    struct tm* timeinfo = localtime(&timestamp);
-    // Buffer size: HH:MM = 5 chars + null terminator
-    // Using larger buffer to avoid compiler warnings
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
-    return String(buffer);
+    return DateUtils::formatTime(timestamp);
 }
 
 bool CalendarDisplayAdapter::isToday(time_t timestamp) {

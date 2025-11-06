@@ -11,7 +11,9 @@
 #include <Arduino.h>
 #endif
 
-// Include calendar event class
+// Include calendar event class and dependencies
+#include "date_utils.h"
+#include "../../src/date_utils.cpp"
 #include "calendar_event.h"
 #include "../../src/calendar_event.cpp"
 

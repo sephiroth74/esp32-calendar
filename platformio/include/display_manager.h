@@ -72,32 +72,71 @@ public:
 #else
 private:
 #endif
-    // Vertical split layout constants
+    // =========================================================================
+    // ORIENTATION-SPECIFIC LAYOUT CONSTANTS
+    // =========================================================================
+#if DISPLAY_ORIENTATION == LANDSCAPE
+    // Vertical split layout constants for landscape mode
     static const int SPLIT_X = 400; // Split screen at middle
 
     // Left side - Header and Calendar
     static const int LEFT_WIDTH = 400; // Left half of screen
     static const int HEADER_HEIGHT = 120; // Header with large day number and month/year
-    static const int CALENDAR_START_Y = HEADER_HEIGHT + 20; // Moved down 10 pixels (was +10)
-    static const int CALENDAR_HEIGHT = 360; // Adjusted for moved calendar
+    static const int CALENDAR_START_Y = HEADER_HEIGHT + 20;
+    static const int CALENDAR_HEIGHT = 360;
 
     // Right side - Events and Weather
     static const int RIGHT_WIDTH = 400; // Right half of screen
     static const int RIGHT_START_X = SPLIT_X; // Start of right side
     static const int EVENTS_HEIGHT = 340; // More space for events
-    static const int WEATHER_START_Y = DISPLAY_HEIGHT - 100; // Bottom position above status bar (moved down 30px total)
-    static const int WEATHER_HEIGHT = 100; // Compact weather section
+    static const int WEATHER_START_Y = DISPLAY_HEIGHT - 100;
+    static const int WEATHER_HEIGHT = 100;
 
-    // Calendar grid dimensions for left side
-    static const int CALENDAR_MARGIN = 20; // Margins on sides
-    static const int CELL_WIDTH = 50; // (380/7) ≈ 50 pixels per day
-    static const int CELL_HEIGHT = 45; // Height of calendar cells
-    static const int DAY_LABEL_HEIGHT = 25; // Height for day labels
+    // Calendar grid dimensions
+    static const int CALENDAR_MARGIN = 20;
+    static const int CELL_WIDTH = 50;
+    static const int CELL_HEIGHT = 45;
+    static const int DAY_LABEL_HEIGHT = 25;
 
-    // Helper methods
-    void drawModernHeader(int currentDay, const String& monthYear, const String& currentTime, const WeatherData* weatherData = nullptr);
-    void drawCompactCalendar(const MonthCalendar& calendar,
-        const std::vector<CalendarEvent*>& events);
+#elif DISPLAY_ORIENTATION == PORTRAIT
+    // Portrait layout: Calendar on top, events below with weather on left
+    static const int HEADER_HEIGHT = 90; // Compact header (reduced by 10px)
+
+    // Month section layout (centered between separator lines)
+    // Top separator is at ~85px (title baseline + 20)
+    // Calendar grid: DAY_LABEL_HEIGHT (25) + 6 rows × CELL_HEIGHT (42) = 25 + 252 = 277px
+    // Total calendar content height: ~277px
+    static const int CALENDAR_START_Y = 110; // Adjusted to center month view (was HEADER_HEIGHT + 10)
+    static const int CALENDAR_HEIGHT = 300; // Increased to accommodate taller cells
+    static const int EVENTS_START_Y = CALENDAR_START_Y + CALENDAR_HEIGHT + 22; // More space above events (was +20)
+    static const int STATUS_BAR_HEIGHT = 30; // Increased status bar height
+    static const int WEATHER_WIDTH = 160; // Weather on left side (reduced by 20px total for more events space)
+    static const int EVENTS_START_X = WEATHER_WIDTH + 10; // Events start after weather
+
+    // Calendar grid dimensions
+    static const int CALENDAR_MARGIN = 20;
+    static const int CELL_WIDTH = (DISPLAY_WIDTH - 30) / 7; // Full width divided by 7 days
+    static const int CELL_HEIGHT = 42; // Increased from 35 to 42
+    static const int DAY_LABEL_HEIGHT = 25;
+#endif
+
+    // Helper methods - Orientation-specific (compile-time selected)
+#if DISPLAY_ORIENTATION == LANDSCAPE
+    // Landscape layout methods
+    void drawLandscapeHeader(time_t now, const WeatherData* weatherData = nullptr);
+    void drawLandscapeCalendar(const MonthCalendar& calendar, const std::vector<CalendarEvent*>& events);
+    void drawLandscapeEvents(const std::vector<CalendarEvent*>& events);
+    void drawLandscapeWeather(const WeatherData& weatherData);
+    void drawLandscapeWeatherPlaceholder();
+    void drawLandscapeStatusBar(bool wifiConnected, int rssi, float batteryVoltage, int batteryPercentage,
+        time_t now, bool isStale = false);
+#elif DISPLAY_ORIENTATION == PORTRAIT
+    // Portrait layout methods
+    void drawPortraitHeader(time_t now, const WeatherData* weatherData = nullptr);
+    void drawPortraitCalendar(const MonthCalendar& calendar, const std::vector<CalendarEvent*>& events);
+    void drawPortraitEventsWithWeather(const std::vector<CalendarEvent*>& events, const WeatherData* weatherData);
+    void drawPortraitStatusBar(bool wifiConnected, int rssi, float batteryVoltage, int batteryPercentage, time_t now, bool isStale = false);
+#endif
 
     // Calendar helper methods (extracted from drawCompactCalendar)
     void drawCalendarDayLabels(int startX, int startY, int cellWidth);
@@ -126,7 +165,6 @@ private:
         int currentDay, int currentMonth, int currentYear, const String& currentTime, bool isStale = false);
     void centerText(const String& text, int x, int y, int width, const GFXfont* font);
     String formatTime(const String& timeStr);
-    String truncateText(const String& text, int maxWidth);
     MonthCalendar generateMonthCalendar(int year, int month, const std::vector<CalendarEvent*>& events);
     // Font metrics helper functions
     int16_t getFontHeight(const GFXfont* font);
@@ -334,10 +372,7 @@ public:
      * - Status bar with WiFi, battery, and time
      *
      * @param events Vector of calendar events to display
-     * @param currentDay Day of month (1-31)
-     * @param currentMonth Month (1-12)
-     * @param currentYear Full year (e.g., 2025)
-     * @param currentTime Time string (e.g., "14:30")
+     * @param now Current datetime (Unix timestamp). Date/time components are extracted from this.
      * @param weatherData Optional weather data for display
      * @param wifiConnected WiFi connection status
      * @param rssi WiFi signal strength in dBm (-100 to 0)
@@ -346,10 +381,7 @@ public:
      * @param isStale true if showing cached/stale data
      */
     void showModernCalendar(const std::vector<CalendarEvent*>& events,
-        int currentDay,
-        int currentMonth,
-        int currentYear,
-        const String& currentTime,
+        time_t now,
         const WeatherData* weatherData = nullptr,
         bool wifiConnected = true,
         int rssi = 0,

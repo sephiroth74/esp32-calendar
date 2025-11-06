@@ -58,6 +58,8 @@ int DateUtils::getDaysDifference(time_t timestamp1, time_t timestamp2) {
 }
 
 String DateUtils::formatDate(time_t timestamp) {
+    if (timestamp == 0) return "";
+
     struct tm* tm = localtime(&timestamp);
     char buffer[32];  // Increased buffer size to avoid truncation warning
     snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d",
@@ -66,8 +68,10 @@ String DateUtils::formatDate(time_t timestamp) {
 }
 
 String DateUtils::formatTime(time_t timestamp) {
+    if (timestamp == 0) return "";
+
     struct tm* tm = localtime(&timestamp);
-    char buffer[6];
+    char buffer[32];  // Using larger buffer to avoid compiler warnings
     snprintf(buffer, sizeof(buffer), "%02d:%02d", tm->tm_hour, tm->tm_min);
     return String(buffer);
 }

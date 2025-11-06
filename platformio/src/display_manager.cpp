@@ -21,7 +21,15 @@ void DisplayManager::init()
 
     // display.init(115200);
     display.init(115200, true, 2, false); // default 10ms reset pulse, e.g. for bare panels with DESPI-C02
-    DEBUG_INFO_PRINTLN("Display initialized!");
+
+    // Set rotation based on orientation
+#if DISPLAY_ORIENTATION == PORTRAIT
+    display.setRotation(1); // 90 degrees for portrait (480x800 becomes 800x480 rotated)
+    DEBUG_INFO_PRINTLN("Display initialized in PORTRAIT mode!");
+#else
+    display.setRotation(0); // No rotation for landscape
+    DEBUG_INFO_PRINTLN("Display initialized in LANDSCAPE mode!");
+#endif
 }
 
 void DisplayManager::clear()
@@ -162,12 +170,14 @@ bool DisplayManager::nextPage()
     return display.nextPage();
 }
 
+#if DISPLAY_ORIENTATION == LANDSCAPE
 void DisplayManager::drawDivider()
 {
     // Draw thin vertical line between left and right sides
     // Stop before the bottom status bar area
     display.drawLine(SPLIT_X, 0, SPLIT_X, DISPLAY_HEIGHT - 40, GxEPD_BLACK);
 }
+#endif
 
 void DisplayManager::centerText(const String& text, int x, int y, int width, const GFXfont* font)
 {
@@ -212,16 +222,6 @@ String DisplayManager::formatTime(const String& timeStr)
     }
 }
 
-String DisplayManager::truncateText(const String& text, int maxWidth)
-{
-    // Simple truncation - in production you'd measure actual pixel width
-    int maxChars = maxWidth / 6; // Approximate character width
-    if (text.length() <= maxChars) {
-        return text;
-    }
-    return text.substring(0, maxChars - 3) + "...";
-}
-
 void DisplayManager::showCalendar(const std::vector<CalendarEvent*>& events,
     const String& currentDate,
     const String& currentTime,
@@ -235,30 +235,13 @@ void DisplayManager::showCalendar(const std::vector<CalendarEvent*>& events,
     // Get current date info
     time_t now;
     time(&now);
-    struct tm* timeinfo = localtime(&now);
 
-    // Use fixed mock date if time not properly set
-    int currentDay = timeinfo->tm_mday;
-    int currentYear = timeinfo->tm_year + 1900;
-    int currentMonth = timeinfo->tm_mon + 1;
-
-    // If date is invalid (not synced yet), use a fixed mock date
-    if (currentYear <= 1970 || currentMonth < 1 || currentMonth > 12 || currentDay < 1 || currentDay > 31) {
-        currentDay = 16;
-        currentMonth = 10;  // October
-        currentYear = 2025;
-    }
-
-    // Use the modern layout
-    showModernCalendar(events, currentDay, currentMonth, currentYear,
-        currentTime, weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage, isStale);
+    // Use the modern layout (now extracts date/time internally)
+    showModernCalendar(events, now, weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage, isStale);
 }
 
 void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& events,
-    int currentDay,
-    int currentMonth,
-    int currentYear,
-    const String& currentTime,
+    time_t now,
     const WeatherData* weatherData,
     bool wifiConnected,
     int rssi,
@@ -271,71 +254,75 @@ void DisplayManager::showModernCalendar(const std::vector<CalendarEvent*>& event
     Serial.println("[DisplayManager] Events count: " + String(events.size()));
 #endif
 
+    // Extract date/time components from time_t
+    struct tm* timeinfo = localtime(&now);
+    int currentDay = timeinfo->tm_mday;
+    int currentMonth = timeinfo->tm_mon + 1;
+    int currentYear = timeinfo->tm_year + 1900;
+
     // Generate month calendar data
     MonthCalendar monthCal = generateMonthCalendar(currentYear, currentMonth, events);
 
-#ifdef DEBUG_DISPLAY
-    Serial.println("[DisplayManager] Month calendar generated");
-#endif
-
     // Set today's date if we're displaying the current month
-    if (currentYear > 1970) {  // Only if we have valid time
-        monthCal.today = currentDay;  // Use the currentDay passed as parameter
+    if (currentYear > 1970) {
+        monthCal.today = currentDay;
     }
 
     // Format month and year string - handle invalid dates
     String monthYear;
     if (currentYear <= 1970 || currentMonth < 1 || currentMonth > 12) {
-        // Time not set yet, show placeholder
         monthYear = "---";
     } else {
         monthYear = String(MONTH_NAMES[currentMonth]) + " " + String(currentYear);
     }
 
-#ifdef DEBUG_DISPLAY
-    Serial.println("[DisplayManager] Calling firstPage()...");
-#endif
-
     display.firstPage();
 
-#ifdef DEBUG_DISPLAY
-    Serial.println("[DisplayManager] Starting rendering loop...");
-#endif
-
     do {
-#ifdef DEBUG_DISPLAY
-        Serial.println("[DisplayManager] Rendering page...");
-#endif
-        // clear();
         fillScreen(GxEPD_WHITE);
 
-        // Draw vertical divider between left and right sides
+#if DISPLAY_ORIENTATION == LANDSCAPE
+        // LANDSCAPE LAYOUT: Vertical split with calendar on left, events on right
+
+        // Draw vertical divider
         drawDivider();
 
-        // LEFT SIDE
-        // Draw header with large day number
-        drawModernHeader(currentDay, monthYear, currentTime, weatherData);
-        // Draw calendar below header
-        drawCompactCalendar(monthCal, events);
+        // LEFT SIDE: Header and Calendar
+        drawLandscapeHeader(now, weatherData);
+        drawLandscapeCalendar(monthCal, events);
 
-        // RIGHT SIDE
-        // Draw events section at top
-        drawEventsSection(events);
+        // RIGHT SIDE: Events at top, weather at bottom
+        drawLandscapeEvents(events);
 
-        // Draw separator between events and weather with 5px padding
-        int separatorY = WEATHER_START_Y - 9;  // Adjusted for moved weather section (was 15, now 9)
+        int separatorY = WEATHER_START_Y - 9;
         display.drawLine(RIGHT_START_X + 10, separatorY, DISPLAY_WIDTH - 10, separatorY, GxEPD_BLACK);
 
-        // Draw weather section at bottom
         if (weatherData && !weatherData->dailyForecast.empty()) {
-            drawWeatherForecast(*weatherData);
+            drawLandscapeWeather(*weatherData);
         } else {
-            drawWeatherPlaceholder();
+            drawLandscapeWeatherPlaceholder();
         }
 
-        // Draw status bar at the very bottom
-        drawStatusBar(wifiConnected, rssi, batteryVoltage, batteryPercentage,
-                     currentDay, currentMonth, currentYear, currentTime, isStale);
+        // Status bar at bottom
+        drawLandscapeStatusBar(wifiConnected, rssi, batteryVoltage, batteryPercentage, now, isStale);
+
+#elif DISPLAY_ORIENTATION == PORTRAIT
+        // PORTRAIT LAYOUT: Calendar on top, events below with weather on left
+
+        // TOP: Header and Calendar
+        drawPortraitHeader(now, weatherData);
+        drawPortraitCalendar(monthCal, events);
+
+        // Horizontal divider
+        // int dividerY = EVENTS_START_Y - 10;
+        // display.drawLine(10, dividerY, DISPLAY_WIDTH - 10, dividerY, GxEPD_BLACK);
+
+        // BOTTOM: Weather on left, Events on right
+        drawPortraitEventsWithWeather(events, weatherData);
+
+        // Status bar at bottom
+        drawPortraitStatusBar(wifiConnected, rssi, batteryVoltage, batteryPercentage, now, isStale);
+#endif
 
     } while (display.nextPage());
 

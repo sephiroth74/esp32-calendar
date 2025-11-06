@@ -1,5 +1,6 @@
 #include "calendar_event.h"
 #include "timezone_map.h"
+#include "date_utils.h"
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>  // for setenv, getenv
@@ -26,10 +27,6 @@ void CalendarEvent::clear() {
 
     startTime = 0;
     endTime = 0;
-    startDate = "";
-    endDate = "";
-    startTimeStr = "";
-    endTimeStr = "";
 
     rrule = "";
     rdate = "";
@@ -83,14 +80,6 @@ bool CalendarEvent::setStartDateTime(const String& dt, const String& params) {
         startTime = parseICSDateTime(dt, isUTC);
     }
 
-    // Format the date and time strings
-    if (startTime > 0) {
-        startDate = formatDate(startTime);
-        if (!allDay) {
-            startTimeStr = formatTime(startTime);
-        }
-    }
-
     return startTime > 0;
 }
 
@@ -105,14 +94,6 @@ bool CalendarEvent::setEndDateTime(const String& dt, const String& params) {
     } else {
         bool isUTC = dt.charAt(dt.length() - 1) == 'Z';
         endTime = parseICSDateTime(dt, isUTC);
-    }
-
-    // Format the date and time strings
-    if (endTime > 0) {
-        endDate = formatDate(endTime);
-        if (!allDay) {
-            endTimeStr = formatTime(endTime);
-        }
     }
 
     return endTime > 0;
@@ -165,30 +146,28 @@ time_t CalendarEvent::parseICSDateTime(const String& dateTime, bool isUTC) const
 }
 
 String CalendarEvent::formatDate(time_t timestamp) const {
-    if (timestamp == 0) return "";
-
-    struct tm* timeinfo = localtime(&timestamp);
-    // Buffer size: YYYY-MM-DD = 10 chars + null terminator
-    // But compiler wants space for theoretical max int values
-    char buffer[64];  // Large enough for any possible output
-    snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d",
-             timeinfo->tm_year + 1900,
-             timeinfo->tm_mon + 1,
-             timeinfo->tm_mday);
-    return String(buffer);
+    return DateUtils::formatDate(timestamp);
 }
 
 String CalendarEvent::formatTime(time_t timestamp) const {
-    if (timestamp == 0) return "";
+    return DateUtils::formatTime(timestamp);
+}
 
-    struct tm* timeinfo = localtime(&timestamp);
-    // Buffer size: HH:MM = 5 chars + null terminator
-    // Using larger buffer to avoid compiler warnings
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%02d:%02d",
-             timeinfo->tm_hour,
-             timeinfo->tm_min);
-    return String(buffer);
+// Computed property getters (memory optimization)
+String CalendarEvent::getStartDate() const {
+    return formatDate(startTime);
+}
+
+String CalendarEvent::getEndDate() const {
+    return formatDate(endTime);
+}
+
+String CalendarEvent::getStartTimeStr() const {
+    return allDay ? "" : formatTime(startTime);
+}
+
+String CalendarEvent::getEndTimeStr() const {
+    return allDay ? "" : formatTime(endTime);
 }
 
 bool CalendarEvent::operator<(const CalendarEvent& other) const {
@@ -215,8 +194,10 @@ String CalendarEvent::toString() const {
     result += "  UID: " + uid + "\n";
     result += "  Summary: " + summary + "\n";
     result += "  Start: " + dtStart;
+    String startDate = getStartDate();
     if (!startDate.isEmpty()) {
         result += " (" + startDate;
+        String startTimeStr = getStartTimeStr();
         if (!startTimeStr.isEmpty()) {
             result += " " + startTimeStr;
         }
@@ -226,8 +207,10 @@ String CalendarEvent::toString() const {
 
     if (!dtEnd.isEmpty()) {
         result += "  End: " + dtEnd;
+        String endDate = getEndDate();
         if (!endDate.isEmpty()) {
             result += " (" + endDate;
+            String endTimeStr = getEndTimeStr();
             if (!endTimeStr.isEmpty()) {
                 result += " " + endTimeStr;
             }

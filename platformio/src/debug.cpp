@@ -191,9 +191,10 @@ void processCommand(String command)
 
         // Display modern layout with weather
         Serial.println("Calling showModernCalendar...");
-        display.setRotation(0); // Landscape
-        display.showModernCalendar(mockEvents, currentDay, currentMonth, currentYear,
-            String(timeStr), &mockWeather, true, -65, 4.2, 85);
+        // Note: Rotation is set automatically based on DISPLAY_ORIENTATION in init()
+        time_t now;
+        time(&now);
+        display.showModernCalendar(mockEvents, now, &mockWeather, true, -65, 4.2, 85);
 
         Serial.println("Modern demo displayed!");
     } else if (command == "3") {
@@ -906,7 +907,7 @@ void testCalendarFetch()
 
                 // Event date/time
                 display.setCursor(40, y);
-                display.print(event->date + " " + event->startTimeStr);
+                display.print(event->date + " " + event->getStartTimeStr());
                 y += lineHeight;
 
                 // Check if we're running out of space
@@ -1137,8 +1138,9 @@ void testWeatherFetch()
     int batteryPercentage = getBatteryPercentage(batteryVoltage);
 
     // Display with weather data using real values
-    display.showModernCalendar(mockEvents, currentDay, currentMonth, currentYear,
-        String(timeStr), &weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage);
+    time_t now;
+    time(&now);
+    display.showModernCalendar(mockEvents, now, &weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage);
 
     Serial.println("Weather test complete!");
     Serial.println("========================================");

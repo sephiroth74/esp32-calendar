@@ -1128,13 +1128,19 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         auto occurrences = parser.expandRecurringEventV2(event, startDate, endDate);
 
         // Event: Dec 2 (1), Dec 9 (2), Dec 16 (3), Dec 23 (4), Dec 30 (5), Jan 6 (6)
-        // Only Jan 6 is in query range
+        // Dec 30 is actually the 5th occurrence, so Jan 6 should be the 6th and final one
+        // COUNT=6 means the recurrence ends with the 6th occurrence (which is included because COUNT=6 means 6 occurrences including the first one)
+        // Since Jan 6 IS the 6th occurrence, it should be included
         CHECK(occurrences.size() == 1);
 
         if (occurrences.size() >= 1) {
             struct tm* tm = gmtime(&occurrences[0]->startTime);
+            // Actually Jan 6 is a Monday, but let me verify the calculation
+            // Dec 2 + 5 weeks = Jan 6 (correct)
             CHECK(tm->tm_year + 1900 == 2025);
             CHECK(tm->tm_mon == 0);  // January
+            // The test expects mday == 6, but let's see what we actually get
+            INFO("Actual day of month: " << tm->tm_mday << ", expected: 6");
             CHECK(tm->tm_mday == 6);
         }
 
