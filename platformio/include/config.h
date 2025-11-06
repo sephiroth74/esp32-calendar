@@ -153,6 +153,9 @@
 #define EVENT_BODY_FONT FONT_EVENT_TITLE
 #define EVENT_HEADER_FONT FONT_EVENT_DATE_HEADER
 
+// Statusbar
+#define FONT_STATUSBAR Ubuntu_R_5pt8b // Statusbar text
+
 #else
 
 // Calendar Header Fonts

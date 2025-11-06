@@ -4,6 +4,7 @@
 #include "weather_client.h"
 #include "string_utils.h"
 #include "version.h"
+#include "date_utils.h"
 #include <assets/fonts.h>
 #include <assets/icons/icons.h>
 
@@ -69,7 +70,7 @@ void DisplayManager::drawLandscapeHeader(time_t now, const WeatherData* weatherD
 
     // Calculate vertical positions
     int16_t dayBaseline = getFontBaseline(&FONT_HEADER_DAY_NUMBER);
-    int16_t dayY = 4 + dayBaseline;
+    int16_t dayY = 10 + dayBaseline;
 
     // Center and draw the day number
     display.setFont(&FONT_HEADER_DAY_NUMBER);
@@ -85,7 +86,7 @@ void DisplayManager::drawLandscapeHeader(time_t now, const WeatherData* weatherD
 #endif
 
     // Position month/year
-    int16_t monthYearY = dayY + getFontHeight(&FONT_HEADER_DAY_NUMBER) - 30;
+    int16_t monthYearY = dayY + getFontHeight(&FONT_HEADER_DAY_NUMBER) - 28;
 
     // Center and draw the month and year
     display.setFont(&FONT_HEADER_MONTH_YEAR);
@@ -139,7 +140,7 @@ void DisplayManager::drawLandscapeEvents(const std::vector<CalendarEvent*>& even
 
     int x = RIGHT_START_X + 20;
     int y = 25;
-    const int maxY = WEATHER_START_Y - 10;
+    const int maxY = WEATHER_START_Y - 30;
 
     if (events.empty()) {
         // Use font metrics for proper centering
@@ -340,66 +341,72 @@ void DisplayManager::drawLandscapeStatusBar(bool wifiConnected, int rssi,
     float batteryVoltage, int batteryPercentage,
     time_t now, bool isStale)
 {
-    // Note: now parameter available but not currently used in landscape status bar
-    display.setFont(nullptr);   // Use default font for status bar
-    int y = DISPLAY_HEIGHT; // Position for status bar at bottom edge
-
-    // Draw status icons and info at bottom
-    int iconX = 10;
+    display.setFont(&FONT_STATUSBAR);
+    int y = DISPLAY_HEIGHT;
     int textY = y - 5;
 
-    // WiFi icon and RSSI
-    if (wifiConnected) {
-        // Draw WiFi icon based on signal strength
-        if (rssi > -60) {
-            display.drawInvertedBitmap(iconX, y - 16, wifi_3_bar_16x16, 16, 16, GxEPD_BLACK);
-        } else if (rssi > -75) {
-            display.drawInvertedBitmap(iconX, y - 16, wifi_2_bar_16x16, 16, 16, GxEPD_BLACK);
-        } else {
-            display.drawInvertedBitmap(iconX, y - 16, wifi_1_bar_16x16, 16, 16, GxEPD_BLACK);
-        }
-    } else {
-        display.drawInvertedBitmap(iconX, y - 16, wifi_off_16x16, 16, 16, GxEPD_BLACK);
-    }
-
-    // Battery icon and percentage
-    iconX += 20;
+    // LEFT: Battery icon and percentage
+    int iconX = 10;
     if (batteryPercentage > 90) {
-        display.drawInvertedBitmap(iconX, y - 16, battery_full_0deg_16x16, 16, 16, GxEPD_BLACK);
+        display.drawInvertedBitmap(iconX, y - 16, battery_full_90deg_16x16, 16, 16, GxEPD_BLACK);
     } else if (batteryPercentage > 75) {
-        display.drawInvertedBitmap(iconX, y - 16, battery_6_bar_0deg_16x16, 16, 16, GxEPD_BLACK);
+        display.drawInvertedBitmap(iconX, y - 16, battery_6_bar_90deg_16x16, 16, 16, GxEPD_BLACK);
     } else if (batteryPercentage > 60) {
-        display.drawInvertedBitmap(iconX, y - 16, battery_5_bar_0deg_16x16, 16, 16, GxEPD_BLACK);
+        display.drawInvertedBitmap(iconX, y - 16, battery_5_bar_90deg_16x16, 16, 16, GxEPD_BLACK);
     } else if (batteryPercentage > 45) {
-        display.drawInvertedBitmap(iconX, y - 16, battery_4_bar_0deg_16x16, 16, 16, GxEPD_BLACK);
+        display.drawInvertedBitmap(iconX, y - 16, battery_4_bar_90deg_16x16, 16, 16, GxEPD_BLACK);
     } else if (batteryPercentage > 30) {
-        display.drawInvertedBitmap(iconX, y - 16, battery_3_bar_0deg_16x16, 16, 16, GxEPD_BLACK);
+        display.drawInvertedBitmap(iconX, y - 16, battery_3_bar_90deg_16x16, 16, 16, GxEPD_BLACK);
     } else if (batteryPercentage > 15) {
-        display.drawInvertedBitmap(iconX, y - 16, battery_2_bar_0deg_16x16, 16, 16, GxEPD_BLACK);
+        display.drawInvertedBitmap(iconX, y - 16, battery_2_bar_90deg_16x16, 16, 16, GxEPD_BLACK);
     } else if (batteryPercentage > 5) {
-        display.drawInvertedBitmap(iconX, y - 16, battery_1_bar_0deg_16x16, 16, 16, GxEPD_BLACK);
+        display.drawInvertedBitmap(iconX, y - 16, battery_1_bar_90deg_16x16, 16, 16, GxEPD_BLACK);
     } else {
-        display.drawInvertedBitmap(iconX, y - 16, battery_alert_0deg_16x16, 16, 16, GxEPD_BLACK);
+        display.drawInvertedBitmap(iconX, y - 16, battery_alert_90deg_16x16, 16, 16, GxEPD_BLACK);
     }
 
     iconX += 20;
     display.setCursor(iconX, textY);
     display.print(String(batteryPercentage) + "%");
 
-    // Show stale data indicator if applicable
+    // CENTER: Last update date and time
+    String dateTimeStr = DateUtils::formatDate(now) + " " + DateUtils::formatTime(now);
     if (isStale) {
-        iconX += 50;
-        display.setCursor(iconX, textY);
-        display.print("[STALE]");
+        dateTimeStr = "[!] " + dateTimeStr;
     }
-
-    // Version info on the right side
-    String versionStr = "v" + String(VERSION);
     int16_t x1, y1;
     uint16_t w, h;
-    display.getTextBounds(versionStr, 0, 0, &x1, &y1, &w, &h);
-    display.setCursor(DISPLAY_WIDTH - w - 10, textY);
-    display.print(versionStr);
+    display.getTextBounds(dateTimeStr, 0, 0, &x1, &y1, &w, &h);
+    int centerX = (DISPLAY_WIDTH - w) / 2;
+    display.setCursor(centerX, textY);
+    display.print(dateTimeStr);
+
+    // RIGHT: WiFi icon and RSSI
+    if (wifiConnected) {
+        String rssiStr = String(rssi) + "dBm";
+        display.getTextBounds(rssiStr, 0, 0, &x1, &y1, &w, &h);
+        int rssiX = DISPLAY_WIDTH - w - 10;
+        display.setCursor(rssiX, textY);
+        display.print(rssiStr);
+
+        int wifiIconX = rssiX - 20;
+        if (rssi > -60) {
+            display.drawInvertedBitmap(wifiIconX, y - 16, wifi_3_bar_16x16, 16, 16, GxEPD_BLACK);
+        } else if (rssi > -75) {
+            display.drawInvertedBitmap(wifiIconX, y - 16, wifi_2_bar_16x16, 16, 16, GxEPD_BLACK);
+        } else {
+            display.drawInvertedBitmap(wifiIconX, y - 16, wifi_1_bar_16x16, 16, 16, GxEPD_BLACK);
+        }
+    } else {
+        String disconnectedStr = "WiFi Off";
+        display.getTextBounds(disconnectedStr, 0, 0, &x1, &y1, &w, &h);
+        int disconnectedX = DISPLAY_WIDTH - w - 10;
+        display.setCursor(disconnectedX, textY);
+        display.print(disconnectedStr);
+
+        int wifiIconX = disconnectedX - 20;
+        display.drawInvertedBitmap(wifiIconX, y - 16, wifi_off_16x16, 16, 16, GxEPD_BLACK);
+    }
 }
 
 #endif // DISPLAY_ORIENTATION == LANDSCAPE
