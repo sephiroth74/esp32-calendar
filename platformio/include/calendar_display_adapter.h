@@ -2,8 +2,8 @@
 #define CALENDAR_DISPLAY_ADAPTER_H
 
 #include "calendar_event.h"
-#include <vector>
 #include <ctime>
+#include <vector>
 
 /**
  * CalendarDisplayAdapter provides compatibility between the new CalendarEvent class
@@ -18,7 +18,7 @@
  * - dayOfMonth for calendar highlighting
  */
 class CalendarDisplayAdapter {
-public:
+  public:
     /**
      * Prepare events for display by adding display-specific fields
      * This modifies the events in place by setting additional fields needed by DisplayManager
@@ -30,7 +30,7 @@ public:
      */
     static void prepareEventForDisplay(CalendarEvent* event);
 
-private:
+  private:
     /**
      * Format date from timestamp to YYYY-MM-DD format
      */

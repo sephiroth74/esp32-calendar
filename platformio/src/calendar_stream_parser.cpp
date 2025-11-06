@@ -7,25 +7,41 @@
 #ifdef NATIVE_TEST
 // Mock dependencies for native testing
 #include "../test/test_native/mock_calendar_fetcher.h"
-#include <cstdio>  // For printf in native tests
+#include <cstdio> // For printf in native tests
 
 // For native tests, use printf so output is visible in test results
 // Helper to convert String to const char* for printf
 inline const char* str_helper(const String& s) { return s.c_str(); }
 inline const char* str_helper(const char* s) { return s; }
 
-#define DEBUG_INFO_PRINTLN(x) do { String _s = (x); printf("%s\n", _s.c_str()); } while(0)
+#define DEBUG_INFO_PRINTLN(x)                                                                      \
+    do {                                                                                           \
+        String _s = (x);                                                                           \
+        printf("%s\n", _s.c_str());                                                                \
+    } while (0)
 #define DEBUG_INFO_PRINTF(...) printf(__VA_ARGS__)
-#define DEBUG_VERBOSE_PRINTLN(x) do { String _s = (x); printf("%s\n", _s.c_str()); } while(0)
+#define DEBUG_VERBOSE_PRINTLN(x)                                                                   \
+    do {                                                                                           \
+        String _s = (x);                                                                           \
+        printf("%s\n", _s.c_str());                                                                \
+    } while (0)
 #define DEBUG_VERBOSE_PRINTF(...) printf(__VA_ARGS__)
-#define DEBUG_WARN_PRINTLN(x) do { String _s = (x); printf("[WARN] %s\n", _s.c_str()); } while(0)
-#define DEBUG_ERROR_PRINTLN(x) do { String _s = (x); printf("[ERROR] %s\n", _s.c_str()); } while(0)
+#define DEBUG_WARN_PRINTLN(x)                                                                      \
+    do {                                                                                           \
+        String _s = (x);                                                                           \
+        printf("[WARN] %s\n", _s.c_str());                                                         \
+    } while (0)
+#define DEBUG_ERROR_PRINTLN(x)                                                                     \
+    do {                                                                                           \
+        String _s = (x);                                                                           \
+        printf("[ERROR] %s\n", _s.c_str());                                                        \
+    } while (0)
 
 // Stub TeeStream - not needed for recurring event tests
 class TeeStream : public Stream {
-public:
+  public:
     TeeStream(Stream& s1, Stream& s2) {}
-    TeeStream(Stream& s1, File& f2) {}  // Also accept File for cache writing
+    TeeStream(Stream& s1, File& f2) {} // Also accept File for cache writing
     int available() { return 0; }
     int read() { return -1; }
     int peek() { return -1; }
@@ -48,7 +64,7 @@ static time_t portable_timegm(struct tm* tm) {
     return timegm(tm);
 #else
     // On Arduino/ESP32, temporarily set timezone to UTC
-    char* oldTZ = getenv("TZ");
+    char* oldTZ    = getenv("TZ");
     String savedTZ = oldTZ ? String(oldTZ) : "";
     setenv("TZ", "UTC0", 1);
     tzset();
@@ -64,8 +80,7 @@ static time_t portable_timegm(struct tm* tm) {
 }
 
 // Constructor
-CalendarStreamParser::CalendarStreamParser()
-    : debug(false), calendarColor(0), fetcher(nullptr) {
+CalendarStreamParser::CalendarStreamParser() : debug(false), calendarColor(0), fetcher(nullptr) {
     fetcher = new CalendarFetcher();
     fetcher->setDebug(debug);
 }
@@ -84,12 +99,10 @@ FilteredEvents* CalendarStreamParser::fetchEventsInRange(const String& url,
                                                          const String& cachePath) {
     FilteredEvents* result = new FilteredEvents();
 
-
     DEBUG_INFO_PRINTLN("=== Stream Parsing Calendar ===");
     DEBUG_INFO_PRINTLN("URL: " + url);
     DEBUG_INFO_PRINTLN("Date range: " + String(startDate) + " to " + String(endDate));
     DEBUG_INFO_PRINTLN("Max events: " + String((unsigned long)maxEvents));
-
 
     auto eventCallback = [&](CalendarEvent* event) {
         if (result->events.size() < maxEvents || maxEvents == 0) {
@@ -100,21 +113,21 @@ FilteredEvents* CalendarStreamParser::fetchEventsInRange(const String& url,
     };
 
     if (streamParse(url, eventCallback, startDate, endDate, cachePath)) {
-        result->success = true;
+        result->success       = true;
         result->totalFiltered = result->events.size();
         // totalParsed is not easily available here, would require another callback
     } else {
         result->success = false;
-        result->error = "Stream parsing failed";
+        result->error   = "Stream parsing failed";
     }
 
     // Sort events by start time
-    std::sort(result->events.begin(), result->events.end(),
-              [](CalendarEvent* a, CalendarEvent* b) {
-                  return a->startTime < b->startTime;
-              });
+    std::sort(result->events.begin(), result->events.end(), [](CalendarEvent* a, CalendarEvent* b) {
+        return a->startTime < b->startTime;
+    });
 
-    DEBUG_INFO_PRINTLN("Parsing complete: " + String((unsigned long)result->totalFiltered) + " events filtered");
+    DEBUG_INFO_PRINTLN("Parsing complete: " + String((unsigned long)result->totalFiltered) +
+                       " events filtered");
     return result;
 }
 
@@ -126,15 +139,15 @@ bool CalendarStreamParser::streamParseFromStream(Stream* stream,
         return false;
     }
 
-    ParseState state = LOOKING_FOR_CALENDAR;
+    ParseState state   = LOOKING_FOR_CALENDAR;
     String currentLine = "";
     String eventBuffer = "";
-    bool eof = false;
-    int eventCount = 0;
-    int lineCount = 0;
+    bool eof           = false;
+    int eventCount     = 0;
+    int lineCount      = 0;
     int eventsFiltered = 0;
     int eventsRejected = 0;
-    bool parseSuccess = true;
+    bool parseSuccess  = true;
 
     // Convert timestamps to readable dates for debugging
     char dateStartStr[32], dateEndStr[32];
@@ -151,7 +164,8 @@ bool CalendarStreamParser::streamParseFromStream(Stream* stream,
     strftime(dateEndStr, sizeof(dateEndStr), "%Y-%m-%d", &tmEndCopy);
 
     DEBUG_INFO_PRINTLN(">>> Starting stream parsing...");
-    DEBUG_INFO_PRINTLN(">>> Date range filter: " + String(dateStartStr) + " (" + String(startDate) + ") to " + String(dateEndStr) + " (" + String(endDate) + ")");
+    DEBUG_INFO_PRINTLN(">>> Date range filter: " + String(dateStartStr) + " (" + String(startDate) +
+                       ") to " + String(dateEndStr) + " (" + String(endDate) + ")");
 
     while (!eof && state != DONE) {
         currentLine = readLineFromStream(stream, eof);
@@ -163,95 +177,103 @@ bool CalendarStreamParser::streamParseFromStream(Stream* stream,
 
         // Progress update every 100 lines
         if (lineCount % 100 == 0) {
-            DEBUG_VERBOSE_PRINTLN(">>> Parse progress: " + String(lineCount) + " lines read, " + String(eventCount) + " events parsed, " + String(eventsFiltered) + " events filtered");
+            DEBUG_VERBOSE_PRINTLN(">>> Parse progress: " + String(lineCount) + " lines read, " +
+                                  String(eventCount) + " events parsed, " + String(eventsFiltered) +
+                                  " events filtered");
         }
 
         switch (state) {
-            case LOOKING_FOR_CALENDAR:
-                if (currentLine.indexOf("BEGIN:VCALENDAR") != -1) {
-                    DEBUG_VERBOSE_PRINTLN(">>> Found BEGIN:VCALENDAR");
-                    state = IN_HEADER;
-                }
-                break;
+        case LOOKING_FOR_CALENDAR:
+            if (currentLine.indexOf("BEGIN:VCALENDAR") != -1) {
+                DEBUG_VERBOSE_PRINTLN(">>> Found BEGIN:VCALENDAR");
+                state = IN_HEADER;
+            }
+            break;
 
-            case IN_HEADER:
-                if (currentLine.indexOf("BEGIN:VEVENT") != -1) {
-                    eventBuffer = currentLine + "\n";
-                    state = IN_EVENT;
-                } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
-                    DEBUG_VERBOSE_PRINTLN(">>> Found END:VCALENDAR");
-                    state = DONE;
-                }
-                break;
+        case IN_HEADER:
+            if (currentLine.indexOf("BEGIN:VEVENT") != -1) {
+                eventBuffer = currentLine + "\n";
+                state       = IN_EVENT;
+            } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
+                DEBUG_VERBOSE_PRINTLN(">>> Found END:VCALENDAR");
+                state = DONE;
+            }
+            break;
 
-            case IN_EVENT:
-                eventBuffer += currentLine + "\n";
+        case IN_EVENT:
+            eventBuffer += currentLine + "\n";
 
-                if (currentLine.indexOf("END:VEVENT") != -1) {
-                    // Parse event
-                    CalendarEvent* event = parseEventFromBuffer(eventBuffer);
-                    if (event) {
-                        eventCount++;
-                        if (event->isRecurring) {
-                            std::vector<CalendarEvent*> expanded = expandRecurringEventV2(event, startDate, endDate);
-                            int expandedCount = 0;
-                            for (auto expandedEvent : expanded) {
-                                if (isEventInRange(expandedEvent, startDate, endDate)) {
-                                    callback(expandedEvent);
-                                    eventsFiltered++;
-                                    expandedCount++;
-                                }
-                                else {
-                                    delete expandedEvent;
-                                }
+            if (currentLine.indexOf("END:VEVENT") != -1) {
+                // Parse event
+                CalendarEvent* event = parseEventFromBuffer(eventBuffer);
+                if (event) {
+                    eventCount++;
+                    if (event->isRecurring) {
+                        std::vector<CalendarEvent*> expanded =
+                            expandRecurringEventV2(event, startDate, endDate);
+                        int expandedCount = 0;
+                        for (auto expandedEvent : expanded) {
+                            if (isEventInRange(expandedEvent, startDate, endDate)) {
+                                callback(expandedEvent);
+                                eventsFiltered++;
+                                expandedCount++;
+                            } else {
+                                delete expandedEvent;
                             }
-                            // Debug: show recurring event expansion
-                            if (expandedCount > 0) {
-                                DEBUG_VERBOSE_PRINTF(">>> Recurring event expanded: '%s' (RRULE: %s) → %d occurrences\n",
-                                             event->summary.c_str(), event->rrule.c_str(), expandedCount);
-                            }
-                            delete event;
-                        } else if (isEventInRange(event, startDate, endDate)) {
-                            callback(event);
-                            eventsFiltered++;
-                        } else {
-                            // Event rejected - show first few for debugging
-                            if (eventsRejected < 3) {
-                                struct tm* tmEvent = localtime(&event->startTime);
-                                char eventDateStr[32];
-                                strftime(eventDateStr, sizeof(eventDateStr), "%Y-%m-%d", tmEvent);
-                                DEBUG_WARN_PRINTLN(">>> Event rejected (out of range): '" + event->summary + "' on " + String(eventDateStr) + " (" + String(event->startTime) + ")");
-                            }
-                            eventsRejected++;
-                            delete event;
                         }
+                        // Debug: show recurring event expansion
+                        if (expandedCount > 0) {
+                            DEBUG_VERBOSE_PRINTF(
+                                ">>> Recurring event expanded: '%s' (RRULE: %s) → %d occurrences\n",
+                                event->summary.c_str(),
+                                event->rrule.c_str(),
+                                expandedCount);
+                        }
+                        delete event;
+                    } else if (isEventInRange(event, startDate, endDate)) {
+                        callback(event);
+                        eventsFiltered++;
+                    } else {
+                        // Event rejected - show first few for debugging
+                        if (eventsRejected < 3) {
+                            struct tm* tmEvent = localtime(&event->startTime);
+                            char eventDateStr[32];
+                            strftime(eventDateStr, sizeof(eventDateStr), "%Y-%m-%d", tmEvent);
+                            DEBUG_WARN_PRINTLN(">>> Event rejected (out of range): '" +
+                                               event->summary + "' on " + String(eventDateStr) +
+                                               " (" + String(event->startTime) + ")");
+                        }
+                        eventsRejected++;
+                        delete event;
                     }
-
-                    eventBuffer = "";
-                    state = IN_HEADER;
-
-                    if (eventCount % 10 == 0) {
-                        delay(1);
-                    }
-                } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
-                    DEBUG_WARN_PRINTLN(">>> Found END:VCALENDAR (unexpected in event)");
-                    state = DONE;
                 }
-                break;
 
-            case DONE:
-                break;
+                eventBuffer = "";
+                state       = IN_HEADER;
+
+                if (eventCount % 10 == 0) {
+                    delay(1);
+                }
+            } else if (currentLine.indexOf("END:VCALENDAR") != -1) {
+                DEBUG_WARN_PRINTLN(">>> Found END:VCALENDAR (unexpected in event)");
+                state = DONE;
+            }
+            break;
+
+        case DONE: break;
         }
 
         if (eventBuffer.length() > 8192) {
             DEBUG_ERROR_PRINTLN(">>> ERROR: Event buffer exceeded 8192 bytes, skipping event");
-            eventBuffer = "";
-            state = IN_HEADER;
+            eventBuffer  = "";
+            state        = IN_HEADER;
             parseSuccess = false; // Indicate an error
         }
     }
 
-    DEBUG_INFO_PRINTLN(">>> Stream parsing complete: " + String(lineCount) + " lines read, " + String(eventCount) + " events parsed, " + String(eventsFiltered) + " events filtered, " + String(eventsRejected) + " events rejected");
+    DEBUG_INFO_PRINTLN(">>> Stream parsing complete: " + String(lineCount) + " lines read, " +
+                       String(eventCount) + " events parsed, " + String(eventsFiltered) +
+                       " events filtered, " + String(eventsRejected) + " events rejected");
 
     return parseSuccess;
 }
@@ -286,7 +308,8 @@ bool CalendarStreamParser::streamParse(const String& url,
         fetcher->endStream();
 
         unsigned long parseDuration = millis() - parseStart;
-        DEBUG_INFO_PRINTLN(">>> Parse complete in " + String(parseDuration) + "ms, success: " + String(parseSuccess ? "true" : "false"));
+        DEBUG_INFO_PRINTLN(">>> Parse complete in " + String(parseDuration) +
+                           "ms, success: " + String(parseSuccess ? "true" : "false"));
 
         return parseSuccess;
     } else {
@@ -300,14 +323,16 @@ bool CalendarStreamParser::streamParse(const String& url,
             return false;
         }
 
-        DEBUG_INFO_PRINTLN(">>> File opened, size: " + String((unsigned long)file.size()) + " bytes");
+        DEBUG_INFO_PRINTLN(">>> File opened, size: " + String((unsigned long)file.size()) +
+                           " bytes");
         DEBUG_INFO_PRINTLN(">>> Starting parse...");
 
         // Parse from the file stream
         bool parseSuccess = streamParseFromStream(&file, callback, startDate, endDate);
 
         file.close();
-        DEBUG_INFO_PRINTLN(">>> Parse complete, success: " + String(parseSuccess ? "true" : "false"));
+        DEBUG_INFO_PRINTLN(">>> Parse complete, success: " +
+                           String(parseSuccess ? "true" : "false"));
 
         return parseSuccess;
     }
@@ -323,8 +348,8 @@ bool CalendarStreamParser::parseMetadata(const String& url,
     }
 
     bool foundCalendar = false;
-    String line = "";
-    bool eof = false;
+    String line        = "";
+    bool eof           = false;
 
     while (!eof && !foundCalendar) {
         line = readLineFromStream(stream, eof);
@@ -361,12 +386,12 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
     CalendarEvent* event = new CalendarEvent();
 
     // Extract event fields
-    event->summary = extractValueFromBuffer(eventData, "SUMMARY:");
-    event->location = extractValueFromBuffer(eventData, "LOCATION:");
+    event->summary     = extractValueFromBuffer(eventData, "SUMMARY:");
+    event->location    = extractValueFromBuffer(eventData, "LOCATION:");
     event->description = extractValueFromBuffer(eventData, "DESCRIPTION:");
-    event->uid = extractValueFromBuffer(eventData, "UID:");
-    event->status = extractValueFromBuffer(eventData, "STATUS:");
-    event->rrule = extractValueFromBuffer(eventData, "RRULE:");
+    event->uid         = extractValueFromBuffer(eventData, "UID:");
+    event->status      = extractValueFromBuffer(eventData, "STATUS:");
+    event->rrule       = extractValueFromBuffer(eventData, "RRULE:");
     event->isRecurring = !event->rrule.isEmpty();
 
     // Parse start date/time (with timezone support)
@@ -376,14 +401,15 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
     // Check for TZID parameter first (e.g., DTSTART;TZID=Europe/Amsterdam:20120119T150000)
     int dtStartPos = eventData.indexOf("DTSTART;TZID=");
     if (dtStartPos >= 0) {
-        int colonPos = eventData.indexOf(":", dtStartPos);
+        int colonPos   = eventData.indexOf(":", dtStartPos);
         int newlinePos = eventData.indexOf("\n", colonPos);
-        if (newlinePos == -1) newlinePos = eventData.length();
+        if (newlinePos == -1)
+            newlinePos = eventData.length();
 
         // Extract TZID value
         String dtStartLine = eventData.substring(dtStartPos, colonPos);
-        int tzidStart = dtStartLine.indexOf("TZID=") + 5;
-        dtStartTZID = dtStartLine.substring(tzidStart);
+        int tzidStart      = dtStartLine.indexOf("TZID=") + 5;
+        dtStartTZID        = dtStartLine.substring(tzidStart);
         dtStartTZID.trim();
 
         // Extract datetime value
@@ -402,7 +428,7 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
 
     if (!dtStart.isEmpty()) {
         event->dtStart = dtStart;
-        event->allDay = (dtStart.length() == 8);
+        event->allDay  = (dtStart.length() == 8);
 
         if (!dtStartTZID.isEmpty()) {
             // Parse with timezone conversion
@@ -422,14 +448,15 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
     // Check for TZID parameter first
     int dtEndPos = eventData.indexOf("DTEND;TZID=");
     if (dtEndPos >= 0) {
-        int colonPos = eventData.indexOf(":", dtEndPos);
+        int colonPos   = eventData.indexOf(":", dtEndPos);
         int newlinePos = eventData.indexOf("\n", colonPos);
-        if (newlinePos == -1) newlinePos = eventData.length();
+        if (newlinePos == -1)
+            newlinePos = eventData.length();
 
         // Extract TZID value
         String dtEndLine = eventData.substring(dtEndPos, colonPos);
-        int tzidStart = dtEndLine.indexOf("TZID=") + 5;
-        dtEndTZID = dtEndLine.substring(tzidStart);
+        int tzidStart    = dtEndLine.indexOf("TZID=") + 5;
+        dtEndTZID        = dtEndLine.substring(tzidStart);
         dtEndTZID.trim();
 
         // Extract datetime value
@@ -459,10 +486,11 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
     }
 
     // Debug: Track specific event
-    bool isTargetEvent = (event->uid.indexOf("cor64p3165hjabb364qm2b9k68o3abb26gs3gbb5cco3gc1mcorm8p1o68") >= 0);
+    bool isTargetEvent =
+        (event->uid.indexOf("cor64p3165hjabb364qm2b9k68o3abb26gs3gbb5cco3gc1mcorm8p1o68") >= 0);
     if (isTargetEvent) {
         struct tm* tmStart = localtime(&event->startTime);
-        struct tm* tmEnd = localtime(&event->endTime);
+        struct tm* tmEnd   = localtime(&event->endTime);
         char startStr[32], endStr[32];
         strftime(startStr, sizeof(startStr), "%Y-%m-%d %H:%M:%S", tmStart);
         strftime(endStr, sizeof(endStr), "%Y-%m-%d %H:%M:%S", tmEnd);
@@ -487,7 +515,7 @@ String CalendarStreamParser::extractValueFromBuffer(const String& buffer, const 
     }
 
     int valueStart = pos + property.length();
-    int valueEnd = buffer.indexOf("\n", valueStart);
+    int valueEnd   = buffer.indexOf("\n", valueStart);
     if (valueEnd == -1) {
         valueEnd = buffer.length();
     }
@@ -500,15 +528,15 @@ String CalendarStreamParser::extractValueFromBuffer(const String& buffer, const 
 }
 
 bool CalendarStreamParser::isEventInRange(CalendarEvent* event, time_t startDate, time_t endDate) {
-    if (!event) return false;
+    if (!event)
+        return false;
 
     time_t eventStart = event->startTime;
-    time_t eventEnd = event->endTime;
+    time_t eventEnd   = event->endTime;
 
     if (eventEnd == 0) {
         eventEnd = eventStart;
     }
-
 
     return (eventStart <= endDate) && (eventEnd >= startDate);
 }
@@ -526,18 +554,20 @@ RRuleComponents CalendarStreamParser::parseRRule(const String& rrule) {
 
     // Split by semicolon to get key=value pairs
     int startPos = 0;
-    int semiPos = 0;
+    int semiPos  = 0;
 
     while (semiPos != -1) {
         semiPos = rrule.indexOf(';', startPos);
-        String part = (semiPos == -1) ? rrule.substring(startPos) : rrule.substring(startPos, semiPos);
+        String part =
+            (semiPos == -1) ? rrule.substring(startPos) : rrule.substring(startPos, semiPos);
         startPos = semiPos + 1;
 
         // Split each part by '=' to get key and value
         int eqPos = part.indexOf('=');
-        if (eqPos == -1) continue;
+        if (eqPos == -1)
+            continue;
 
-        String key = part.substring(0, eqPos);
+        String key   = part.substring(0, eqPos);
         String value = part.substring(eqPos + 1);
 
         key.trim();
@@ -548,12 +578,14 @@ RRuleComponents CalendarStreamParser::parseRRule(const String& rrule) {
             result.freq = value;
         } else if (key == "COUNT") {
             result.count = value.toInt();
-            if (result.count < 0) result.count = -1;  // Sanitize negative values
+            if (result.count < 0)
+                result.count = -1; // Sanitize negative values
         } else if (key == "UNTIL") {
             result.until = parseUntilDate(value);
         } else if (key == "INTERVAL") {
             result.interval = value.toInt();
-            if (result.interval <= 0) result.interval = 1;  // Default to 1 if invalid
+            if (result.interval <= 0)
+                result.interval = 1; // Default to 1 if invalid
         } else if (key == "BYDAY") {
             result.byDay = value;
         } else if (key == "BYMONTHDAY") {
@@ -572,43 +604,45 @@ RRuleComponents CalendarStreamParser::parseRRule(const String& rrule) {
  * Format: 20251231T235959Z or 20251231
  */
 time_t CalendarStreamParser::parseUntilDate(const String& untilStr) {
-    if (untilStr.isEmpty()) return 0;
+    if (untilStr.isEmpty())
+        return 0;
 
     // Remove 'Z' suffix if present (UTC indicator)
     String dateStr = untilStr;
     dateStr.replace("Z", "");
 
     // Parse: YYYYMMDD or YYYYMMDDTHHMMSS
-    if (dateStr.length() < 8) return 0;
+    if (dateStr.length() < 8)
+        return 0;
 
     struct tm tm = {0};
 
     // Extract date components
     String yearStr = dateStr.substring(0, 4);
-    String monStr = dateStr.substring(4, 6);
-    String dayStr = dateStr.substring(6, 8);
+    String monStr  = dateStr.substring(4, 6);
+    String dayStr  = dateStr.substring(6, 8);
 
-    tm.tm_year = yearStr.toInt() - 1900;
-    tm.tm_mon = monStr.toInt() - 1;
-    tm.tm_mday = dayStr.toInt();
+    tm.tm_year     = yearStr.toInt() - 1900;
+    tm.tm_mon      = monStr.toInt() - 1;
+    tm.tm_mday     = dayStr.toInt();
 
     // If time component present
     if (dateStr.length() >= 15 && dateStr.charAt(8) == 'T') {
         String hourStr = dateStr.substring(9, 11);
-        String minStr = dateStr.substring(11, 13);
-        String secStr = dateStr.substring(13, 15);
+        String minStr  = dateStr.substring(11, 13);
+        String secStr  = dateStr.substring(13, 15);
 
-        tm.tm_hour = hourStr.toInt();
-        tm.tm_min = minStr.toInt();
-        tm.tm_sec = secStr.toInt();
+        tm.tm_hour     = hourStr.toInt();
+        tm.tm_min      = minStr.toInt();
+        tm.tm_sec      = secStr.toInt();
     } else {
         // No time specified, default to end of day
         tm.tm_hour = 23;
-        tm.tm_min = 59;
-        tm.tm_sec = 59;
+        tm.tm_min  = 59;
+        tm.tm_sec  = 59;
     }
 
-    tm.tm_isdst = -1;  // Let mktime determine DST
+    tm.tm_isdst = -1; // Let mktime determine DST
     return mktime(&tm);
 }
 
@@ -620,31 +654,41 @@ time_t CalendarStreamParser::parseUntilDate(const String& untilStr) {
  */
 std::vector<int> CalendarStreamParser::parseByDay(const String& byDay) {
     std::vector<int> weekdays;
-    if (byDay.isEmpty()) return weekdays;
+    if (byDay.isEmpty())
+        return weekdays;
 
     int startPos = 0;
     int commaPos = 0;
 
     while (commaPos != -1) {
         commaPos = byDay.indexOf(',', startPos);
-        String day = (commaPos == -1) ? byDay.substring(startPos) : byDay.substring(startPos, commaPos);
+        String day =
+            (commaPos == -1) ? byDay.substring(startPos) : byDay.substring(startPos, commaPos);
         startPos = commaPos + 1;
 
         day.trim();
-        if (day.isEmpty()) continue;
+        if (day.isEmpty())
+            continue;
 
         // Extract day code (last 2 characters, ignoring position prefix)
         String dayCode = day.length() >= 2 ? day.substring(day.length() - 2) : day;
 
         // Map day codes to numbers (0=SU, 1=MO, 2=TU, 3=WE, 4=TH, 5=FR, 6=SA)
         int weekday = -1;
-        if (dayCode == "SU") weekday = 0;
-        else if (dayCode == "MO") weekday = 1;
-        else if (dayCode == "TU") weekday = 2;
-        else if (dayCode == "WE") weekday = 3;
-        else if (dayCode == "TH") weekday = 4;
-        else if (dayCode == "FR") weekday = 5;
-        else if (dayCode == "SA") weekday = 6;
+        if (dayCode == "SU")
+            weekday = 0;
+        else if (dayCode == "MO")
+            weekday = 1;
+        else if (dayCode == "TU")
+            weekday = 2;
+        else if (dayCode == "WE")
+            weekday = 3;
+        else if (dayCode == "TH")
+            weekday = 4;
+        else if (dayCode == "FR")
+            weekday = 5;
+        else if (dayCode == "SA")
+            weekday = 6;
 
         if (weekday != -1) {
             weekdays.push_back(weekday);
@@ -661,21 +705,25 @@ std::vector<int> CalendarStreamParser::parseByDay(const String& byDay) {
  */
 std::vector<int> CalendarStreamParser::parseByMonthDay(const String& byMonthDay) {
     std::vector<int> days;
-    if (byMonthDay.isEmpty()) return days;
+    if (byMonthDay.isEmpty())
+        return days;
 
     int startPos = 0;
     int commaPos = 0;
 
     while (commaPos != -1) {
-        commaPos = byMonthDay.indexOf(',', startPos);
-        String dayStr = (commaPos == -1) ? byMonthDay.substring(startPos) : byMonthDay.substring(startPos, commaPos);
-        startPos = commaPos + 1;
+        commaPos      = byMonthDay.indexOf(',', startPos);
+        String dayStr = (commaPos == -1) ? byMonthDay.substring(startPos)
+                                         : byMonthDay.substring(startPos, commaPos);
+        startPos      = commaPos + 1;
 
         dayStr.trim();
-        if (dayStr.isEmpty()) continue;
+        if (dayStr.isEmpty())
+            continue;
 
         int day = dayStr.toInt();
-        if (day != 0) {  // toInt returns 0 for invalid strings, but we want to allow 0 to be filtered out
+        if (day !=
+            0) { // toInt returns 0 for invalid strings, but we want to allow 0 to be filtered out
             days.push_back(day);
         }
     }
@@ -690,18 +738,21 @@ std::vector<int> CalendarStreamParser::parseByMonthDay(const String& byMonthDay)
  */
 std::vector<int> CalendarStreamParser::parseByMonth(const String& byMonth) {
     std::vector<int> months;
-    if (byMonth.isEmpty()) return months;
+    if (byMonth.isEmpty())
+        return months;
 
     int startPos = 0;
     int commaPos = 0;
 
     while (commaPos != -1) {
         commaPos = byMonth.indexOf(',', startPos);
-        String monthStr = (commaPos == -1) ? byMonth.substring(startPos) : byMonth.substring(startPos, commaPos);
+        String monthStr =
+            (commaPos == -1) ? byMonth.substring(startPos) : byMonth.substring(startPos, commaPos);
         startPos = commaPos + 1;
 
         monthStr.trim();
-        if (monthStr.isEmpty()) continue;
+        if (monthStr.isEmpty())
+            continue;
 
         int month = monthStr.toInt();
         if (month >= 1 && month <= 12) {
@@ -716,13 +767,20 @@ std::vector<int> CalendarStreamParser::parseByMonth(const String& byMonth) {
  * Convert string frequency to enum
  */
 RecurrenceFrequency CalendarStreamParser::frequencyFromString(const String& freqStr) {
-    if (freqStr == "YEARLY") return RecurrenceFrequency::YEARLY;
-    if (freqStr == "MONTHLY") return RecurrenceFrequency::MONTHLY;
-    if (freqStr == "WEEKLY") return RecurrenceFrequency::WEEKLY;
-    if (freqStr == "DAILY") return RecurrenceFrequency::DAILY;
-    if (freqStr == "HOURLY") return RecurrenceFrequency::HOURLY;
-    if (freqStr == "MINUTELY") return RecurrenceFrequency::MINUTELY;
-    if (freqStr == "SECONDLY") return RecurrenceFrequency::SECONDLY;
+    if (freqStr == "YEARLY")
+        return RecurrenceFrequency::YEARLY;
+    if (freqStr == "MONTHLY")
+        return RecurrenceFrequency::MONTHLY;
+    if (freqStr == "WEEKLY")
+        return RecurrenceFrequency::WEEKLY;
+    if (freqStr == "DAILY")
+        return RecurrenceFrequency::DAILY;
+    if (freqStr == "HOURLY")
+        return RecurrenceFrequency::HOURLY;
+    if (freqStr == "MINUTELY")
+        return RecurrenceFrequency::MINUTELY;
+    if (freqStr == "SECONDLY")
+        return RecurrenceFrequency::SECONDLY;
     return RecurrenceFrequency::NONE;
 }
 
@@ -735,14 +793,19 @@ RecurrenceFrequency CalendarStreamParser::frequencyFromString(const String& freq
  * @param endDate The query range end (first occurrence must be <= this)
  * @param interval The INTERVAL value (1 = every period, 2 = every 2 periods, etc.)
  * @param freq The frequency (YEARLY, MONTHLY, WEEKLY, DAILY)
- * @param count Optional COUNT limit (-1 = no limit). If set, checks if recurrence completed before startDate
+ * @param count Optional COUNT limit (-1 = no limit). If set, checks if recurrence completed before
+ * startDate
  * @return The timestamp of the first occurrence on/after startDate, or -1 if none exists
  */
-time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t startDate, time_t endDate,
-                                                  int interval, RecurrenceFrequency freq, int count) {
+time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart,
+                                                 time_t startDate,
+                                                 time_t endDate,
+                                                 int interval,
+                                                 RecurrenceFrequency freq,
+                                                 int count) {
     // Validate input
     if (eventStart < 0 || startDate < 0 || endDate < 0 || startDate > endDate || interval < 1) {
-        return -1;  // Invalid parameters
+        return -1; // Invalid parameters
     }
 
     // If event starts after query range, no occurrence in range
@@ -757,20 +820,13 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
         memcpy(&lastOccurrenceTm, gmtime(&eventStart), sizeof(struct tm));
 
         switch (freq) {
-            case RecurrenceFrequency::YEARLY:
-                lastOccurrenceTm.tm_year += (count - 1) * interval;
-                break;
-            case RecurrenceFrequency::MONTHLY:
-                lastOccurrenceTm.tm_mon += (count - 1) * interval;
-                break;
-            case RecurrenceFrequency::WEEKLY:
-                lastOccurrenceTm.tm_mday += (count - 1) * interval * 7;
-                break;
-            case RecurrenceFrequency::DAILY:
-                lastOccurrenceTm.tm_mday += (count - 1) * interval;
-                break;
-            default:
-                break;
+        case RecurrenceFrequency::YEARLY:  lastOccurrenceTm.tm_year += (count - 1) * interval; break;
+        case RecurrenceFrequency::MONTHLY: lastOccurrenceTm.tm_mon += (count - 1) * interval; break;
+        case RecurrenceFrequency::WEEKLY:
+            lastOccurrenceTm.tm_mday += (count - 1) * interval * 7;
+            break;
+        case RecurrenceFrequency::DAILY: lastOccurrenceTm.tm_mday += (count - 1) * interval; break;
+        default:                         break;
         }
 
         time_t lastOccurrence = portable_timegm(&lastOccurrenceTm);
@@ -800,7 +856,7 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
 
         if (yearsDiff > 0) {
             // Calculate how many intervals to skip
-            int intervalsToSkip = (yearsDiff + interval - 1) / interval;  // Ceiling division
+            int intervalsToSkip = (yearsDiff + interval - 1) / interval; // Ceiling division
             eventTm.tm_year += intervalsToSkip * interval;
 
             time_t candidate = portable_timegm(&eventTm);
@@ -812,18 +868,18 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
             // Validate candidate is within range
             return (candidate <= endDate) ? candidate : -1;
         }
-    }
-    else if (freq == RecurrenceFrequency::MONTHLY) {
+    } else if (freq == RecurrenceFrequency::MONTHLY) {
         // Calculate months between event start and query start
-        int monthsDiff = (startTm.tm_year - eventTm.tm_year) * 12 +
-                         (startTm.tm_mon - eventTm.tm_mon);
+        int monthsDiff =
+            (startTm.tm_year - eventTm.tm_year) * 12 + (startTm.tm_mon - eventTm.tm_mon);
 
         if (monthsDiff > 0) {
             // Calculate how many intervals to skip
-            int intervalsToSkip = (monthsDiff + interval - 1) / interval;  // Ceiling division
+            int intervalsToSkip = (monthsDiff + interval - 1) / interval; // Ceiling division
             eventTm.tm_mon += intervalsToSkip * interval;
 
-            time_t candidate = portable_timegm(&eventTm);  // portable_timegm normalizes year overflow
+            time_t candidate =
+                portable_timegm(&eventTm); // portable_timegm normalizes year overflow
             // If we undershot, advance one interval
             if (candidate < startDate) {
                 eventTm.tm_mon += interval;
@@ -832,18 +888,17 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
             // Validate candidate is within range
             return (candidate <= endDate) ? candidate : -1;
         }
-    }
-    else if (freq == RecurrenceFrequency::WEEKLY) {
+    } else if (freq == RecurrenceFrequency::WEEKLY) {
         // Calculate days between event start and query start
         int daysDiff = (startDate - eventStart) / 86400;
 
         if (daysDiff > 0) {
             // Calculate how many week intervals to skip
-            int weeksDiff = daysDiff / 7;
-            int intervalsToSkip = (weeksDiff + interval - 1) / interval;  // Ceiling division
+            int weeksDiff       = daysDiff / 7;
+            int intervalsToSkip = (weeksDiff + interval - 1) / interval; // Ceiling division
             eventTm.tm_mday += intervalsToSkip * interval * 7;
 
-            time_t candidate = portable_timegm(&eventTm);  // portable_timegm normalizes
+            time_t candidate = portable_timegm(&eventTm); // portable_timegm normalizes
             // If we undershot, advance one interval
             if (candidate < startDate) {
                 eventTm.tm_mday += interval * 7;
@@ -852,17 +907,16 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
             // Validate candidate is within range
             return (candidate <= endDate) ? candidate : -1;
         }
-    }
-    else if (freq == RecurrenceFrequency::DAILY) {
+    } else if (freq == RecurrenceFrequency::DAILY) {
         // Calculate days between event start and query start
         int daysDiff = (startDate - eventStart) / 86400;
 
-        if (daysDiff >= 0) {  // Changed from > 0 to >= 0 to handle same-day cases
+        if (daysDiff >= 0) { // Changed from > 0 to >= 0 to handle same-day cases
             // Calculate how many intervals to skip
-            int intervalsToSkip = (daysDiff + interval - 1) / interval;  // Ceiling division
+            int intervalsToSkip = (daysDiff + interval - 1) / interval; // Ceiling division
             eventTm.tm_mday += intervalsToSkip * interval;
 
-            time_t candidate = portable_timegm(&eventTm);  // portable_timegm normalizes
+            time_t candidate = portable_timegm(&eventTm); // portable_timegm normalizes
             // If we undershot, advance one interval
             if (candidate < startDate) {
                 eventTm.tm_mday += interval;
@@ -879,7 +933,7 @@ time_t CalendarStreamParser::findFirstOccurrence(time_t eventStart, time_t start
 
 String CalendarStreamParser::readLineFromStream(Stream* stream, bool& eof) {
     String line = "";
-    eof = false;
+    eof         = false;
 
     if (!stream) {
         eof = true;
@@ -887,8 +941,8 @@ String CalendarStreamParser::readLineFromStream(Stream* stream, bool& eof) {
     }
 
     // Wait for data with timeout (for network streams)
-    int retries = 0;
-    const int maxRetries = 100;  // 10 seconds total (100 * 100ms)
+    int retries          = 0;
+    const int maxRetries = 100; // 10 seconds total (100 * 100ms)
     while (!stream->available() && retries < maxRetries) {
         delay(100);
         retries++;
@@ -1036,32 +1090,30 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandRecurringEventV2(Calenda
 
     // Dispatch to frequency-specific handler
     switch (freq) {
-        case RecurrenceFrequency::YEARLY:
-            DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: YEARLY frequency");
-            return expandYearlyV2(event, rule, startDate, endDate);
+    case RecurrenceFrequency::YEARLY:
+        DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: YEARLY frequency");
+        return expandYearlyV2(event, rule, startDate, endDate);
 
-        case RecurrenceFrequency::MONTHLY:
-            DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: MONTHLY frequency");
-            return expandMonthlyV2(event, rule, startDate, endDate);
+    case RecurrenceFrequency::MONTHLY:
+        DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: MONTHLY frequency");
+        return expandMonthlyV2(event, rule, startDate, endDate);
 
-        case RecurrenceFrequency::WEEKLY:
-            DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: WEEKLY frequency");
-            return expandWeeklyV2(event, rule, startDate, endDate);
+    case RecurrenceFrequency::WEEKLY:
+        DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: WEEKLY frequency");
+        return expandWeeklyV2(event, rule, startDate, endDate);
 
-        case RecurrenceFrequency::DAILY:
-            DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: DAILY frequency");
-            return expandDailyV2(event, rule, startDate, endDate);
+    case RecurrenceFrequency::DAILY:
+        DEBUG_VERBOSE_PRINTLN("expandRecurringEventV2: DAILY frequency");
+        return expandDailyV2(event, rule, startDate, endDate);
 
-        case RecurrenceFrequency::HOURLY:
-        case RecurrenceFrequency::MINUTELY:
-        case RecurrenceFrequency::SECONDLY:
-            DEBUG_WARN_PRINTLN("expandRecurringEventV2: Sub-daily frequencies not yet supported");
-            return occurrences;
+    case RecurrenceFrequency::HOURLY:
+    case RecurrenceFrequency::MINUTELY:
+    case RecurrenceFrequency::SECONDLY:
+        DEBUG_WARN_PRINTLN("expandRecurringEventV2: Sub-daily frequencies not yet supported");
+        return occurrences;
 
-        case RecurrenceFrequency::NONE:
-        default:
-            DEBUG_ERROR_PRINTLN("expandRecurringEventV2: Unknown frequency");
-            return occurrences;
+    case RecurrenceFrequency::NONE:
+    default:                        DEBUG_ERROR_PRINTLN("expandRecurringEventV2: Unknown frequency"); return occurrences;
     }
 }
 
@@ -1092,9 +1144,9 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandRecurringEventV2(Calenda
  * - Past endDate (query range end)
  */
 std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* event,
-                                                                  const RRuleComponents& rule,
-                                                                  time_t startDate,
-                                                                  time_t endDate) {
+                                                                 const RRuleComponents& rule,
+                                                                 time_t startDate,
+                                                                 time_t endDate) {
     std::vector<CalendarEvent*> occurrences;
 
     DEBUG_VERBOSE_PRINTLN(">>> expandYearlyV2: Starting YEARLY expansion");
@@ -1112,16 +1164,24 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* 
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
     // Print query range (verbose)
     struct tm* startTm = localtime(&startDate);
-    struct tm* endTm = localtime(&endDate);
+    struct tm* endTm   = localtime(&endDate);
     DEBUG_VERBOSE_PRINTF("    Query range: %04d-%02d-%02d to %04d-%02d-%02d\n",
-                      startTm->tm_year + 1900, startTm->tm_mon + 1, startTm->tm_mday,
-                      endTm->tm_year + 1900, endTm->tm_mon + 1, endTm->tm_mday);
+                         startTm->tm_year + 1900,
+                         startTm->tm_mon + 1,
+                         startTm->tm_mday,
+                         endTm->tm_year + 1900,
+                         endTm->tm_mon + 1,
+                         endTm->tm_mday);
 
     // Print event start (verbose)
     struct tm* eventTm = localtime(&event->startTime);
     DEBUG_VERBOSE_PRINTF("    Event starts: %04d-%02d-%02d %02d:%02d:%02d\n",
-                      eventTm->tm_year + 1900, eventTm->tm_mon + 1, eventTm->tm_mday,
-                      eventTm->tm_hour, eventTm->tm_min, eventTm->tm_sec);
+                         eventTm->tm_year + 1900,
+                         eventTm->tm_mon + 1,
+                         eventTm->tm_mday,
+                         eventTm->tm_hour,
+                         eventTm->tm_min,
+                         eventTm->tm_sec);
 #endif // DEBUG_LEVEL >= DEBUG_VERBOSE
 
     // ========================================================================
@@ -1143,35 +1203,44 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* 
     // Step 3: Use findFirstOccurrence to jump to first valid year
     // ========================================================================
     int interval = (rule.interval > 0) ? rule.interval : 1;
-    int count = (rule.count > 0) ? rule.count : -1;
+    int count    = (rule.count > 0) ? rule.count : -1;
 
-    DEBUG_VERBOSE_PRINTF("    Calling findFirstOccurrence with interval=%d, count=%d\n", interval, count);
+    DEBUG_VERBOSE_PRINTF(
+        "    Calling findFirstOccurrence with interval=%d, count=%d\n", interval, count);
 
-    time_t firstOccurrence = findFirstOccurrence(
-        event->startTime, startDate, effectiveEndDate,
-        interval, RecurrenceFrequency::YEARLY, count
-    );
+    time_t firstOccurrence = findFirstOccurrence(event->startTime,
+                                                 startDate,
+                                                 effectiveEndDate,
+                                                 interval,
+                                                 RecurrenceFrequency::YEARLY,
+                                                 count);
 
     if (firstOccurrence < 0) {
-        DEBUG_VERBOSE_PRINTLN("    findFirstOccurrence returned -1 (recurrence completed or outside range)");
+        DEBUG_VERBOSE_PRINTLN(
+            "    findFirstOccurrence returned -1 (recurrence completed or outside range)");
         return occurrences;
     }
 
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
     struct tm* firstTm = localtime(&firstOccurrence);
     DEBUG_VERBOSE_PRINTF("    First occurrence: %04d-%02d-%02d %02d:%02d:%02d\n",
-                      firstTm->tm_year + 1900, firstTm->tm_mon + 1, firstTm->tm_mday,
-                      firstTm->tm_hour, firstTm->tm_min, firstTm->tm_sec);
+                         firstTm->tm_year + 1900,
+                         firstTm->tm_mon + 1,
+                         firstTm->tm_mday,
+                         firstTm->tm_hour,
+                         firstTm->tm_min,
+                         firstTm->tm_sec);
 #endif // DEBUG_LEVEL >= DEBUG_VERBOSE
 
     // ========================================================================
     // Step 4: Parse BYMONTH and BYMONTHDAY filters if present
     // ========================================================================
-    std::vector<int> byMonthList = parseByMonth(rule.byMonth);
+    std::vector<int> byMonthList    = parseByMonth(rule.byMonth);
     std::vector<int> byMonthDayList = parseByMonthDay(rule.byMonthDay);
 
     if (!byMonthList.empty()) {
-        DEBUG_VERBOSE_PRINTF("    BYMONTH filter: %d month(s) specified\n", (int)byMonthList.size());
+        DEBUG_VERBOSE_PRINTF("    BYMONTH filter: %d month(s) specified\n",
+                             (int)byMonthList.size());
         for (size_t i = 0; i < byMonthList.size(); i++) {
             DEBUG_VERBOSE_PRINTF("      Month: %d\n", byMonthList[i]);
         }
@@ -1180,7 +1249,8 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* 
     }
 
     if (!byMonthDayList.empty()) {
-        DEBUG_VERBOSE_PRINTF("    BYMONTHDAY filter: %d day(s) specified\n", (int)byMonthDayList.size());
+        DEBUG_VERBOSE_PRINTF("    BYMONTHDAY filter: %d day(s) specified\n",
+                             (int)byMonthDayList.size());
         for (size_t i = 0; i < byMonthDayList.size(); i++) {
             DEBUG_VERBOSE_PRINTF("      Day: %d\n", byMonthDayList[i]);
         }
@@ -1196,9 +1266,9 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* 
     int occurrencesBeforeRange = 0;
     if (count > 0 && firstOccurrence > event->startTime) {
         struct tm* eventStartTm = localtime(&event->startTime);
-        struct tm* firstOccTm = localtime(&firstOccurrence);
-        int yearsDiff = (firstOccTm->tm_year + 1900) - (eventStartTm->tm_year + 1900);
-        occurrencesBeforeRange = yearsDiff / interval;
+        struct tm* firstOccTm   = localtime(&firstOccurrence);
+        int yearsDiff           = (firstOccTm->tm_year + 1900) - (eventStartTm->tm_year + 1900);
+        occurrencesBeforeRange  = yearsDiff / interval;
         DEBUG_VERBOSE_PRINTF("    Occurrences before query range: %d\n", occurrencesBeforeRange);
     }
 
@@ -1206,8 +1276,8 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* 
     struct tm currentTm;
     memcpy(&currentTm, localtime(&firstOccurrence), sizeof(struct tm));
 
-    int absoluteOccurrenceIndex = occurrencesBeforeRange;  // Track absolute occurrence number
-    int maxCount = (count > 0) ? count : INT_MAX;
+    int absoluteOccurrenceIndex = occurrencesBeforeRange; // Track absolute occurrence number
+    int maxCount                = (count > 0) ? count : INT_MAX;
 
     DEBUG_VERBOSE_PRINTLN(">>> expandYearlyV2: Starting year-by-year iteration");
 
@@ -1222,21 +1292,25 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* 
         }
 
         // Apply BYMONTH filter (if specified)
-        bool monthMatches = byMonthList.empty() ||
-                           (std::find(byMonthList.begin(), byMonthList.end(),
-                                     currentTm.tm_mon + 1) != byMonthList.end());
+        bool monthMatches =
+            byMonthList.empty() ||
+            (std::find(byMonthList.begin(), byMonthList.end(), currentTm.tm_mon + 1) !=
+             byMonthList.end());
 
         // Apply BYMONTHDAY filter (if specified)
-        bool dayMatches = byMonthDayList.empty() ||
-                         (std::find(byMonthDayList.begin(), byMonthDayList.end(),
-                                   currentTm.tm_mday) != byMonthDayList.end());
+        bool dayMatches =
+            byMonthDayList.empty() ||
+            (std::find(byMonthDayList.begin(), byMonthDayList.end(), currentTm.tm_mday) !=
+             byMonthDayList.end());
 
         if (monthMatches && dayMatches) {
             absoluteOccurrenceIndex++;
 
             DEBUG_VERBOSE_PRINTF("    Occurrence #%d: %04d-%02d-%02d\n",
-                            absoluteOccurrenceIndex,
-                            currentTm.tm_year + 1900, currentTm.tm_mon + 1, currentTm.tm_mday);
+                                 absoluteOccurrenceIndex,
+                                 currentTm.tm_year + 1900,
+                                 currentTm.tm_mon + 1,
+                                 currentTm.tm_mday);
 
             // Check COUNT limit
             if (absoluteOccurrenceIndex > maxCount) {
@@ -1247,8 +1321,8 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* 
             // Only add to results if within query range
             if (occurrenceTime >= startDate && occurrenceTime <= endDate) {
                 CalendarEvent* occurrence = new CalendarEvent(*event);
-                occurrence->startTime = occurrenceTime;
-                occurrence->endTime = occurrenceTime + duration;
+                occurrence->startTime     = occurrenceTime;
+                occurrence->endTime       = occurrenceTime + duration;
 
                 // Set date string for display
                 char dateBuffer[32];
@@ -1264,10 +1338,11 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* 
 
         // Advance to next year (respecting interval)
         currentTm.tm_year += interval;
-        mktime(&currentTm);  // Normalize
+        mktime(&currentTm); // Normalize
     }
 
-    DEBUG_INFO_PRINTF(">>> expandYearlyV2: Complete. Created %d occurrences\n", (int)occurrences.size());
+    DEBUG_INFO_PRINTF(">>> expandYearlyV2: Complete. Created %d occurrences\n",
+                      (int)occurrences.size());
     return occurrences;
 }
 
@@ -1276,9 +1351,9 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandYearlyV2(CalendarEvent* 
  * TODO: Implementation pending
  */
 std::vector<CalendarEvent*> CalendarStreamParser::expandMonthlyV2(CalendarEvent* event,
-                                                                   const RRuleComponents& rule,
-                                                                   time_t startDate,
-                                                                   time_t endDate) {
+                                                                  const RRuleComponents& rule,
+                                                                  time_t startDate,
+                                                                  time_t endDate) {
     std::vector<CalendarEvent*> occurrences;
 
     DEBUG_VERBOSE_PRINTLN(">>> expandMonthlyV2: Starting MONTHLY expansion");
@@ -1300,41 +1375,57 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandMonthlyV2(CalendarEvent*
 
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
     struct tm* startTm = localtime(&startDate);
-    struct tm* endTm = localtime(&effectiveEndDate);
+    struct tm* endTm   = localtime(&effectiveEndDate);
     struct tm* eventTm = localtime(&event->startTime);
 
     DEBUG_VERBOSE_PRINTF("    Query range: %04d-%02d-%02d to %04d-%02d-%02d\n",
-                      startTm->tm_year + 1900, startTm->tm_mon + 1, startTm->tm_mday,
-                      endTm->tm_year + 1900, endTm->tm_mon + 1, endTm->tm_mday);
+                         startTm->tm_year + 1900,
+                         startTm->tm_mon + 1,
+                         startTm->tm_mday,
+                         endTm->tm_year + 1900,
+                         endTm->tm_mon + 1,
+                         endTm->tm_mday);
 
     DEBUG_VERBOSE_PRINTF("    Event starts: %04d-%02d-%02d %02d:%02d:%02d\n",
-                      eventTm->tm_year + 1900, eventTm->tm_mon + 1, eventTm->tm_mday,
-                      eventTm->tm_hour, eventTm->tm_min, eventTm->tm_sec);
+                         eventTm->tm_year + 1900,
+                         eventTm->tm_mon + 1,
+                         eventTm->tm_mday,
+                         eventTm->tm_hour,
+                         eventTm->tm_min,
+                         eventTm->tm_sec);
 #endif // DEBUG_LEVEL >= DEBUG_VERBOSE
 
     // ========================================================================
     // Step 3: Use findFirstOccurrence to jump to first valid month
     // ========================================================================
     int interval = (rule.interval > 0) ? rule.interval : 1;
-    int count = (rule.count > 0) ? rule.count : -1;
+    int count    = (rule.count > 0) ? rule.count : -1;
 
-    DEBUG_VERBOSE_PRINTF("    Calling findFirstOccurrence with interval=%d, count=%d\n", interval, count);
+    DEBUG_VERBOSE_PRINTF(
+        "    Calling findFirstOccurrence with interval=%d, count=%d\n", interval, count);
 
-    time_t firstOccurrence = findFirstOccurrence(
-        event->startTime, startDate, effectiveEndDate,
-        interval, RecurrenceFrequency::MONTHLY, count
-    );
+    time_t firstOccurrence = findFirstOccurrence(event->startTime,
+                                                 startDate,
+                                                 effectiveEndDate,
+                                                 interval,
+                                                 RecurrenceFrequency::MONTHLY,
+                                                 count);
 
     if (firstOccurrence < 0) {
-        DEBUG_VERBOSE_PRINTLN("    findFirstOccurrence returned -1 (recurrence completed or outside range)");
+        DEBUG_VERBOSE_PRINTLN(
+            "    findFirstOccurrence returned -1 (recurrence completed or outside range)");
         return occurrences;
     }
 
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
     struct tm* firstTm = localtime(&firstOccurrence);
     DEBUG_VERBOSE_PRINTF("    First occurrence: %04d-%02d-%02d %02d:%02d:%02d\n",
-                      firstTm->tm_year + 1900, firstTm->tm_mon + 1, firstTm->tm_mday,
-                      firstTm->tm_hour, firstTm->tm_min, firstTm->tm_sec);
+                         firstTm->tm_year + 1900,
+                         firstTm->tm_mon + 1,
+                         firstTm->tm_mday,
+                         firstTm->tm_hour,
+                         firstTm->tm_min,
+                         firstTm->tm_sec);
 #endif // DEBUG_LEVEL >= DEBUG_VERBOSE
 
     // ========================================================================
@@ -1343,7 +1434,8 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandMonthlyV2(CalendarEvent*
     std::vector<int> byMonthDayList = parseByMonthDay(rule.byMonthDay);
 
     if (!byMonthDayList.empty()) {
-        DEBUG_VERBOSE_PRINTF("    BYMONTHDAY filter: %d day(s) specified\n", (int)byMonthDayList.size());
+        DEBUG_VERBOSE_PRINTF("    BYMONTHDAY filter: %d day(s) specified\n",
+                             (int)byMonthDayList.size());
         for (size_t i = 0; i < byMonthDayList.size(); i++) {
             DEBUG_VERBOSE_PRINTF("      Day: %d\n", byMonthDayList[i]);
         }
@@ -1359,11 +1451,11 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandMonthlyV2(CalendarEvent*
     int occurrencesBeforeRange = 0;
     if (count > 0 && firstOccurrence > event->startTime) {
         struct tm* eventStartTm = localtime(&event->startTime);
-        struct tm* firstOccTm = localtime(&firstOccurrence);
+        struct tm* firstOccTm   = localtime(&firstOccurrence);
 
         // Calculate months difference
-        int yearsDiff = (firstOccTm->tm_year) - (eventStartTm->tm_year);
-        int monthsDiff = yearsDiff * 12 + (firstOccTm->tm_mon - eventStartTm->tm_mon);
+        int yearsDiff          = (firstOccTm->tm_year) - (eventStartTm->tm_year);
+        int monthsDiff         = yearsDiff * 12 + (firstOccTm->tm_mon - eventStartTm->tm_mon);
 
         occurrencesBeforeRange = monthsDiff / interval;
         DEBUG_VERBOSE_PRINTF("    Occurrences before query range: %d\n", occurrencesBeforeRange);
@@ -1373,8 +1465,8 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandMonthlyV2(CalendarEvent*
     struct tm currentTm;
     memcpy(&currentTm, localtime(&firstOccurrence), sizeof(struct tm));
 
-    int absoluteOccurrenceIndex = occurrencesBeforeRange;  // Track absolute occurrence number
-    int maxCount = (count > 0) ? count : INT_MAX;
+    int absoluteOccurrenceIndex = occurrencesBeforeRange; // Track absolute occurrence number
+    int maxCount                = (count > 0) ? count : INT_MAX;
 
     DEBUG_VERBOSE_PRINTLN(">>> expandMonthlyV2: Starting month-by-month iteration");
 
@@ -1390,16 +1482,19 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandMonthlyV2(CalendarEvent*
 
         // Apply BYMONTHDAY filter (if specified)
         // Note: For MONTHLY recurrence, we don't filter by month (already iterating monthly)
-        bool dayMatches = byMonthDayList.empty() ||
-                         (std::find(byMonthDayList.begin(), byMonthDayList.end(),
-                                   currentTm.tm_mday) != byMonthDayList.end());
+        bool dayMatches =
+            byMonthDayList.empty() ||
+            (std::find(byMonthDayList.begin(), byMonthDayList.end(), currentTm.tm_mday) !=
+             byMonthDayList.end());
 
         if (dayMatches) {
             absoluteOccurrenceIndex++;
 
             DEBUG_VERBOSE_PRINTF("    Occurrence #%d: %04d-%02d-%02d\n",
-                            absoluteOccurrenceIndex,
-                            currentTm.tm_year + 1900, currentTm.tm_mon + 1, currentTm.tm_mday);
+                                 absoluteOccurrenceIndex,
+                                 currentTm.tm_year + 1900,
+                                 currentTm.tm_mon + 1,
+                                 currentTm.tm_mday);
 
             // Check COUNT limit
             if (absoluteOccurrenceIndex > maxCount) {
@@ -1410,8 +1505,8 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandMonthlyV2(CalendarEvent*
             // Only add to results if within query range
             if (occurrenceTime >= startDate && occurrenceTime <= endDate) {
                 CalendarEvent* occurrence = new CalendarEvent(*event);
-                occurrence->startTime = occurrenceTime;
-                occurrence->endTime = occurrenceTime + duration;
+                occurrence->startTime     = occurrenceTime;
+                occurrence->endTime       = occurrenceTime + duration;
 
                 // Set date string for display
                 char dateBuffer[32];
@@ -1427,10 +1522,11 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandMonthlyV2(CalendarEvent*
 
         // Advance to next month (respecting interval)
         currentTm.tm_mon += interval;
-        mktime(&currentTm);  // Normalize (handles month/year overflow)
+        mktime(&currentTm); // Normalize (handles month/year overflow)
     }
 
-    DEBUG_INFO_PRINTF(">>> expandMonthlyV2: Complete. Created %d occurrences\n", (int)occurrences.size());
+    DEBUG_INFO_PRINTF(">>> expandMonthlyV2: Complete. Created %d occurrences\n",
+                      (int)occurrences.size());
 
     return occurrences;
 }
@@ -1440,9 +1536,9 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandMonthlyV2(CalendarEvent*
  * TODO: Implementation pending
  */
 std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* event,
-                                                                  const RRuleComponents& rule,
-                                                                  time_t startDate,
-                                                                  time_t endDate) {
+                                                                 const RRuleComponents& rule,
+                                                                 time_t startDate,
+                                                                 time_t endDate) {
     std::vector<CalendarEvent*> occurrences;
 
     DEBUG_VERBOSE_PRINTLN(">>> expandWeeklyV2: Starting WEEKLY expansion");
@@ -1468,42 +1564,58 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
     struct tm* eventTm = &eventTmCopy;
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
     struct tm* startTm = gmtime(&startDate);
-    struct tm* endTm = gmtime(&effectiveEndDate);
+    struct tm* endTm   = gmtime(&effectiveEndDate);
 
     DEBUG_VERBOSE_PRINTF("    Query range: %04d-%02d-%02d to %04d-%02d-%02d\n",
-                      startTm->tm_year + 1900, startTm->tm_mon + 1, startTm->tm_mday,
-                      endTm->tm_year + 1900, endTm->tm_mon + 1, endTm->tm_mday);
+                         startTm->tm_year + 1900,
+                         startTm->tm_mon + 1,
+                         startTm->tm_mday,
+                         endTm->tm_year + 1900,
+                         endTm->tm_mon + 1,
+                         endTm->tm_mday);
 
     DEBUG_VERBOSE_PRINTF("    Event starts: %04d-%02d-%02d %02d:%02d:%02d (day: %d)\n",
-                      eventTm->tm_year + 1900, eventTm->tm_mon + 1, eventTm->tm_mday,
-                      eventTm->tm_hour, eventTm->tm_min, eventTm->tm_sec,
-                      eventTm->tm_wday);
+                         eventTm->tm_year + 1900,
+                         eventTm->tm_mon + 1,
+                         eventTm->tm_mday,
+                         eventTm->tm_hour,
+                         eventTm->tm_min,
+                         eventTm->tm_sec,
+                         eventTm->tm_wday);
 #endif // DEBUG_LEVEL >= DEBUG_VERBOSE
 
     // ========================================================================
     // Step 3: Use findFirstOccurrence to jump to first valid week
     // ========================================================================
     int interval = (rule.interval > 0) ? rule.interval : 1;
-    int count = (rule.count > 0) ? rule.count : -1;
+    int count    = (rule.count > 0) ? rule.count : -1;
 
-    DEBUG_VERBOSE_PRINTF("    Calling findFirstOccurrence with interval=%d, count=%d\n", interval, count);
+    DEBUG_VERBOSE_PRINTF(
+        "    Calling findFirstOccurrence with interval=%d, count=%d\n", interval, count);
 
-    time_t firstOccurrence = findFirstOccurrence(
-        event->startTime, startDate, effectiveEndDate,
-        interval, RecurrenceFrequency::WEEKLY, count
-    );
+    time_t firstOccurrence = findFirstOccurrence(event->startTime,
+                                                 startDate,
+                                                 effectiveEndDate,
+                                                 interval,
+                                                 RecurrenceFrequency::WEEKLY,
+                                                 count);
 
     if (firstOccurrence < 0) {
-        DEBUG_VERBOSE_PRINTLN("    findFirstOccurrence returned -1 (recurrence completed or outside range)");
+        DEBUG_VERBOSE_PRINTLN(
+            "    findFirstOccurrence returned -1 (recurrence completed or outside range)");
         return occurrences;
     }
 
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
     struct tm* firstTm = gmtime(&firstOccurrence);
     DEBUG_VERBOSE_PRINTF("    First occurrence: %04d-%02d-%02d %02d:%02d:%02d (day: %d)\n",
-                      firstTm->tm_year + 1900, firstTm->tm_mon + 1, firstTm->tm_mday,
-                      firstTm->tm_hour, firstTm->tm_min, firstTm->tm_sec,
-                      firstTm->tm_wday);
+                         firstTm->tm_year + 1900,
+                         firstTm->tm_mon + 1,
+                         firstTm->tm_mday,
+                         firstTm->tm_hour,
+                         firstTm->tm_min,
+                         firstTm->tm_sec,
+                         firstTm->tm_wday);
 #endif // DEBUG_LEVEL >= DEBUG_VERBOSE
 
     // ========================================================================
@@ -1512,7 +1624,8 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
     std::vector<int> byDayList = parseByDay(rule.byDay);
 
     if (!byDayList.empty()) {
-        // Sort byDayList to ensure days are processed in chronological order (Sun=0, Mon=1, ..., Sat=6)
+        // Sort byDayList to ensure days are processed in chronological order (Sun=0, Mon=1, ...,
+        // Sat=6)
         std::sort(byDayList.begin(), byDayList.end());
 
         DEBUG_VERBOSE_PRINTF("    BYDAY filter: %d day(s) specified\n", (int)byDayList.size());
@@ -1533,7 +1646,7 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
     int occurrencesBeforeRange = 0;
     if (count > 0 && firstOccurrence > event->startTime) {
         // Calculate weeks difference
-        int daysDiff = (firstOccurrence - event->startTime) / (24 * 3600);
+        int daysDiff  = (firstOccurrence - event->startTime) / (24 * 3600);
         int weeksDiff = daysDiff / 7;
 
         // Each week can have multiple occurrences based on BYDAY
@@ -1548,17 +1661,17 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
     // Move back to Sunday (start of week) to check all BYDAY days in this week
     int daysToSunday = currentTm.tm_wday;
     currentTm.tm_mday -= daysToSunday;
-    portable_timegm(&currentTm);  // Normalize
+    portable_timegm(&currentTm); // Normalize
 
     int absoluteOccurrenceIndex = occurrencesBeforeRange;
-    int maxCount = (count > 0) ? count : INT_MAX;
+    int maxCount                = (count > 0) ? count : INT_MAX;
 
     DEBUG_VERBOSE_PRINTLN(">>> expandWeeklyV2: Starting week-by-week iteration");
 
     while (true) {
         // For each week, check each day in BYDAY list
         for (size_t i = 0; i < byDayList.size(); i++) {
-            int targetDay = byDayList[i];  // 0=Sun, 1=Mon, ..., 6=Sat
+            int targetDay = byDayList[i]; // 0=Sun, 1=Mon, ..., 6=Sat
 
             // Calculate date for this target day in current week
             struct tm occurrenceTm = currentTm;
@@ -1573,28 +1686,30 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
             // Check if past effective end date
             if (occurrenceTime > effectiveEndDate) {
                 DEBUG_VERBOSE_PRINTLN("    Reached effective end date, stopping");
-                goto done;  // Break out of nested loop
+                goto done; // Break out of nested loop
             }
 
             // This is a valid occurrence
             absoluteOccurrenceIndex++;
 
             DEBUG_VERBOSE_PRINTF("    Occurrence #%d: %04d-%02d-%02d (day %d)\n",
-                            absoluteOccurrenceIndex,
-                            occurrenceTm.tm_year + 1900, occurrenceTm.tm_mon + 1, occurrenceTm.tm_mday,
-                            occurrenceTm.tm_wday);
+                                 absoluteOccurrenceIndex,
+                                 occurrenceTm.tm_year + 1900,
+                                 occurrenceTm.tm_mon + 1,
+                                 occurrenceTm.tm_mday,
+                                 occurrenceTm.tm_wday);
 
             // Check COUNT limit
             if (absoluteOccurrenceIndex > maxCount) {
                 DEBUG_VERBOSE_PRINTLN("    Reached COUNT limit, stopping");
-                goto done;  // Break out of nested loop
+                goto done; // Break out of nested loop
             }
 
             // Only add to results if within query range
             if (occurrenceTime >= startDate && occurrenceTime <= endDate) {
                 CalendarEvent* occurrence = new CalendarEvent(*event);
-                occurrence->startTime = occurrenceTime;
-                occurrence->endTime = occurrenceTime + duration;
+                occurrence->startTime     = occurrenceTime;
+                occurrence->endTime       = occurrenceTime + duration;
 
                 // Set date string for display
                 char dateBuffer[32];
@@ -1610,11 +1725,12 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandWeeklyV2(CalendarEvent* 
 
         // Advance to next week (respecting interval)
         currentTm.tm_mday += interval * 7;
-        portable_timegm(&currentTm);  // Normalize
+        portable_timegm(&currentTm); // Normalize
     }
 
 done:
-    DEBUG_INFO_PRINTF(">>> expandWeeklyV2: Complete. Created %d occurrences\n", (int)occurrences.size());
+    DEBUG_INFO_PRINTF(">>> expandWeeklyV2: Complete. Created %d occurrences\n",
+                      (int)occurrences.size());
 
     return occurrences;
 }
@@ -1624,9 +1740,9 @@ done:
  * TODO: Implementation pending
  */
 std::vector<CalendarEvent*> CalendarStreamParser::expandDailyV2(CalendarEvent* event,
-                                                                 const RRuleComponents& rule,
-                                                                 time_t startDate,
-                                                                 time_t endDate) {
+                                                                const RRuleComponents& rule,
+                                                                time_t startDate,
+                                                                time_t endDate) {
     std::vector<CalendarEvent*> occurrences;
 
     DEBUG_VERBOSE_PRINTLN(">>> expandDailyV2: Starting DAILY expansion");
@@ -1648,41 +1764,53 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandDailyV2(CalendarEvent* e
 
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
     struct tm* startTm = localtime(&startDate);
-    struct tm* endTm = localtime(&effectiveEndDate);
+    struct tm* endTm   = localtime(&effectiveEndDate);
     struct tm* eventTm = localtime(&event->startTime);
 
     DEBUG_VERBOSE_PRINTF("    Query range: %04d-%02d-%02d to %04d-%02d-%02d\n",
-                      startTm->tm_year + 1900, startTm->tm_mon + 1, startTm->tm_mday,
-                      endTm->tm_year + 1900, endTm->tm_mon + 1, endTm->tm_mday);
+                         startTm->tm_year + 1900,
+                         startTm->tm_mon + 1,
+                         startTm->tm_mday,
+                         endTm->tm_year + 1900,
+                         endTm->tm_mon + 1,
+                         endTm->tm_mday);
 
     DEBUG_VERBOSE_PRINTF("    Event starts: %04d-%02d-%02d %02d:%02d:%02d\n",
-                      eventTm->tm_year + 1900, eventTm->tm_mon + 1, eventTm->tm_mday,
-                      eventTm->tm_hour, eventTm->tm_min, eventTm->tm_sec);
+                         eventTm->tm_year + 1900,
+                         eventTm->tm_mon + 1,
+                         eventTm->tm_mday,
+                         eventTm->tm_hour,
+                         eventTm->tm_min,
+                         eventTm->tm_sec);
 #endif // DEBUG_LEVEL >= DEBUG_VERBOSE
 
     // ========================================================================
     // Step 3: Use findFirstOccurrence to jump to first valid day
     // ========================================================================
     int interval = (rule.interval > 0) ? rule.interval : 1;
-    int count = (rule.count > 0) ? rule.count : -1;
+    int count    = (rule.count > 0) ? rule.count : -1;
 
-    DEBUG_VERBOSE_PRINTF("    Calling findFirstOccurrence with interval=%d, count=%d\n", interval, count);
+    DEBUG_VERBOSE_PRINTF(
+        "    Calling findFirstOccurrence with interval=%d, count=%d\n", interval, count);
 
     time_t firstOccurrence = findFirstOccurrence(
-        event->startTime, startDate, effectiveEndDate,
-        interval, RecurrenceFrequency::DAILY, count
-    );
+        event->startTime, startDate, effectiveEndDate, interval, RecurrenceFrequency::DAILY, count);
 
     if (firstOccurrence < 0) {
-        DEBUG_VERBOSE_PRINTLN("    findFirstOccurrence returned -1 (recurrence completed or outside range)");
+        DEBUG_VERBOSE_PRINTLN(
+            "    findFirstOccurrence returned -1 (recurrence completed or outside range)");
         return occurrences;
     }
 
 #if DEBUG_LEVEL >= DEBUG_VERBOSE
     struct tm* firstTm = localtime(&firstOccurrence);
     DEBUG_VERBOSE_PRINTF("    First occurrence: %04d-%02d-%02d %02d:%02d:%02d\n",
-                      firstTm->tm_year + 1900, firstTm->tm_mon + 1, firstTm->tm_mday,
-                      firstTm->tm_hour, firstTm->tm_min, firstTm->tm_sec);
+                         firstTm->tm_year + 1900,
+                         firstTm->tm_mon + 1,
+                         firstTm->tm_mday,
+                         firstTm->tm_hour,
+                         firstTm->tm_min,
+                         firstTm->tm_sec);
 #endif // DEBUG_LEVEL >= DEBUG_VERBOSE
 
     // ========================================================================
@@ -1694,7 +1822,9 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandDailyV2(CalendarEvent* e
         // Sort byDayList to ensure days are in order
         std::sort(byDayList.begin(), byDayList.end());
 
-        DEBUG_VERBOSE_PRINTF("    BYDAY filter: %d day(s) specified (limits to specific weekdays)\n", (int)byDayList.size());
+        DEBUG_VERBOSE_PRINTF(
+            "    BYDAY filter: %d day(s) specified (limits to specific weekdays)\n",
+            (int)byDayList.size());
         for (size_t i = 0; i < byDayList.size(); i++) {
             DEBUG_VERBOSE_PRINTF("      Day: %d (0=Sun, 1=Mon, ..., 6=Sat)\n", byDayList[i]);
         }
@@ -1710,7 +1840,7 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandDailyV2(CalendarEvent* e
     int occurrencesBeforeRange = 0;
     if (count > 0 && firstOccurrence > event->startTime) {
         // Calculate days difference
-        int daysDiff = (firstOccurrence - event->startTime) / (24 * 3600);
+        int daysDiff           = (firstOccurrence - event->startTime) / (24 * 3600);
         occurrencesBeforeRange = daysDiff / interval;
         DEBUG_VERBOSE_PRINTF("    Occurrences before query range: %d\n", occurrencesBeforeRange);
     }
@@ -1720,7 +1850,7 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandDailyV2(CalendarEvent* e
     memcpy(&currentTm, localtime(&firstOccurrence), sizeof(struct tm));
 
     int absoluteOccurrenceIndex = occurrencesBeforeRange;
-    int maxCount = (count > 0) ? count : INT_MAX;
+    int maxCount                = (count > 0) ? count : INT_MAX;
 
     DEBUG_VERBOSE_PRINTLN(">>> expandDailyV2: Starting day-by-day iteration");
 
@@ -1735,17 +1865,19 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandDailyV2(CalendarEvent* e
         }
 
         // Apply BYDAY filter (if specified) - only include days in the list
-        bool dayMatches = byDayList.empty() ||
-                         (std::find(byDayList.begin(), byDayList.end(),
-                                   currentTm.tm_wday) != byDayList.end());
+        bool dayMatches =
+            byDayList.empty() ||
+            (std::find(byDayList.begin(), byDayList.end(), currentTm.tm_wday) != byDayList.end());
 
         if (dayMatches) {
             absoluteOccurrenceIndex++;
 
             DEBUG_VERBOSE_PRINTF("    Occurrence #%d: %04d-%02d-%02d (day %d)\n",
-                            absoluteOccurrenceIndex,
-                            currentTm.tm_year + 1900, currentTm.tm_mon + 1, currentTm.tm_mday,
-                            currentTm.tm_wday);
+                                 absoluteOccurrenceIndex,
+                                 currentTm.tm_year + 1900,
+                                 currentTm.tm_mon + 1,
+                                 currentTm.tm_mday,
+                                 currentTm.tm_wday);
 
             // Check COUNT limit
             if (absoluteOccurrenceIndex > maxCount) {
@@ -1756,8 +1888,8 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandDailyV2(CalendarEvent* e
             // Only add to results if within query range
             if (occurrenceTime >= startDate && occurrenceTime <= endDate) {
                 CalendarEvent* occurrence = new CalendarEvent(*event);
-                occurrence->startTime = occurrenceTime;
-                occurrence->endTime = occurrenceTime + duration;
+                occurrence->startTime     = occurrenceTime;
+                occurrence->endTime       = occurrenceTime + duration;
 
                 // Set date string for display
                 char dateBuffer[32];
@@ -1773,10 +1905,11 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandDailyV2(CalendarEvent* e
 
         // Advance to next day (respecting interval)
         currentTm.tm_mday += interval;
-        mktime(&currentTm);  // Normalize (handles month/year overflow)
+        mktime(&currentTm); // Normalize (handles month/year overflow)
     }
 
-    DEBUG_INFO_PRINTF(">>> expandDailyV2: Complete. Created %d occurrences\n", (int)occurrences.size());
+    DEBUG_INFO_PRINTF(">>> expandDailyV2: Complete. Created %d occurrences\n",
+                      (int)occurrences.size());
 
     return occurrences;
 }
@@ -1785,10 +1918,13 @@ std::vector<CalendarEvent*> CalendarStreamParser::expandDailyV2(CalendarEvent* e
 // OptimizedCalendarManager Implementation
 // ============================================================================
 
-OptimizedCalendarManager::OptimizedCalendarManager()
-    : debug(false), cacheEnabled(true), cacheDuration(3600),
-      cacheStartDate(0), cacheEndDate(0), cacheTimestamp(0) {
-}
+OptimizedCalendarManager::OptimizedCalendarManager() :
+    debug(false),
+    cacheEnabled(true),
+    cacheDuration(3600),
+    cacheStartDate(0),
+    cacheEndDate(0),
+    cacheTimestamp(0) {}
 
 OptimizedCalendarManager::~OptimizedCalendarManager() {
     clearCache();
@@ -1809,9 +1945,10 @@ void OptimizedCalendarManager::addCalendar(const CalendarSource& source) {
     parsers.push_back(parser);
 }
 
-std::vector<CalendarEvent*> OptimizedCalendarManager::getEventsForRange(time_t startDate,
-                                                                        time_t endDate,
-                                                                        size_t maxEventsPerCalendar) {
+std::vector<CalendarEvent*>
+OptimizedCalendarManager::getEventsForRange(time_t startDate,
+                                            time_t endDate,
+                                            size_t maxEventsPerCalendar) {
     // Check cache first
     if (cacheEnabled && isCacheValid(startDate, endDate)) {
         DEBUG_INFO_PRINTLN("Using cached events");
@@ -1836,7 +1973,7 @@ std::vector<CalendarEvent*> OptimizedCalendarManager::getEventsForRange(time_t s
         DEBUG_INFO_PRINTLN("Fetching from: " + calendars[i].name);
         // Calculate date range based on calendar's days_to_fetch
         time_t calStartDate = startDate;
-        time_t calEndDate = endDate;
+        time_t calEndDate   = endDate;
 
         if (calendars[i].days_to_fetch > 0) {
             // Extend range based on days_to_fetch
@@ -1866,7 +2003,7 @@ std::vector<CalendarEvent*> OptimizedCalendarManager::getEventsForRange(time_t s
     // Update cache if enabled
     if (cacheEnabled) {
         cacheStartDate = startDate;
-        cacheEndDate = endDate;
+        cacheEndDate   = endDate;
         cacheTimestamp = millis();
 
         // Store copy in cache
@@ -1880,16 +2017,16 @@ std::vector<CalendarEvent*> OptimizedCalendarManager::getEventsForRange(time_t s
 
 std::vector<CalendarEvent*> OptimizedCalendarManager::getEventsForDay(time_t date) {
     // Get start and end of day
-    struct tm* tm = localtime(&date);
-    tm->tm_hour = 0;
-    tm->tm_min = 0;
-    tm->tm_sec = 0;
+    struct tm* tm   = localtime(&date);
+    tm->tm_hour     = 0;
+    tm->tm_min      = 0;
+    tm->tm_sec      = 0;
     time_t dayStart = mktime(tm);
 
-    tm->tm_hour = 23;
-    tm->tm_min = 59;
-    tm->tm_sec = 59;
-    time_t dayEnd = mktime(tm);
+    tm->tm_hour     = 23;
+    tm->tm_min      = 59;
+    tm->tm_sec      = 59;
+    time_t dayEnd   = mktime(tm);
 
     return getEventsForRange(dayStart, dayEnd, 20);
 }
@@ -1946,7 +2083,7 @@ void OptimizedCalendarManager::clearCache() {
     }
     cachedEvents.clear();
     cacheStartDate = 0;
-    cacheEndDate = 0;
+    cacheEndDate   = 0;
     cacheTimestamp = 0;
 }
 
@@ -1960,10 +2097,9 @@ std::vector<CalendarEvent*> OptimizedCalendarManager::mergeAndSortEvents(
     }
 
     // Sort by start time
-    std::sort(merged.begin(), merged.end(),
-              [](CalendarEvent* a, CalendarEvent* b) {
-                  return a->startTime < b->startTime;
-              });
+    std::sort(merged.begin(), merged.end(), [](CalendarEvent* a, CalendarEvent* b) {
+        return a->startTime < b->startTime;
+    });
 
     return merged;
 }

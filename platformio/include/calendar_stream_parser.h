@@ -11,8 +11,8 @@
 #else
 #include <Arduino.h>
 #endif
-#include <vector>
 #include "calendar_event.h"
+#include <vector>
 
 // Forward declarations
 class Stream;
@@ -22,22 +22,13 @@ class CalendarFetcher;
 typedef std::function<void(CalendarEvent*)> EventCallback;
 
 // Enum for recurrence frequency (RFC 5545)
-enum class RecurrenceFrequency {
-    YEARLY,
-    MONTHLY,
-    WEEKLY,
-    DAILY,
-    HOURLY,
-    MINUTELY,
-    SECONDLY,
-    NONE
-};
+enum class RecurrenceFrequency { YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY, MINUTELY, SECONDLY, NONE };
 
 // Result structure for filtered events
 struct FilteredEvents {
     std::vector<CalendarEvent*> events;
-    size_t totalParsed;       // Total events parsed from stream
-    size_t totalFiltered;     // Events that matched the filter
+    size_t totalParsed;   // Total events parsed from stream
+    size_t totalFiltered; // Events that matched the filter
     bool success;
     String error;
 
@@ -60,19 +51,19 @@ struct FilteredEvents {
  */
 struct RRuleComponents {
     // Core frequency (REQUIRED)
-    String freq;              // YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY, MINUTELY, SECONDLY
+    String freq; // YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY, MINUTELY, SECONDLY
 
     // Termination rules (mutually exclusive, but COUNT takes precedence if both present)
-    int count;                // Number of occurrences (-1 = not specified)
-    time_t until;             // End date for recurrence (0 = not specified)
+    int count;    // Number of occurrences (-1 = not specified)
+    time_t until; // End date for recurrence (0 = not specified)
 
     // Frequency multiplier
-    int interval;             // Interval between occurrences (default: 1)
+    int interval; // Interval between occurrences (default: 1)
 
     // Filters for expanding/restricting occurrences
-    String byDay;             // Comma-separated day codes (e.g., "MO,WE,FR")
-    String byMonthDay;        // Comma-separated day numbers (e.g., "1,15,-1")
-    String byMonth;           // Comma-separated month numbers (e.g., "1,7" for Jan, Jul)
+    String byDay;      // Comma-separated day codes (e.g., "MO,WE,FR")
+    String byMonthDay; // Comma-separated day numbers (e.g., "1,15,-1")
+    String byMonth;    // Comma-separated month numbers (e.g., "1,7" for Jan, Jul)
 
     // Constructor with sensible defaults
     RRuleComponents() : count(-1), until(0), interval(1) {}
@@ -97,7 +88,7 @@ struct RRuleComponents {
 };
 
 class CalendarStreamParser {
-public:
+  public:
     CalendarStreamParser();
     ~CalendarStreamParser();
 
@@ -114,7 +105,7 @@ public:
     FilteredEvents* fetchEventsInRange(const String& url,
                                        time_t startDate,
                                        time_t endDate,
-                                       size_t maxEvents = 100,
+                                       size_t maxEvents        = 100,
                                        const String& cachePath = "");
 
     /**
@@ -129,8 +120,8 @@ public:
      */
     bool streamParse(const String& url,
                      EventCallback callback,
-                     time_t startDate = 0,
-                     time_t endDate = 0,
+                     time_t startDate        = 0,
+                     time_t endDate          = 0,
                      const String& cachePath = "");
 
     /**
@@ -146,7 +137,7 @@ public:
     bool streamParseFromStream(Stream* stream,
                                EventCallback callback,
                                time_t startDate = 0,
-                               time_t endDate = 0);
+                               time_t endDate   = 0);
 
     /**
      * Parse calendar metadata without loading events
@@ -157,9 +148,7 @@ public:
      * @param timezone Output: calendar timezone
      * @return true if metadata was successfully parsed
      */
-    bool parseMetadata(const String& url,
-                      String& calendarName,
-                      String& timezone);
+    bool parseMetadata(const String& url, String& calendarName, String& timezone);
 
     // Configuration
     void setDebug(bool enable) { debug = enable; }
@@ -167,9 +156,8 @@ public:
     void setCalendarName(const String& name) { calendarName = name; }
 
     // V2: Refactored version without arbitrary limits (public for testing)
-    std::vector<CalendarEvent*> expandRecurringEventV2(CalendarEvent* event,
-                                                       time_t startDate,
-                                                       time_t endDate);
+    std::vector<CalendarEvent*>
+    expandRecurringEventV2(CalendarEvent* event, time_t startDate, time_t endDate);
 
     // RRULE parsing methods (public for testing)
     RRuleComponents parseRRule(const String& rrule);
@@ -181,8 +169,12 @@ public:
     // Helper to find first occurrence on or after startDate (public for testing)
     // Returns the timestamp of first occurrence, or -1 if no valid occurrence exists
     // If count > 0, checks if the recurrence has already completed before startDate
-    time_t findFirstOccurrence(time_t eventStart, time_t startDate, time_t endDate,
-                               int interval, RecurrenceFrequency freq, int count = -1);
+    time_t findFirstOccurrence(time_t eventStart,
+                               time_t startDate,
+                               time_t endDate,
+                               int interval,
+                               RecurrenceFrequency freq,
+                               int count = -1);
 
     // Convert string frequency to enum
     static RecurrenceFrequency frequencyFromString(const String& freqStr);
@@ -190,27 +182,27 @@ public:
     // Parse a single event from buffer (public for testing)
     CalendarEvent* parseEventFromBuffer(const String& eventData);
 
-private:
+  private:
     // V2: Frequency-specific expansion methods
     std::vector<CalendarEvent*> expandYearlyV2(CalendarEvent* event,
-                                                const RRuleComponents& rule,
-                                                time_t startDate,
-                                                time_t endDate);
-
-    std::vector<CalendarEvent*> expandMonthlyV2(CalendarEvent* event,
-                                                 const RRuleComponents& rule,
-                                                 time_t startDate,
-                                                 time_t endDate);
-
-    std::vector<CalendarEvent*> expandWeeklyV2(CalendarEvent* event,
-                                                const RRuleComponents& rule,
-                                                time_t startDate,
-                                                time_t endDate);
-
-    std::vector<CalendarEvent*> expandDailyV2(CalendarEvent* event,
                                                const RRuleComponents& rule,
                                                time_t startDate,
                                                time_t endDate);
+
+    std::vector<CalendarEvent*> expandMonthlyV2(CalendarEvent* event,
+                                                const RRuleComponents& rule,
+                                                time_t startDate,
+                                                time_t endDate);
+
+    std::vector<CalendarEvent*> expandWeeklyV2(CalendarEvent* event,
+                                               const RRuleComponents& rule,
+                                               time_t startDate,
+                                               time_t endDate);
+
+    std::vector<CalendarEvent*> expandDailyV2(CalendarEvent* event,
+                                              const RRuleComponents& rule,
+                                              time_t startDate,
+                                              time_t endDate);
 
     // Member variables
     bool debug;
@@ -219,12 +211,7 @@ private:
     CalendarFetcher* fetcher;
 
     // Parsing state
-    enum ParseState {
-        LOOKING_FOR_CALENDAR,
-        IN_HEADER,
-        IN_EVENT,
-        DONE
-    };
+    enum ParseState { LOOKING_FOR_CALENDAR, IN_HEADER, IN_EVENT, DONE };
 
     // Check if event is within date range
     bool isEventInRange(CalendarEvent* event, time_t startDate, time_t endDate);
@@ -250,7 +237,7 @@ private:
  * Coordinates multiple calendars without storing all events
  */
 class OptimizedCalendarManager {
-public:
+  public:
     struct CalendarSource {
         String name;
         String url;
@@ -276,9 +263,8 @@ public:
      * @param maxEventsPerCalendar Maximum events per calendar
      * @return Merged and sorted events (caller must delete)
      */
-    std::vector<CalendarEvent*> getEventsForRange(time_t startDate,
-                                                  time_t endDate,
-                                                  size_t maxEventsPerCalendar = 50);
+    std::vector<CalendarEvent*>
+    getEventsForRange(time_t startDate, time_t endDate, size_t maxEventsPerCalendar = 50);
 
     /**
      * Get events for a specific day
@@ -304,7 +290,7 @@ public:
     void setCacheEnabled(bool enable) { cacheEnabled = enable; }
     void setCacheDuration(uint32_t seconds) { cacheDuration = seconds; }
 
-private:
+  private:
     std::vector<CalendarSource> calendars;
     std::vector<CalendarStreamParser*> parsers;
     bool debug;
@@ -324,8 +310,8 @@ private:
     void clearCache();
 
     // Merge and sort events from multiple calendars
-    std::vector<CalendarEvent*> mergeAndSortEvents(
-        const std::vector<std::vector<CalendarEvent*>>& eventLists);
+    std::vector<CalendarEvent*>
+    mergeAndSortEvents(const std::vector<std::vector<CalendarEvent*>>& eventLists);
 };
 
 #endif // CALENDAR_STREAM_PARSER_H

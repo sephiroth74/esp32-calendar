@@ -14,7 +14,8 @@ void CalendarDisplayAdapter::prepareEventsForDisplay(std::vector<CalendarEvent*>
 }
 
 void CalendarDisplayAdapter::prepareEventForDisplay(CalendarEvent* event) {
-    if (!event) return;
+    if (!event)
+        return;
 
     // Create display-friendly aliases for existing fields
     // Note: We're adding these as temporary compatibility fields
@@ -33,7 +34,7 @@ void CalendarDisplayAdapter::prepareEventForDisplay(CalendarEvent* event) {
         event->dayOfMonth = getDayOfMonth(event->startTime);
 
         // Check if today or tomorrow
-        event->isToday = isToday(event->startTime);
+        event->isToday    = isToday(event->startTime);
         event->isTomorrow = isTomorrow(event->startTime);
     } else {
         // Parse from dtStart if timestamp not available
@@ -43,7 +44,7 @@ void CalendarDisplayAdapter::prepareEventForDisplay(CalendarEvent* event) {
         }
         // Note: startDate is now computed on-demand via getStartDate()
         event->dayOfMonth = 0;
-        event->isToday = false;
+        event->isToday    = false;
         event->isTomorrow = false;
     }
 
@@ -63,16 +64,15 @@ String CalendarDisplayAdapter::formatTime(time_t timestamp) {
     return DateUtils::formatTime(timestamp);
 }
 
-bool CalendarDisplayAdapter::isToday(time_t timestamp) {
-    return DateUtils::isToday(timestamp);
-}
+bool CalendarDisplayAdapter::isToday(time_t timestamp) { return DateUtils::isToday(timestamp); }
 
 bool CalendarDisplayAdapter::isTomorrow(time_t timestamp) {
     return DateUtils::isTomorrow(timestamp);
 }
 
 int CalendarDisplayAdapter::getDayOfMonth(time_t timestamp) {
-    if (timestamp == 0) return 0;
+    if (timestamp == 0)
+        return 0;
 
     struct tm* timeinfo = localtime(&timestamp);
     return timeinfo->tm_mday;

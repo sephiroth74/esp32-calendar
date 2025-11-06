@@ -6,9 +6,7 @@ TeeStream::~TeeStream() {
     // The streams are managed externally
 }
 
-int TeeStream::available() {
-    return _source.available();
-}
+int TeeStream::available() { return _source.available(); }
 
 int TeeStream::read() {
     int c = _source.read();
@@ -18,9 +16,7 @@ int TeeStream::read() {
     return c;
 }
 
-int TeeStream::peek() {
-    return _source.peek();
-}
+int TeeStream::peek() { return _source.peek(); }
 
 void TeeStream::flush() {
     _source.flush();
@@ -36,7 +32,8 @@ String TeeStream::readString() {
     String result = "";
     while (available()) {
         int c = read();
-        if (c == -1) break;
+        if (c == -1)
+            break;
         result += (char)c;
     }
     return result;

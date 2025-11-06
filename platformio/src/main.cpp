@@ -1,21 +1,21 @@
 #if !defined(DEBUG_DISPLAY) && !defined(PIO_UNIT_TESTING)
 
-#include <Arduino.h>
-#include <WiFiClientSecure.h>
-#include <SPI.h>
-#include <LittleFS.h>
-#include <time.h>
-#include "display_manager.h"
-#include "calendar_wrapper.h"
-#include "calendar_display_adapter.h"
-#include "weather_client.h"
-#include "littlefs_config.h"
-#include "error_manager.h"
-#include "wifi_manager.h"
 #include "battery_monitor.h"
+#include "calendar_display_adapter.h"
+#include "calendar_wrapper.h"
 #include "config.h"
 #include "debug_config.h"
+#include "display_manager.h"
+#include "error_manager.h"
+#include "littlefs_config.h"
 #include "version.h"
+#include "weather_client.h"
+#include "wifi_manager.h"
+#include <Arduino.h>
+#include <LittleFS.h>
+#include <SPI.h>
+#include <WiFiClientSecure.h>
+#include <time.h>
 
 // Global objects
 DisplayManager displayMgr;
@@ -23,7 +23,7 @@ LittleFSConfig configLoader;
 ErrorManager errorMgr;
 WiFiManager wifiManager;
 BatteryMonitor batteryMonitor;
-WeatherClient* weatherClient = nullptr;
+WeatherClient* weatherClient     = nullptr;
 CalendarManager* calendarManager = nullptr;
 
 // Variables to track last error for retry logic
@@ -42,8 +42,7 @@ void setRGBLED(bool red, bool green, bool blue);
 void turnOffRGBLED();
 #endif
 
-void setup()
-{
+void setup() {
     Serial.begin(115200);
     delay(1000);
 
@@ -57,7 +56,7 @@ void setup()
     Serial.println("Build: " + String(__DATE__) + " " + String(__TIME__));
     Serial.println("=====================================");
 
-    bool enableDeepSleep = !DISABLE_DEEP_SLEEP;
+    bool enableDeepSleep                 = !DISABLE_DEEP_SLEEP;
     unsigned long delayBeforeDeepSleepMs = 5000;
 
     Serial.println("Deep Sleep: " + String(enableDeepSleep ? "ENABLED" : "DISABLED"));
@@ -85,12 +84,14 @@ void setup()
 
         DEBUG_VERBOSE_PRINTLN("Button configured on pin " + String(BUTTON_PIN));
 
-        // If the wakeup button is pressed for more than CONFIG_RESET_HOLD_TIME during boot, disable the deep sleep
+        // If the wakeup button is pressed for more than CONFIG_RESET_HOLD_TIME during boot, disable
+        // the deep sleep
         if (digitalRead(BUTTON_PIN) == HIGH) {
             DEBUG_WARN_PRINTLN("Button held during boot... ");
             delay(CONFIG_RESET_HOLD_TIME);
             if (digitalRead(BUTTON_PIN) == HIGH) {
-                DEBUG_WARN_PRINTLN("Button held long enough! Clearing cache and disabling deep sleep.");
+                DEBUG_WARN_PRINTLN(
+                    "Button held long enough! Clearing cache and disabling deep sleep.");
                 clearCache();
                 enableDeepSleep = false;
             }
@@ -133,7 +134,7 @@ void setup()
         DEBUG_WARN_PRINTLN("Going to indefinite deep sleep due to low battery...");
 
         if (enableDeepSleep) {
-            delay(5000); // Give user time to read the message
+            delay(5000);       // Give user time to read the message
             enterDeepSleep(0); // 0 means no wake-up timer - sleep indefinitely
         } else {
             DEBUG_WARN_PRINTLN("Deep sleep disabled - staying awake for testing.");
@@ -186,7 +187,8 @@ void setup()
     // Enter deep sleep or stay awake for testing
     if (enableDeepSleep) {
         if (delayBeforeDeepSleepMs > 0) {
-            DEBUG_INFO_PRINTLN("Waiting " + String(delayBeforeDeepSleepMs) + "ms before deep sleep...");
+            DEBUG_INFO_PRINTLN("Waiting " + String(delayBeforeDeepSleepMs) +
+                               "ms before deep sleep...");
             delay(delayBeforeDeepSleepMs);
         }
 
@@ -212,8 +214,7 @@ void setup()
     }
 }
 
-void loop()
-{
+void loop() {
     DEBUG_VERBOSE_PRINTLN("Main loop running...");
 
     while (digitalRead(BUTTON_PIN) == HIGH) {
@@ -231,8 +232,7 @@ void loop()
     ESP.restart();
 }
 
-void performUpdate()
-{
+void performUpdate() {
     // Get configuration
     const RuntimeConfig& config = configLoader.getConfig();
 
@@ -298,17 +298,21 @@ void performUpdate()
     // Format date and time properly with zero padding
     char dateStr[32]; // Increased buffer size to avoid truncation warning
     char timeStr[6];
-    snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%04d",
-        timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-    snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
-        timeinfo->tm_hour, timeinfo->tm_min);
+    snprintf(dateStr,
+             sizeof(dateStr),
+             "%02d/%02d/%04d",
+             timeinfo->tm_mday,
+             timeinfo->tm_mon + 1,
+             timeinfo->tm_year + 1900);
+    snprintf(timeStr, sizeof(timeStr), "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
 
     String currentDate = String(dateStr);
     String currentTime = String(timeStr);
 
     // Debug: Show timezone info
     DEBUG_VERBOSE_PRINTLN("Current local time: " + currentDate + " " + currentTime);
-    DEBUG_VERBOSE_PRINTLN("Hour: " + String(timeinfo->tm_hour) + ", DST: " + String(timeinfo->tm_isdst));
+    DEBUG_VERBOSE_PRINTLN("Hour: " + String(timeinfo->tm_hour) +
+                          ", DST: " + String(timeinfo->tm_isdst));
 
     // Fetch calendar events
     DEBUG_INFO_PRINTLN("\n--- Calendar Update ---");
@@ -319,15 +323,17 @@ void performUpdate()
 
     // Load all calendars
     bool allCalendarsSuccess = calendarManager->loadAll(false); // false = use cache if available
-    DEBUG_INFO_PRINTLN("Calendar loadAll returned: " + String(allCalendarsSuccess ? "all success" : "some failures"));
+    DEBUG_INFO_PRINTLN("Calendar loadAll returned: " +
+                       String(allCalendarsSuccess ? "all success" : "some failures"));
 
     // Get current time
-    now = time(nullptr);
+    now            = time(nullptr);
     time_t endDate = now + (365 * 86400); // Get events for next year
 
     // Get merged events from all calendars (even if some failed to load)
     events = calendarManager->getAllEvents(now, endDate);
-    DEBUG_INFO_PRINTLN("Fetched " + String(events.size()) + " events from " + String(calendarManager->getCalendarCount()) + " calendars");
+    DEBUG_INFO_PRINTLN("Fetched " + String(events.size()) + " events from " +
+                       String(calendarManager->getCalendarCount()) + " calendars");
 
     if (!events.empty()) {
         lastError = ErrorCode::SUCCESS;
@@ -361,17 +367,20 @@ void performUpdate()
 
     // Update display
     DEBUG_INFO_PRINTLN("\n--- Display Update ---");
-    displayMgr.showCalendar(events, currentDate, currentTime,
-        weatherSuccess ? &weatherData : nullptr,
-        wifiManager.isConnected(),
-        wifiManager.getRSSI(),
-        batteryMonitor.getVoltage(),
-        batteryMonitor.getPercentage(),
-        isStale);
+    displayMgr.showCalendar(events,
+                            currentDate,
+                            currentTime,
+                            weatherSuccess ? &weatherData : nullptr,
+                            wifiManager.isConnected(),
+                            wifiManager.getRSSI(),
+                            batteryMonitor.getVoltage(),
+                            batteryMonitor.getPercentage(),
+                            isStale);
 
     DEBUG_INFO_PRINTLN("Display update complete");
 
-    // Note: Events are managed by CalendarManager and CalendarStreamParser, no need to free them manually
+    // Note: Events are managed by CalendarManager and CalendarStreamParser, no need to free them
+    // manually
 
     // Cleanup clients
     delete weatherClient;
@@ -406,7 +415,7 @@ void clearCache() {
 
     File file = cacheDir.openNextFile();
     int count = 0;
-    while(file){
+    while (file) {
         String fileName = file.name();
         if (LittleFS.remove(fileName)) {
             DEBUG_INFO_PRINTLN(" - Removed: " + fileName);
@@ -421,8 +430,7 @@ void clearCache() {
     DEBUG_INFO_PRINTLN("Cache cleared. " + String(count) + " files removed.");
 }
 
-void enterDeepSleep(int retryMinutes)
-{
+void enterDeepSleep(int retryMinutes) {
     // Get current time
     time_t now;
     time(&now);
@@ -446,16 +454,16 @@ void enterDeepSleep(int retryMinutes)
 
         // Get update hour from configuration
         const RuntimeConfig& config = configLoader.getConfig();
-        int updateHour = config.update_hour;
+        int updateHour              = config.update_hour;
 
         // Always move to next day's update hour for once-daily update
         targetTime.tm_mday += 1;
-        targetTime.tm_hour = updateHour;
-        targetTime.tm_min = 0;
-        targetTime.tm_sec = 0;
+        targetTime.tm_hour  = updateHour;
+        targetTime.tm_min   = 0;
+        targetTime.tm_sec   = 0;
 
         time_t targetWakeup = mktime(&targetTime);
-        sleepSeconds = targetWakeup - now;
+        sleepSeconds        = targetWakeup - now;
 
         // If somehow negative, sleep for 24 hours
         if (sleepSeconds <= 0) {
@@ -503,16 +511,13 @@ void enterDeepSleep(int retryMinutes)
     esp_deep_sleep_start();
 }
 
-void printWakeupReason()
-{
+void printWakeupReason() {
     esp_sleep_wakeup_cause_t wakeup_reason;
     wakeup_reason = esp_sleep_get_wakeup_cause();
 
     DEBUG_INFO_PRINTLN("\n=== WAKE-UP REASON ===");
     switch (wakeup_reason) {
-    case ESP_SLEEP_WAKEUP_EXT0:
-        DEBUG_INFO_PRINTLN("Wake-up: External signal using RTC_IO");
-        break;
+    case ESP_SLEEP_WAKEUP_EXT0: DEBUG_INFO_PRINTLN("Wake-up: External signal using RTC_IO"); break;
     case ESP_SLEEP_WAKEUP_EXT1: {
         uint64_t wakeup_pin_mask = esp_sleep_get_ext1_wakeup_status();
         DEBUG_VERBOSE_PRINT("Wake-up: Button press on GPIO ");
@@ -526,33 +531,15 @@ void printWakeupReason()
 #endif
         break;
     }
-    case ESP_SLEEP_WAKEUP_TIMER:
-        DEBUG_INFO_PRINTLN("Wake-up: Timer (scheduled update)");
-        break;
-    case ESP_SLEEP_WAKEUP_TOUCHPAD:
-        DEBUG_INFO_PRINTLN("Wake-up: Touchpad");
-        break;
-    case ESP_SLEEP_WAKEUP_ULP:
-        DEBUG_INFO_PRINTLN("Wake-up: ULP program");
-        break;
-    case ESP_SLEEP_WAKEUP_GPIO:
-        DEBUG_INFO_PRINTLN("Wake-up: GPIO (legacy)");
-        break;
-    case ESP_SLEEP_WAKEUP_UART:
-        DEBUG_INFO_PRINTLN("Wake-up: UART");
-        break;
-    case ESP_SLEEP_WAKEUP_WIFI:
-        DEBUG_INFO_PRINTLN("Wake-up: WiFi");
-        break;
-    case ESP_SLEEP_WAKEUP_BT:
-        DEBUG_INFO_PRINTLN("Wake-up: Bluetooth");
-        break;
-    case ESP_SLEEP_WAKEUP_UNDEFINED:
-        DEBUG_INFO_PRINTLN("Wake-up: Undefined");
-        break;
-    default:
-        DEBUG_INFO_PRINTLN("Wake-up: Power on / Reset");
-        break;
+    case ESP_SLEEP_WAKEUP_TIMER:     DEBUG_INFO_PRINTLN("Wake-up: Timer (scheduled update)"); break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD:  DEBUG_INFO_PRINTLN("Wake-up: Touchpad"); break;
+    case ESP_SLEEP_WAKEUP_ULP:       DEBUG_INFO_PRINTLN("Wake-up: ULP program"); break;
+    case ESP_SLEEP_WAKEUP_GPIO:      DEBUG_INFO_PRINTLN("Wake-up: GPIO (legacy)"); break;
+    case ESP_SLEEP_WAKEUP_UART:      DEBUG_INFO_PRINTLN("Wake-up: UART"); break;
+    case ESP_SLEEP_WAKEUP_WIFI:      DEBUG_INFO_PRINTLN("Wake-up: WiFi"); break;
+    case ESP_SLEEP_WAKEUP_BT:        DEBUG_INFO_PRINTLN("Wake-up: Bluetooth"); break;
+    case ESP_SLEEP_WAKEUP_UNDEFINED: DEBUG_INFO_PRINTLN("Wake-up: Undefined"); break;
+    default:                         DEBUG_INFO_PRINTLN("Wake-up: Power on / Reset"); break;
     }
     DEBUG_INFO_PRINTLN("=======================\n");
 }
@@ -567,9 +554,9 @@ void printWakeupReason()
  * Initialize RGB LED
  * No initialization needed - neopixelWrite is built into ESP32 Arduino core
  */
-void initRGBLED()
-{
-    DEBUG_INFO_PRINTLN("Initializing RGB LED on pin " + String(RGB_LED_PIN) + " (using neopixelWrite)");
+void initRGBLED() {
+    DEBUG_INFO_PRINTLN("Initializing RGB LED on pin " + String(RGB_LED_PIN) +
+                       " (using neopixelWrite)");
     turnOffRGBLED();
 }
 
@@ -580,9 +567,9 @@ void initRGBLED()
  * @param green Enable green color
  * @param blue Enable blue color
  */
-void setRGBLED(bool red, bool green, bool blue)
-{
-    DEBUG_INFO_PRINTF("Setting RGB LED - R:%d G:%d B:%d\n", red ? 1 : 0, green ? 1 : 0, blue ? 1 : 0);
+void setRGBLED(bool red, bool green, bool blue) {
+    DEBUG_INFO_PRINTF(
+        "Setting RGB LED - R:%d G:%d B:%d\n", red ? 1 : 0, green ? 1 : 0, blue ? 1 : 0);
     uint8_t r = red ? RGB_LED_BRIGHTNESS : 0;
     uint8_t g = green ? RGB_LED_BRIGHTNESS : 0;
     uint8_t b = blue ? RGB_LED_BRIGHTNESS : 0;
@@ -592,8 +579,7 @@ void setRGBLED(bool red, bool green, bool blue)
 /**
  * Turn off RGB LED
  */
-void turnOffRGBLED()
-{
+void turnOffRGBLED() {
     DEBUG_INFO_PRINTLN("RGB LED: Turning OFF");
     neopixelWrite(RGB_LED_PIN, 0, 0, 0);
 }

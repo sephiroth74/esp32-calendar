@@ -8,7 +8,7 @@
 #endif
 
 class StringUtils {
-public:
+  public:
     // Convert Unicode accented characters to ASCII approximations
     // e.g., è → e', à → a', ò → o', ù → u', ì → i'
     static String convertAccents(const String& text);

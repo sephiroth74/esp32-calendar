@@ -2,15 +2,15 @@
 #define DATE_UTILS_H
 
 #ifdef NATIVE_TEST
-    #include "../test/mock_arduino.h"
+#include "../test/mock_arduino.h"
 #else
-    #include <Arduino.h>
+#include <Arduino.h>
 #endif
 
 #include <time.h>
 
 class DateUtils {
-public:
+  public:
     // Check if a given timestamp is today
     static bool isToday(time_t timestamp);
 
@@ -47,7 +47,7 @@ public:
     // Check if time is properly synchronized
     static bool isTimeSynchronized();
 
-private:
+  private:
     // Helper to normalize a timestamp to midnight
     static time_t normalizeToMidnight(time_t timestamp);
 };

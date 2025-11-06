@@ -2,16 +2,16 @@
 #define EVENT_CACHE_H
 
 #ifdef NATIVE_TEST
-    #include "../test/mock_arduino.h"
-    #include "../test/mock_littlefs.h"
+#include "../test/mock_arduino.h"
+#include "../test/mock_littlefs.h"
 #else
-    #include <Arduino.h>
-    #include <LittleFS.h>
+#include <Arduino.h>
+#include <LittleFS.h>
 #endif
 
-#include <vector>
 #include "calendar_event.h"
 #include "config.h"
+#include <vector>
 
 /**
  * @brief Binary event cache manager for LittleFS storage
@@ -30,7 +30,7 @@
  * Typical usage: 3 calendars × 50 events = ~30KB total storage
  */
 class EventCache {
-public:
+  public:
     /**
      * @brief Save events to binary cache file
      *
@@ -56,8 +56,7 @@ public:
      * @param calendarUrl Expected calendar URL (for validation)
      * @return Vector of CalendarEvent pointers (caller must delete), empty on failure
      */
-    static std::vector<CalendarEvent*> load(const String& cachePath,
-                                            const String& calendarUrl);
+    static std::vector<CalendarEvent*> load(const String& cachePath, const String& calendarUrl);
 
     /**
      * @brief Check if cache file is valid and not expired
@@ -89,22 +88,22 @@ public:
      */
     static size_t getSize(const String& cachePath);
 
-private:
+  private:
     // Cache file format constants (defined in config.h)
-    static const uint32_t CACHE_MAGIC = EVENT_CACHE_MAGIC;      ///< Magic number for file validation
-    static const uint32_t CACHE_VERSION = EVENT_CACHE_VERSION;  ///< Cache format version
-    static const size_t MAX_EVENTS = EVENT_CACHE_MAX_EVENTS;    ///< Safety limit on events per cache
+    static const uint32_t CACHE_MAGIC   = EVENT_CACHE_MAGIC;   ///< Magic number for file validation
+    static const uint32_t CACHE_VERSION = EVENT_CACHE_VERSION; ///< Cache format version
+    static const size_t MAX_EVENTS = EVENT_CACHE_MAX_EVENTS;   ///< Safety limit on events per cache
 
     /**
      * @brief Binary cache file header structure
      */
     struct __attribute__((packed)) CacheHeader {
-        uint32_t magic;              ///< Magic number (0xCAFEEVNT)
-        uint32_t version;            ///< Cache format version
-        uint32_t eventCount;         ///< Number of events in cache
-        time_t timestamp;            ///< Cache creation timestamp (Unix epoch)
-        char calendarUrl[256];       ///< Calendar URL for validation
-        uint32_t checksum;           ///< CRC32 of events data
+        uint32_t magic;        ///< Magic number (0xCAFEEVNT)
+        uint32_t version;      ///< Cache format version
+        uint32_t eventCount;   ///< Number of events in cache
+        time_t timestamp;      ///< Cache creation timestamp (Unix epoch)
+        char calendarUrl[256]; ///< Calendar URL for validation
+        uint32_t checksum;     ///< CRC32 of events data
     };
 
     /**
@@ -112,24 +111,24 @@ private:
      * Note: startTimeStr and endTimeStr removed in v2 (computed on-demand from timestamps)
      */
     struct __attribute__((packed)) SerializedEvent {
-        char title[128];             ///< Event title/summary
-        char location[64];           ///< Event location
-        char date[16];               ///< Date in YYYY-MM-DD format
-        time_t startTime;            ///< Start timestamp (Unix epoch)
-        time_t endTime;              ///< End timestamp (Unix epoch)
-        uint8_t flags;               ///< Bit flags: allDay, isToday, isTomorrow, isMultiDay
-        uint8_t dayOfMonth;          ///< Day of month (1-31)
-        char calendarName[32];       ///< Source calendar name
-        char calendarColor[16];      ///< Calendar color code
-        char summary[128];           ///< Alternative summary field
+        char title[128];        ///< Event title/summary
+        char location[64];      ///< Event location
+        char date[16];          ///< Date in YYYY-MM-DD format
+        time_t startTime;       ///< Start timestamp (Unix epoch)
+        time_t endTime;         ///< End timestamp (Unix epoch)
+        uint8_t flags;          ///< Bit flags: allDay, isToday, isTomorrow, isMultiDay
+        uint8_t dayOfMonth;     ///< Day of month (1-31)
+        char calendarName[32];  ///< Source calendar name
+        char calendarColor[16]; ///< Calendar color code
+        char summary[128];      ///< Alternative summary field
     };
 
     // Bit flags for SerializedEvent.flags
-    static const uint8_t FLAG_ALL_DAY = 0x01;
-    static const uint8_t FLAG_IS_TODAY = 0x02;
-    static const uint8_t FLAG_IS_TOMORROW = 0x04;
+    static const uint8_t FLAG_ALL_DAY      = 0x01;
+    static const uint8_t FLAG_IS_TODAY     = 0x02;
+    static const uint8_t FLAG_IS_TOMORROW  = 0x04;
     static const uint8_t FLAG_IS_MULTI_DAY = 0x08;
-    static const uint8_t FLAG_IS_HOLIDAY = 0x10;
+    static const uint8_t FLAG_IS_HOLIDAY   = 0x10;
 
     /**
      * @brief Calculate CRC32 checksum of data

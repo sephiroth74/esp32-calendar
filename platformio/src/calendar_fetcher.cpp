@@ -2,7 +2,10 @@
 #include "debug_config.h"
 #include <WiFi.h>
 
-CalendarFetcher::CalendarFetcher() : streamClient(nullptr), timeout(120000), debug(false) {  // Increased to 120 seconds for large calendars
+CalendarFetcher::CalendarFetcher() :
+    streamClient(nullptr),
+    timeout(120000),
+    debug(false) { // Increased to 120 seconds for large calendars
     // Initialize HTTP client settings
     http.useHTTP10(true);
     http.setReuse(false);
@@ -17,9 +20,7 @@ CalendarFetcher::~CalendarFetcher() {
 }
 
 bool CalendarFetcher::isLocalUrl(const String& url) const {
-    return url.startsWith("local://") ||
-           url.startsWith("file://") ||
-           url.startsWith("/");
+    return url.startsWith("local://") || url.startsWith("file://") || url.startsWith("/");
 }
 
 String CalendarFetcher::getLocalPath(const String& url) const {
@@ -65,17 +66,18 @@ FetchResult CalendarFetcher::fetchFromHttp(const String& url) {
     http.addHeader("Accept", "text/calendar");
 
     // Perform GET request
-    int httpCode = http.GET();
+    int httpCode    = http.GET();
     result.httpCode = httpCode;
 
     if (httpCode > 0) {
-        if (debug) Serial.printf("HTTP response code: %d\n", httpCode);
+        if (debug)
+            Serial.printf("HTTP response code: %d\n", httpCode);
 
         if (httpCode == HTTP_CODE_OK) {
             // Get the response
-            result.data = http.getString();
+            result.data     = http.getString();
             result.dataSize = result.data.length();
-            result.success = true;
+            result.success  = true;
 
             if (debug) {
                 Serial.printf("Received %d bytes\n", result.dataSize);
@@ -129,7 +131,7 @@ FetchResult CalendarFetcher::fetchFromFile(const String& path) {
     DEBUG_INFO_PRINTF("Reading local file: %s (%d bytes)\n", path.c_str(), result.dataSize);
 
     if (result.dataSize > 0) {
-        result.data = file.readString();
+        result.data    = file.readString();
         result.success = true;
 
         DEBUG_INFO_PRINTLN("File loaded successfully");
@@ -254,7 +256,8 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
             return nullptr;
         }
 
-        DEBUG_INFO_PRINTLN("Opened local file stream: " + path + " (" + String(fileStream.size()) + " bytes)");
+        DEBUG_INFO_PRINTLN("Opened local file stream: " + path + " (" + String(fileStream.size()) +
+                           " bytes)");
         return &fileStream;
 
     } else {
@@ -265,16 +268,18 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
         }
 
         int maxRetries = 3;
-        int retries = maxRetries;
+        int retries    = maxRetries;
         while (retries > 0) {
             int attemptNum = maxRetries - retries + 1;
 
             // Start HTTP request directly (without explicit WiFiClient)
-            DEBUG_INFO_PRINTF(">>> HTTP Fetch Attempt %d/%d for calendar\n", attemptNum, maxRetries);
+            DEBUG_INFO_PRINTF(
+                ">>> HTTP Fetch Attempt %d/%d for calendar\n", attemptNum, maxRetries);
             DEBUG_INFO_PRINTLN("Starting HTTP stream request...");
 
             if (!http.begin(url)) {
-                DEBUG_ERROR_PRINTLN(">>> Attempt " + String(attemptNum) + " FAILED: Could not begin HTTP request");
+                DEBUG_ERROR_PRINTLN(">>> Attempt " + String(attemptNum) +
+                                    " FAILED: Could not begin HTTP request");
                 retries--;
                 if (retries > 0) {
                     DEBUG_INFO_PRINTLN(">>> Retrying in 5 seconds...");
@@ -291,13 +296,17 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
             http.addHeader("Accept", "text/calendar");
 
             // Perform GET request
-            unsigned long requestStart = millis();
-            int httpCode = http.GET();
+            unsigned long requestStart    = millis();
+            int httpCode                  = http.GET();
             unsigned long requestDuration = millis() - requestStart;
 
             if (httpCode <= 0) {
-                DEBUG_ERROR_PRINTF(">>> Attempt %d FAILED: HTTP request failed (code: %d, error: %s, duration: %lums)\n",
-                             attemptNum, httpCode, http.errorToString(httpCode).c_str(), requestDuration);
+                DEBUG_ERROR_PRINTF(">>> Attempt %d FAILED: HTTP request failed (code: %d, error: "
+                                   "%s, duration: %lums)\n",
+                                   attemptNum,
+                                   httpCode,
+                                   http.errorToString(httpCode).c_str(),
+                                   requestDuration);
                 http.end();
                 retries--;
                 if (retries > 0) {
@@ -307,7 +316,10 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
                 continue;
             }
 
-            DEBUG_INFO_PRINTF(">>> Attempt %d: HTTP response code: %d (request took %lums)\n", attemptNum, httpCode, requestDuration);
+            DEBUG_INFO_PRINTF(">>> Attempt %d: HTTP response code: %d (request took %lums)\n",
+                              attemptNum,
+                              httpCode,
+                              requestDuration);
 
             if (httpCode != HTTP_CODE_OK) {
                 DEBUG_ERROR_PRINTF(">>> Attempt %d FAILED: HTTP error %d\n", attemptNum, httpCode);
@@ -323,7 +335,8 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
             // Get the stream
             Stream* stream = http.getStreamPtr();
             if (!stream) {
-                DEBUG_ERROR_PRINTF(">>> Attempt %d FAILED: Could not get HTTP stream pointer\n", attemptNum);
+                DEBUG_ERROR_PRINTF(">>> Attempt %d FAILED: Could not get HTTP stream pointer\n",
+                                   attemptNum);
                 http.end();
                 retries--;
                 if (retries > 0) {
@@ -336,9 +349,14 @@ Stream* CalendarFetcher::fetchStream(const String& url) {
             // Get content length for debugging
             int contentLength = http.getSize();
             if (contentLength >= 0) {
-                DEBUG_INFO_PRINTF(">>> Attempt %d SUCCESS: HTTP stream opened (Content-Length: %d bytes)\n", attemptNum, contentLength);
+                DEBUG_INFO_PRINTF(
+                    ">>> Attempt %d SUCCESS: HTTP stream opened (Content-Length: %d bytes)\n",
+                    attemptNum,
+                    contentLength);
             } else {
-                DEBUG_INFO_PRINTF(">>> Attempt %d SUCCESS: HTTP stream opened (chunked transfer, size unknown)\n", attemptNum);
+                DEBUG_INFO_PRINTF(
+                    ">>> Attempt %d SUCCESS: HTTP stream opened (chunked transfer, size unknown)\n",
+                    attemptNum);
             }
 
             return stream; // Success

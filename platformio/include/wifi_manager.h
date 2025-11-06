@@ -1,23 +1,23 @@
 #ifndef WIFI_MANAGER_H
 #define WIFI_MANAGER_H
 
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <time.h>
 #include "config.h"
 #include "littlefs_config.h"
+#include <HTTPClient.h>
+#include <WiFi.h>
+#include <time.h>
 
 // Forward declaration
 class LittleFSConfig;
 
 class WiFiManager {
-private:
+  private:
     WiFiClientSecure* client;
     unsigned long lastConnectionAttempt;
     const unsigned long connectionTimeout = 20000; // 20 seconds
     bool timeConfigured;
 
-public:
+  public:
     WiFiManager();
     ~WiFiManager();
     bool connect(const RuntimeConfig& config);
@@ -36,8 +36,8 @@ public:
      * @return true if time sync successful
      */
     bool syncTimeFromNTP(const String& timezone,
-                        const char* ntpServer1 = "pool.ntp.org",
-                        const char* ntpServer2 = "time.nist.gov");
+                         const char* ntpServer1 = "pool.ntp.org",
+                         const char* ntpServer2 = "time.nist.gov");
 
     /**
      * Check if time has been synchronized

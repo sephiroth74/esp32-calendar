@@ -8,7 +8,7 @@
  * for LiPo batteries using ADC readings and a voltage divider circuit.
  */
 class BatteryMonitor {
-private:
+  private:
     // Battery discharge curve lookup table for LiPo batteries
     struct BatteryPoint {
         float voltage;
@@ -31,7 +31,7 @@ private:
      */
     int calculatePercentage(float voltage) const;
 
-public:
+  public:
     /**
      * Constructor
      * @param pin ADC pin connected to battery voltage divider

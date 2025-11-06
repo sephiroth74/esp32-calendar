@@ -1,14 +1,20 @@
 #include "event_cache.h"
 
 #ifdef NATIVE_TEST
-    // For native tests, mock headers are already included via event_cache.h
-    // Define minimal DEBUG macros for testing
-    #define DEBUG_INFO_PRINTLN(x) do { } while(0)
-    #define DEBUG_WARN_PRINTLN(x) do { } while(0)
-    #define DEBUG_ERROR_PRINTLN(x) do { } while(0)
+// For native tests, mock headers are already included via event_cache.h
+// Define minimal DEBUG macros for testing
+#define DEBUG_INFO_PRINTLN(x)                                                                      \
+    do {                                                                                           \
+    } while (0)
+#define DEBUG_WARN_PRINTLN(x)                                                                      \
+    do {                                                                                           \
+    } while (0)
+#define DEBUG_ERROR_PRINTLN(x)                                                                     \
+    do {                                                                                           \
+    } while (0)
 #else
-    #include "debug_config.h"
-    #include <LittleFS.h>
+#include "debug_config.h"
+#include <LittleFS.h>
 #endif
 
 // CRC32 lookup table for checksum calculation
@@ -44,8 +50,7 @@ static const uint32_t crc32_table[256] = {
     0xa00ae278, 0xd70dd2ee, 0x4e048354, 0x3903b3c2, 0xa7672661, 0xd06016f7, 0x4969474d, 0x3e6e77db,
     0xaed16a4a, 0xd9d65adc, 0x40df0b66, 0x37d83bf0, 0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9,
     0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605, 0xcdd70693, 0x54de5729, 0x23d967bf,
-    0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94, 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
-};
+    0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94, 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d};
 
 uint32_t EventCache::calculateCRC32(const uint8_t* data, size_t length) {
     uint32_t crc = 0xFFFFFFFF;
@@ -70,21 +75,28 @@ void EventCache::serializeEvent(const CalendarEvent* event, SerializedEvent& ser
     strncpy(serialized.title, event->title.c_str(), sizeof(serialized.title) - 1);
     strncpy(serialized.location, event->location.c_str(), sizeof(serialized.location) - 1);
     strncpy(serialized.date, event->date.c_str(), sizeof(serialized.date) - 1);
-    strncpy(serialized.calendarName, event->calendarName.c_str(), sizeof(serialized.calendarName) - 1);
-    strncpy(serialized.calendarColor, event->calendarColor.c_str(), sizeof(serialized.calendarColor) - 1);
+    strncpy(
+        serialized.calendarName, event->calendarName.c_str(), sizeof(serialized.calendarName) - 1);
+    strncpy(serialized.calendarColor,
+            event->calendarColor.c_str(),
+            sizeof(serialized.calendarColor) - 1);
     strncpy(serialized.summary, event->summary.c_str(), sizeof(serialized.summary) - 1);
 
     // Copy timestamps and numeric values
-    serialized.startTime = event->startTime;
-    serialized.endTime = event->endTime;
+    serialized.startTime  = event->startTime;
+    serialized.endTime    = event->endTime;
     serialized.dayOfMonth = event->dayOfMonth;
 
     // Pack boolean flags into single byte
     serialized.flags = 0;
-    if (event->allDay) serialized.flags |= FLAG_ALL_DAY;
-    if (event->isToday) serialized.flags |= FLAG_IS_TODAY;
-    if (event->isTomorrow) serialized.flags |= FLAG_IS_TOMORROW;
-    if (event->isHoliday) serialized.flags |= FLAG_IS_HOLIDAY;
+    if (event->allDay)
+        serialized.flags |= FLAG_ALL_DAY;
+    if (event->isToday)
+        serialized.flags |= FLAG_IS_TODAY;
+    if (event->isTomorrow)
+        serialized.flags |= FLAG_IS_TOMORROW;
+    if (event->isHoliday)
+        serialized.flags |= FLAG_IS_HOLIDAY;
     // Note: isMultiDay flag reserved for future use
 }
 
@@ -92,24 +104,24 @@ CalendarEvent* EventCache::deserializeEvent(const SerializedEvent& serialized) {
     CalendarEvent* event = new CalendarEvent();
 
     // Copy strings (they're null-terminated in SerializedEvent)
-    event->title = String(serialized.title);
+    event->title    = String(serialized.title);
     event->location = String(serialized.location);
-    event->date = String(serialized.date);
+    event->date     = String(serialized.date);
     // Note: startTimeStr and endTimeStr from cache are ignored - they're computed on-demand
-    event->calendarName = String(serialized.calendarName);
+    event->calendarName  = String(serialized.calendarName);
     event->calendarColor = String(serialized.calendarColor);
-    event->summary = String(serialized.summary);
+    event->summary       = String(serialized.summary);
 
     // Copy timestamps and numeric values
-    event->startTime = serialized.startTime;
-    event->endTime = serialized.endTime;
+    event->startTime  = serialized.startTime;
+    event->endTime    = serialized.endTime;
     event->dayOfMonth = serialized.dayOfMonth;
 
     // Unpack boolean flags
-    event->allDay = (serialized.flags & FLAG_ALL_DAY) != 0;
-    event->isToday = (serialized.flags & FLAG_IS_TODAY) != 0;
+    event->allDay     = (serialized.flags & FLAG_ALL_DAY) != 0;
+    event->isToday    = (serialized.flags & FLAG_IS_TODAY) != 0;
     event->isTomorrow = (serialized.flags & FLAG_IS_TOMORROW) != 0;
-    event->isHoliday = (serialized.flags & FLAG_IS_HOLIDAY) != 0;
+    event->isHoliday  = (serialized.flags & FLAG_IS_HOLIDAY) != 0;
     // Note: isMultiDay flag reserved for future use
 
     return event;
@@ -140,10 +152,10 @@ bool EventCache::save(const String& cachePath,
     // Prepare header
     CacheHeader header;
     memset(&header, 0, sizeof(header));
-    header.magic = CACHE_MAGIC;
-    header.version = CACHE_VERSION;
+    header.magic      = CACHE_MAGIC;
+    header.version    = CACHE_VERSION;
     header.eventCount = events.size();
-    header.timestamp = time(nullptr);
+    header.timestamp  = time(nullptr);
     strncpy(header.calendarUrl, calendarUrl.c_str(), sizeof(header.calendarUrl) - 1);
 
     // Serialize all events to buffer for checksum calculation
@@ -153,10 +165,8 @@ bool EventCache::save(const String& cachePath,
     }
 
     // Calculate checksum of serialized events
-    header.checksum = calculateCRC32(
-        (const uint8_t*)serializedEvents,
-        events.size() * sizeof(SerializedEvent)
-    );
+    header.checksum =
+        calculateCRC32((const uint8_t*)serializedEvents, events.size() * sizeof(SerializedEvent));
 
     // Write to file
     File file = LittleFS.open(cachePath, "w");
@@ -190,8 +200,7 @@ bool EventCache::save(const String& cachePath,
     return true;
 }
 
-std::vector<CalendarEvent*> EventCache::load(const String& cachePath,
-                                             const String& calendarUrl) {
+std::vector<CalendarEvent*> EventCache::load(const String& cachePath, const String& calendarUrl) {
 
     std::vector<CalendarEvent*> events;
 
@@ -225,7 +234,8 @@ std::vector<CalendarEvent*> EventCache::load(const String& cachePath,
 
     // Validate version
     if (header.version != CACHE_VERSION) {
-        DEBUG_WARN_PRINTLN("Cache version mismatch: " + String(header.version) + " (expected " + String(CACHE_VERSION) + ")");
+        DEBUG_WARN_PRINTLN("Cache version mismatch: " + String(header.version) + " (expected " +
+                           String(CACHE_VERSION) + ")");
         file.close();
         return events;
     }
@@ -244,7 +254,7 @@ std::vector<CalendarEvent*> EventCache::load(const String& cachePath,
 
     // Read events
     SerializedEvent* serializedEvents = new SerializedEvent[header.eventCount];
-    size_t eventsSize = header.eventCount * sizeof(SerializedEvent);
+    size_t eventsSize                 = header.eventCount * sizeof(SerializedEvent);
 
     if (file.read((uint8_t*)serializedEvents, eventsSize) != eventsSize) {
         DEBUG_ERROR_PRINTLN("Failed to read cache events");
@@ -305,7 +315,8 @@ bool EventCache::isValid(const String& cachePath, time_t maxAge) {
     time_t age = now - header.timestamp;
 
     if (age < 0 || age >= maxAge) {
-        DEBUG_INFO_PRINTLN("Cache expired: age=" + String(age) + "s, maxAge=" + String(maxAge) + "s");
+        DEBUG_INFO_PRINTLN("Cache expired: age=" + String(age) + "s, maxAge=" + String(maxAge) +
+                           "s");
         return false;
     }
 

@@ -1,40 +1,40 @@
 #if defined(DEBUG_DISPLAY) && !defined(PIO_UNIT_TESTING)
 
-#include <Arduino.h>
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
-#include <time.h>
-#include <sys/time.h>
-#include <string.h>
+#include "calendar_display_adapter.h"
+#include "calendar_wrapper.h"
 #include "config.h"
 #include "display_manager.h"
 #include "error_manager.h"
-#include "wifi_manager.h"
-#include "calendar_wrapper.h"
-#include "calendar_display_adapter.h"
-#include "weather_client.h"
+#include "littlefs_config.h"
 #include "localization.h"
 #include "version.h"
-#include "littlefs_config.h"
-#include <LittleFS.h>
-#include <assets/fonts.h>
-#include <assets/icons/icons_64x64.h>
-#include <assets/icons/icons_48x48.h>
-#include <assets/icons/icons_32x32.h>
-#include <vector>
+#include "weather_client.h"
+#include "wifi_manager.h"
+#include <Arduino.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
+#include <LittleFS.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <assets/fonts.h>
+#include <assets/icons/icons_32x32.h>
+#include <assets/icons/icons_48x48.h>
+#include <assets/icons/icons_64x64.h>
+#include <string.h>
+#include <sys/time.h>
+#include <time.h>
+#include <vector>
 
 // Display layout constants (for old layout compatibility)
 #define CALENDAR_START_X 10
-#define CONTENT_START_Y 60
-#define EVENTS_START_X 400
+#define CONTENT_START_Y  60
+#define EVENTS_START_X   400
 #define OLD_EVENTS_WIDTH 390
 
 // Global objects
 DisplayManager display;
 WiFiManager wifiManager;
 CalendarManager* calendarManager = nullptr;
-WeatherClient* weatherClient = nullptr;
+WeatherClient* weatherClient     = nullptr;
 LittleFSConfig configLoader;
 
 // Function declarations
@@ -56,20 +56,18 @@ std::vector<CalendarEvent*> generateMockEvents();
 WeatherData generateMockWeather();
 int getBatteryPercentage(float voltage); // Battery percentage calculation
 
-void onDeviceBusy(const void*)
-{
+void onDeviceBusy(const void*) {
     // Handle device busy state
     // Serial.println("Display is busy...");
 }
 
-    void setup()
-{
-    
+void setup() {
+
     Serial.begin(115200);
     while (!Serial.isConnected()) {
         delay(10);
     }
-    
+
     delay(1000); // Wait for serial connection
 
     esp_log_level_set("*", ESP_LOG_DEBUG); // Set ESP32 core log level to DEBUG
@@ -125,8 +123,7 @@ void onDeviceBusy(const void*)
     showMenu();
 }
 
-void loop()
-{
+void loop() {
     if (Serial.available()) {
         String command = Serial.readStringUntil('\n');
         command.trim();
@@ -135,8 +132,7 @@ void loop()
     delay(100);
 }
 
-void showMenu()
-{
+void showMenu() {
     Serial.println("\n========== DEBUG MENU ==========");
     Serial.println("1  - Full Modern Calendar Demo");
     Serial.println("3  - Test Full Screen Errors");
@@ -156,8 +152,7 @@ void showMenu()
     Serial.print("\nEnter command: ");
 }
 
-void processCommand(String command)
-{
+void processCommand(String command) {
     Serial.println(command);
 
     if (command == "1") {
@@ -169,11 +164,12 @@ void processCommand(String command)
         POPULATE_TM_DATE_TIME(date, 2025, 10, 16, 12, 30, 1, -1);
         mktime(&date);
 
-        int currentDay = date.tm_mday;
+        int currentDay   = date.tm_mday;
         int currentMonth = date.tm_mon + 1;
-        int currentYear = date.tm_year + 1900;
+        int currentYear  = date.tm_year + 1900;
 
-        Serial.println("Date set to: " + String(currentDay) + "/" + String(currentMonth) + "/" + String(currentYear));
+        Serial.println("Date set to: " + String(currentDay) + "/" + String(currentMonth) + "/" +
+                       String(currentYear));
 
         char timeStr[32];
         strftime(timeStr, sizeof(timeStr), "%I:%M %p", &date);
@@ -230,8 +226,7 @@ void processCommand(String command)
     Serial.print("\nEnter command: ");
 }
 
-void testFullScreenError()
-{
+void testFullScreenError() {
     Serial.println("\nTesting Full Screen Errors...");
     Serial.println("Select error type:");
     Serial.println("1 - WiFi Connection Error");
@@ -248,34 +243,34 @@ void testFullScreenError()
     ErrorInfo error;
 
     if (choice == "1") {
-        error.code = ErrorCode::WIFI_CONNECTION_FAILED;
+        error.code    = ErrorCode::WIFI_CONNECTION_FAILED;
         error.message = LOC_ERROR_WIFI_CONNECTION_FAILED;
-        error.level = ErrorLevel::ERROR;
-        error.icon = ErrorIcon::WIFI;
+        error.level   = ErrorLevel::ERROR;
+        error.icon    = ErrorIcon::WIFI;
         error.details = "SSID: TestNetwork";
     } else if (choice == "2") {
-        error.code = ErrorCode::CALENDAR_FETCH_FAILED;
+        error.code    = ErrorCode::CALENDAR_FETCH_FAILED;
         error.message = LOC_ERROR_CALENDAR_FETCH_FAILED;
-        error.level = ErrorLevel::WARNING;
-        error.icon = ErrorIcon::CALENDAR;
+        error.level   = ErrorLevel::WARNING;
+        error.icon    = ErrorIcon::CALENDAR;
         error.details = "HTTP Error 404";
     } else if (choice == "3") {
-        error.code = ErrorCode::BATTERY_CRITICAL;
+        error.code    = ErrorCode::BATTERY_CRITICAL;
         error.message = LOC_ERROR_BATTERY_CRITICAL;
-        error.level = ErrorLevel::CRITICAL;
-        error.icon = ErrorIcon::BATTERY;
+        error.level   = ErrorLevel::CRITICAL;
+        error.icon    = ErrorIcon::BATTERY;
         error.details = "Battery: 5%";
     } else if (choice == "4") {
-        error.code = ErrorCode::MEMORY_ALLOCATION_FAILED;
+        error.code    = ErrorCode::MEMORY_ALLOCATION_FAILED;
         error.message = LOC_ERROR_MEMORY_ALLOCATION_FAILED;
-        error.level = ErrorLevel::CRITICAL;
-        error.icon = ErrorIcon::MEMORY;
+        error.level   = ErrorLevel::CRITICAL;
+        error.icon    = ErrorIcon::MEMORY;
         error.details = "Free heap: 1024 bytes";
     } else if (choice == "5") {
-        error.code = ErrorCode::NTP_SYNC_FAILED;
+        error.code    = ErrorCode::NTP_SYNC_FAILED;
         error.message = LOC_ERROR_NTP_SYNC_FAILED;
-        error.level = ErrorLevel::WARNING;
-        error.icon = ErrorIcon::CLOCK;
+        error.level   = ErrorLevel::WARNING;
+        error.icon    = ErrorIcon::CLOCK;
         error.details = "pool.ntp.org";
     }
 
@@ -283,8 +278,7 @@ void testFullScreenError()
     Serial.println("Error screen displayed!");
 }
 
-void testWifiConnection()
-{
+void testWifiConnection() {
     Serial.println("\n========================================");
     Serial.println("Testing WiFi Connection");
     Serial.println("========================================\n");
@@ -307,7 +301,9 @@ void testWifiConnection()
     // Display WiFi configuration from config.json
     Serial.println("--- WiFi Configuration from config.json ---");
     Serial.println("SSID: " + testConfigLoader.getWiFiSSID());
-    Serial.println("Password: " + String(testConfigLoader.getWiFiPassword().isEmpty() ? "(no password)" : "********"));
+    Serial.println("Password: " + String(testConfigLoader.getWiFiPassword().isEmpty()
+                                             ? "(no password)"
+                                             : "********"));
     Serial.println("\nAttempting to connect...");
 
     bool connected = wifiManager.connect(testConfigLoader.getConfig());
@@ -324,7 +320,7 @@ void testWifiConnection()
         Serial.println("Channel: " + String(WiFi.channel()));
 
         // Calculate signal quality percentage
-        int rssi = WiFi.RSSI();
+        int rssi    = WiFi.RSSI();
         int quality = 0;
         if (rssi >= -50)
             quality = 100;
@@ -393,10 +389,10 @@ void testWifiConnection()
         Serial.println("3. Router is within range");
 
         ErrorInfo error;
-        error.code = ErrorCode::WIFI_CONNECTION_FAILED;
+        error.code    = ErrorCode::WIFI_CONNECTION_FAILED;
         error.message = LOC_ERROR_WIFI_CONNECTION_FAILED;
-        error.level = ErrorLevel::ERROR;
-        error.icon = ErrorIcon::WIFI;
+        error.level   = ErrorLevel::ERROR;
+        error.icon    = ErrorIcon::WIFI;
         error.details = "SSID: " + testConfigLoader.getWiFiSSID();
         display.showFullScreenError(error);
 
@@ -406,8 +402,7 @@ void testWifiConnection()
     }
 }
 
-void testIconDisplay()
-{
+void testIconDisplay() {
     Serial.println("\nTesting Icon Display with Inverted Bitmaps...");
     Serial.println("Drawing error and warning icons using actual bitmap files...");
 
@@ -502,33 +497,32 @@ void testIconDisplay()
 }
 
 // LiPo battery discharge curve lookup table (same as in main.cpp)
-int getBatteryPercentageDebug(float voltage)
-{
+int getBatteryPercentageDebug(float voltage) {
     const struct {
         float voltage;
         int percentage;
     } lipoTable[] = {
-        { 4.20, 100 },
-        { 4.15, 95 },
-        { 4.11, 90 },
-        { 4.08, 85 },
-        { 4.02, 80 },
-        { 3.98, 75 },
-        { 3.95, 70 },
-        { 3.91, 65 },
-        { 3.87, 60 },
-        { 3.85, 55 },
-        { 3.84, 50 },
-        { 3.82, 45 },
-        { 3.80, 40 },
-        { 3.79, 35 },
-        { 3.77, 30 },
-        { 3.75, 25 },
-        { 3.73, 20 },
-        { 3.71, 15 },
-        { 3.69, 10 },
-        { 3.60, 5 },
-        { 3.50, 0 }
+        {4.20, 100},
+        {4.15, 95 },
+        {4.11, 90 },
+        {4.08, 85 },
+        {4.02, 80 },
+        {3.98, 75 },
+        {3.95, 70 },
+        {3.91, 65 },
+        {3.87, 60 },
+        {3.85, 55 },
+        {3.84, 50 },
+        {3.82, 45 },
+        {3.80, 40 },
+        {3.79, 35 },
+        {3.77, 30 },
+        {3.75, 25 },
+        {3.73, 20 },
+        {3.71, 15 },
+        {3.69, 10 },
+        {3.60, 5  },
+        {3.50, 0  }
     };
 
     const int tableSize = sizeof(lipoTable) / sizeof(lipoTable[0]);
@@ -540,10 +534,10 @@ int getBatteryPercentageDebug(float voltage)
 
     for (int i = 0; i < tableSize - 1; i++) {
         if (voltage >= lipoTable[i + 1].voltage) {
-            float v1 = lipoTable[i].voltage;
-            float v2 = lipoTable[i + 1].voltage;
-            int p1 = lipoTable[i].percentage;
-            int p2 = lipoTable[i + 1].percentage;
+            float v1    = lipoTable[i].voltage;
+            float v2    = lipoTable[i + 1].voltage;
+            int p1      = lipoTable[i].percentage;
+            int p2      = lipoTable[i + 1].percentage;
             float ratio = (voltage - v2) / (v1 - v2);
             return p2 + (int)(ratio * (p1 - p2));
         }
@@ -551,15 +545,14 @@ int getBatteryPercentageDebug(float voltage)
     return 0;
 }
 
-void testBatteryDisplay()
-{
+void testBatteryDisplay() {
     Serial.println("\nTesting Battery Status - Live Monitor");
     Serial.println("========================================");
     Serial.println("Press any key to stop monitoring...\n");
 
     // Initialize ADC for battery monitoring
     pinMode(BATTERY_PIN, INPUT);
-    analogReadResolution(12); // 12-bit resolution
+    analogReadResolution(12);       // 12-bit resolution
     analogSetAttenuation(ADC_11db); // Full scale 0-3.3V
 
     // Display initial screen
@@ -581,9 +574,9 @@ void testBatteryDisplay()
         int adcValue = analogRead(BATTERY_PIN);
 
         // Convert to voltage
-        float measuredMillivolts = (adcValue / 4095.0) * 3300.0; // mV at ADC pin
-        float batteryMillivolts = measuredMillivolts * BATTERY_VOLTAGE_DIVIDER; // mV at battery
-        float batteryVoltage = batteryMillivolts / 1000.0; // Convert to volts
+        float measuredMillivolts = (adcValue / 4095.0) * 3300.0;                 // mV at ADC pin
+        float batteryMillivolts  = measuredMillivolts * BATTERY_VOLTAGE_DIVIDER; // mV at battery
+        float batteryVoltage     = batteryMillivolts / 1000.0;                   // Convert to volts
 
         // Calculate percentage using LiPo curve
         int batteryPercentage = getBatteryPercentageDebug(batteryVoltage);
@@ -641,7 +634,8 @@ void testBatteryDisplay()
                 // Detailed info
                 display.setFont(&Ubuntu_R_12pt8b);
                 display.setCursor(50, 180);
-                display.print("ADC: " + String(adcValue) + " (" + String(measuredMillivolts, 0) + " mV)");
+                display.print("ADC: " + String(adcValue) + " (" + String(measuredMillivolts, 0) +
+                              " mV)");
 
                 display.setCursor(50, 220);
                 display.print("Battery: " + String(batteryMillivolts, 0) + " mV");
@@ -651,14 +645,20 @@ void testBatteryDisplay()
                 time_t now;
                 time(&now);
                 struct tm* timeinfo = localtime(&now);
-                int currentDay = timeinfo->tm_mday;
-                int currentMonth = timeinfo->tm_mon + 1;
-                int currentYear = timeinfo->tm_year + 1900;
+                int currentDay      = timeinfo->tm_mday;
+                int currentMonth    = timeinfo->tm_mon + 1;
+                int currentYear     = timeinfo->tm_year + 1900;
                 char timeStr[6];
                 strftime(timeStr, sizeof(timeStr), "%H:%M", timeinfo);
 
-                display.drawStatusBar(true, -65, batteryVoltage, batteryPercentage,
-                    currentDay, currentMonth, currentYear, String(timeStr));
+                display.drawStatusBar(true,
+                                      -65,
+                                      batteryVoltage,
+                                      batteryPercentage,
+                                      currentDay,
+                                      currentMonth,
+                                      currentYear,
+                                      String(timeStr));
 
             } while (display.nextPage());
         }
@@ -675,13 +675,12 @@ void testBatteryDisplay()
     Serial.println("========================================");
 }
 
-void testCalendarFetch()
-{
+void testCalendarFetch() {
     Serial.println("\nTesting Real Calendar Fetch...");
     Serial.println("========================================");
 
     // Show current system time BEFORE doing anything
-    time_t nowBefore = time(nullptr);
+    time_t nowBefore    = time(nullptr);
     struct tm* tmBefore = localtime(&nowBefore);
     char timeStrBefore[64];
     strftime(timeStrBefore, sizeof(timeStrBefore), "%Y-%m-%d %H:%M:%S %Z", tmBefore);
@@ -722,10 +721,10 @@ void testCalendarFetch()
     configTime(0, 0, "pool.ntp.org", "0.europe.pool.ntp.org", "time.google.com");
 
     // Wait for time to be set
-    time_t now = 0;
-    struct tm timeinfo = { 0 };
-    int retry = 0;
-    const int retry_count = 15;  // Increased retry count
+    time_t now            = 0;
+    struct tm timeinfo    = {0};
+    int retry             = 0;
+    const int retry_count = 15; // Increased retry count
 
     while (timeinfo.tm_year < (2020 - 1900) && ++retry < retry_count) {
         Serial.print(".");
@@ -744,8 +743,8 @@ void testCalendarFetch()
         Serial.println("Cannot continue without proper time sync.");
 
         // Parse compile date (__DATE__ format: "Oct 24 2024")
-        const char* months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+        const char* months[] = {
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
         char monthStr[4];
         int day, year, month = 0;
         sscanf(__DATE__, "%s %d %d", monthStr, &day, &year);
@@ -758,17 +757,17 @@ void testCalendarFetch()
         }
 
         // Set a reasonable default time based on compile date
-        struct tm defaultTime = {0};
-        defaultTime.tm_year = year - 1900;   // Years since 1900
-        defaultTime.tm_mon = month;           // Month (0-based)
-        defaultTime.tm_mday = day;            // Day of month
-        defaultTime.tm_hour = 12;            // Noon
-        defaultTime.tm_min = 0;
-        defaultTime.tm_sec = 0;
-        defaultTime.tm_isdst = -1;           // Let system determine DST
+        struct tm defaultTime   = {0};
+        defaultTime.tm_year     = year - 1900; // Years since 1900
+        defaultTime.tm_mon      = month;       // Month (0-based)
+        defaultTime.tm_mday     = day;         // Day of month
+        defaultTime.tm_hour     = 12;          // Noon
+        defaultTime.tm_min      = 0;
+        defaultTime.tm_sec      = 0;
+        defaultTime.tm_isdst    = -1; // Let system determine DST
 
         time_t defaultTimestamp = mktime(&defaultTime);
-        struct timeval tv = { .tv_sec = defaultTimestamp, .tv_usec = 0 };
+        struct timeval tv       = {.tv_sec = defaultTimestamp, .tv_usec = 0};
         settimeofday(&tv, NULL);
 
         char timeStr[32];
@@ -820,9 +819,9 @@ void testCalendarFetch()
         CalendarWrapper* cal = calendarManager->getCalendar(i);
         if (cal && cal->isEnabled()) {
             CalendarSummary summary;
-            summary.name = cal->getName();
-            summary.color = cal->getColor();
-            summary.events = cal->getEvents(nowTime, endDate);
+            summary.name       = cal->getName();
+            summary.color      = cal->getColor();
+            summary.events     = cal->getEvents(nowTime, endDate);
             summary.eventCount = summary.events.size();
 
             Serial.println("\n--- Calendar: " + summary.name + " ---");
@@ -834,7 +833,7 @@ void testCalendarFetch()
             // Print first few events from this calendar
             for (size_t j = 0; j < summary.events.size() && j < 5; j++) {
                 auto event = summary.events[j];
-                Serial.println("    Event " + String(j+1) + ": " + event->summary);
+                Serial.println("    Event " + String(j + 1) + ": " + event->summary);
                 Serial.println("      Date: " + event->date + " " + event->startTimeStr);
             }
             if (summary.eventCount > 5) {
@@ -862,7 +861,8 @@ void testCalendarFetch()
     for (size_t i = 0; i < calendarSummaries.size(); i++) {
         const CalendarSummary& summary = calendarSummaries[i];
 
-        Serial.println("\n[DEBUG] Displaying calendar " + String(i+1) + "/" + String(calendarSummaries.size()) + ": " + summary.name);
+        Serial.println("\n[DEBUG] Displaying calendar " + String(i + 1) + "/" +
+                       String(calendarSummaries.size()) + ": " + summary.name);
 
         display.setFullWindow();
         display.firstPage();
@@ -873,7 +873,7 @@ void testCalendarFetch()
             // Title at top
             display.setFont(&Ubuntu_R_18pt8b);
             display.setCursor(20, 40);
-            display.print("Calendar " + String(i+1) + "/" + String(calendarSummaries.size()));
+            display.print("Calendar " + String(i + 1) + "/" + String(calendarSummaries.size()));
 
             // Calendar name
             display.setFont(&Ubuntu_R_14pt8b);
@@ -889,7 +889,7 @@ void testCalendarFetch()
             display.print("Events: " + String(summary.eventCount));
 
             // List events
-            int y = 170;
+            int y          = 170;
             int lineHeight = 25;
             display.setFont(&Ubuntu_R_9pt8b);
 
@@ -902,7 +902,7 @@ void testCalendarFetch()
                 if (eventTitle.length() > 50) {
                     eventTitle = eventTitle.substring(0, 47) + "...";
                 }
-                display.print(String(j+1) + ". " + eventTitle);
+                display.print(String(j + 1) + ". " + eventTitle);
                 y += lineHeight;
 
                 // Event date/time
@@ -945,8 +945,7 @@ void testCalendarFetch()
     Serial.println("Calendar fetch test complete!");
 }
 
-void testErrorLevels()
-{
+void testErrorLevels() {
     Serial.println("\nTesting Error Levels...");
 
     display.firstPage();
@@ -960,35 +959,29 @@ void testErrorLevels()
         int y = 100;
 
         // Test each error level
-        ErrorLevel levels[] = { ErrorLevel::INFO, ErrorLevel::WARNING,
-            ErrorLevel::ERROR, ErrorLevel::CRITICAL };
-        const char* levelNames[] = { "INFO", "WARNING", "ERROR", "CRITICAL" };
+        ErrorLevel levels[] = {
+            ErrorLevel::INFO, ErrorLevel::WARNING, ErrorLevel::ERROR, ErrorLevel::CRITICAL};
+        const char* levelNames[] = {"INFO", "WARNING", "ERROR", "CRITICAL"};
 
         for (int i = 0; i < 4; i++) {
             ErrorInfo error;
-            error.level = levels[i];
+            error.level   = levels[i];
             error.message = String("Test ") + levelNames[i] + " message";
-            error.code = static_cast<ErrorCode>(100 + i);
+            error.code    = static_cast<ErrorCode>(100 + i);
 
             display.setFont(&Ubuntu_R_12pt8b);
             display.setCursor(50, y);
             display.print(levelNames[i]);
 
             // Draw appropriate icon for each level
-            int iconX = 200;
+            int iconX    = 200;
             int iconSize = 48;
 
             switch (levels[i]) {
-            case ErrorLevel::INFO:
-                display.drawInfoIcon(iconX, y - 30, iconSize);
-                break;
-            case ErrorLevel::WARNING:
-                display.drawWarningIcon(iconX, y - 30, iconSize);
-                break;
+            case ErrorLevel::INFO:     display.drawInfoIcon(iconX, y - 30, iconSize); break;
+            case ErrorLevel::WARNING:  display.drawWarningIcon(iconX, y - 30, iconSize); break;
             case ErrorLevel::ERROR:
-            case ErrorLevel::CRITICAL:
-                display.drawErrorIcon(iconX, y - 30, iconSize);
-                break;
+            case ErrorLevel::CRITICAL: display.drawErrorIcon(iconX, y - 30, iconSize); break;
             }
 
             y += 80;
@@ -999,8 +992,7 @@ void testErrorLevels()
     Serial.println("Error levels test complete!");
 }
 
-void testDithering()
-{
+void testDithering() {
     Serial.println("\nTesting Dithering Patterns...");
 
     display.firstPage();
@@ -1012,10 +1004,10 @@ void testDithering()
         display.print("Dithering Test");
 
         // Test different dithering levels
-        float levels[] = { 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.75 };
-        int x = 50;
-        int y = 100;
-        int boxSize = 80;
+        float levels[] = {0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.75};
+        int x          = 50;
+        int y          = 100;
+        int boxSize    = 80;
 
         for (int i = 0; i < 8; i++) {
             // Apply dithering to a box (white background, black foreground)
@@ -1038,16 +1030,14 @@ void testDithering()
     Serial.println("Dithering test complete!");
 }
 
-void clearDisplay()
-{
+void clearDisplay() {
     Serial.println("\nClearing display...");
     display.clear();
     display.refresh(false);
     Serial.println("Display cleared!");
 }
 
-void testWeatherFetch()
-{
+void testWeatherFetch() {
     Serial.println("\nTesting Real Weather Fetch...");
     Serial.println("========================================");
 
@@ -1076,7 +1066,8 @@ void testWeatherFetch()
 
     // Fetch weather data
     Serial.println("Fetching weather data...");
-    Serial.println("Location: Latitude " + String(testConfigLoader.getLatitude(), 6) + ", Longitude " + String(testConfigLoader.getLongitude(), 6));
+    Serial.println("Location: Latitude " + String(testConfigLoader.getLatitude(), 6) +
+                   ", Longitude " + String(testConfigLoader.getLongitude(), 6));
 
     WeatherData weatherData;
     bool success = weatherClient->fetchWeather(weatherData);
@@ -1099,7 +1090,8 @@ void testWeatherFetch()
         Serial.print("Code: " + String(day.weatherCode) + ", ");
         Serial.print("Max: " + String(day.tempMax, 1) + "°C, ");
         Serial.print("Min: " + String(day.tempMin, 1) + "°C, ");
-        Serial.println("Sunrise: " + day.sunrise.substring(11) + ", Sunset: " + day.sunset.substring(11));
+        Serial.println("Sunrise: " + day.sunrise.substring(11) +
+                       ", Sunset: " + day.sunset.substring(11));
     }
 
     // Display on screen
@@ -1111,14 +1103,14 @@ void testWeatherFetch()
     struct tm* timeinfo = localtime(&now);
 
     // Use mock date if time not synced
-    int currentDay = timeinfo->tm_mday;
+    int currentDay   = timeinfo->tm_mday;
     int currentMonth = timeinfo->tm_mon + 1;
-    int currentYear = timeinfo->tm_year + 1900;
+    int currentYear  = timeinfo->tm_year + 1900;
 
     if (currentYear <= 1970) {
-        currentDay = 16;
+        currentDay   = 16;
         currentMonth = 10;
-        currentYear = 2025;
+        currentYear  = 2025;
     }
 
     char timeStr[32];
@@ -1128,174 +1120,173 @@ void testWeatherFetch()
     std::vector<CalendarEvent*> mockEvents = generateMockEvents();
 
     // Get real WiFi signal strength
-    int rssi = WiFi.RSSI();
+    int rssi           = WiFi.RSSI();
     bool wifiConnected = WiFi.status() == WL_CONNECTED;
 
     // Get real battery values
-    int adcValue = analogRead(BATTERY_PIN);
+    int adcValue          = analogRead(BATTERY_PIN);
     float measuredVoltage = (adcValue / 4095.0) * 3.3;
-    float batteryVoltage = measuredVoltage * BATTERY_VOLTAGE_DIVIDER;
+    float batteryVoltage  = measuredVoltage * BATTERY_VOLTAGE_DIVIDER;
     int batteryPercentage = getBatteryPercentage(batteryVoltage);
 
     // Display with weather data using real values
     time_t now;
     time(&now);
-    display.showModernCalendar(mockEvents, now, &weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage);
+    display.showModernCalendar(
+        mockEvents, now, &weatherData, wifiConnected, rssi, batteryVoltage, batteryPercentage);
 
     Serial.println("Weather test complete!");
     Serial.println("========================================");
 }
 
-std::vector<CalendarEvent*> generateMockEvents()
-{
+std::vector<CalendarEvent*> generateMockEvents() {
     std::vector<CalendarEvent*> events;
 
     // Today's event (October 16)
     CalendarEvent* event1 = new CalendarEvent();
-    event1->title = "DS Call Swisscom";
-    event1->location = "Office";
-    event1->startTimeStr = "11:00";
-    event1->endTimeStr = "12:00";
-    event1->date = "2025-10-16";
-    event1->allDay = false;
-    event1->isToday = true;
-    event1->isTomorrow = false;
-    event1->dayOfMonth = 16;
+    event1->title         = "DS Call Swisscom";
+    event1->location      = "Office";
+    event1->startTimeStr  = "11:00";
+    event1->endTimeStr    = "12:00";
+    event1->date          = "2025-10-16";
+    event1->allDay        = false;
+    event1->isToday       = true;
+    event1->isTomorrow    = false;
+    event1->dayOfMonth    = 16;
     events.push_back(event1);
 
     // Tomorrow's events (October 17)
     CalendarEvent* event2 = new CalendarEvent();
-    event2->title = "Ritirare la moto";
-    event2->location = "Officina";
-    event2->startTimeStr = "10:30";
-    event2->endTimeStr = "11:00";
-    event2->date = "2025-10-17";
-    event2->allDay = false;
-    event2->isToday = false;
-    event2->isTomorrow = true;
-    event2->dayOfMonth = 17;
+    event2->title         = "Ritirare la moto";
+    event2->location      = "Officina";
+    event2->startTimeStr  = "10:30";
+    event2->endTimeStr    = "11:00";
+    event2->date          = "2025-10-17";
+    event2->allDay        = false;
+    event2->isToday       = false;
+    event2->isTomorrow    = true;
+    event2->dayOfMonth    = 17;
     events.push_back(event2);
 
     CalendarEvent* event3 = new CalendarEvent();
-    event3->title = "Chiamare meccanico";
-    event3->location = "";
-    event3->startTimeStr = "12:30";
-    event3->endTimeStr = "13:00";
-    event3->date = "2025-10-17";
-    event3->allDay = false;
-    event3->isToday = false;
-    event3->isTomorrow = true;
-    event3->dayOfMonth = 17;
+    event3->title         = "Chiamare meccanico";
+    event3->location      = "";
+    event3->startTimeStr  = "12:30";
+    event3->endTimeStr    = "13:00";
+    event3->date          = "2025-10-17";
+    event3->allDay        = false;
+    event3->isToday       = false;
+    event3->isTomorrow    = true;
+    event3->dayOfMonth    = 17;
     events.push_back(event3);
 
     // Event on Sunday 19th (same month)
     CalendarEvent* event5 = new CalendarEvent();
-    event5->title = "Buttare il secco";
-    event5->location = "";
-    event5->startTimeStr = "09:30";
-    event5->endTimeStr = "10:00";
-    event5->date = "2025-10-19";
-    event5->allDay = false;
-    event5->isToday = false;
-    event5->isTomorrow = false;
-    event5->dayOfMonth = 19;
+    event5->title         = "Buttare il secco";
+    event5->location      = "";
+    event5->startTimeStr  = "09:30";
+    event5->endTimeStr    = "10:00";
+    event5->date          = "2025-10-19";
+    event5->allDay        = false;
+    event5->isToday       = false;
+    event5->isTomorrow    = false;
+    event5->dayOfMonth    = 19;
     events.push_back(event5);
 
     // Event on Wednesday 22nd (same month)
     CalendarEvent* event6 = new CalendarEvent();
-    event6->title = "Cena di Natale con i colleghi di Swisscom";
-    event6->location = "Ristorante";
-    event6->startTimeStr = "17:30";
-    event6->endTimeStr = "23:00";
-    event6->date = "2025-10-22";
-    event6->allDay = false;
-    event6->isToday = false;
-    event6->isTomorrow = false;
-    event6->dayOfMonth = 22;
+    event6->title         = "Cena di Natale con i colleghi di Swisscom";
+    event6->location      = "Ristorante";
+    event6->startTimeStr  = "17:30";
+    event6->endTimeStr    = "23:00";
+    event6->date          = "2025-10-22";
+    event6->allDay        = false;
+    event6->isToday       = false;
+    event6->isTomorrow    = false;
+    event6->dayOfMonth    = 22;
     events.push_back(event6);
 
     // Event on Friday 31st (same month)
     CalendarEvent* event7 = new CalendarEvent();
-    event7->title = "Partita";
-    event7->location = "Stadium";
-    event7->startTimeStr = "21:00";
-    event7->endTimeStr = "23:00";
-    event7->date = "2025-10-31";
-    event7->allDay = false;
-    event7->isToday = false;
-    event7->isTomorrow = false;
-    event7->dayOfMonth = 31;
+    event7->title         = "Partita";
+    event7->location      = "Stadium";
+    event7->startTimeStr  = "21:00";
+    event7->endTimeStr    = "23:00";
+    event7->date          = "2025-10-31";
+    event7->allDay        = false;
+    event7->isToday       = false;
+    event7->isTomorrow    = false;
+    event7->dayOfMonth    = 31;
     events.push_back(event7);
 
     // Event on Saturday, November 4th (next month)
     CalendarEvent* event8 = new CalendarEvent();
-    event8->title = "Partita";
-    event8->location = "Stadium";
-    event8->startTimeStr = "09:00";
-    event8->endTimeStr = "11:00";
-    event8->date = "2025-11-04";
-    event8->allDay = false;
-    event8->isToday = false;
-    event8->isTomorrow = false;
-    event8->dayOfMonth = 4;
+    event8->title         = "Partita";
+    event8->location      = "Stadium";
+    event8->startTimeStr  = "09:00";
+    event8->endTimeStr    = "11:00";
+    event8->date          = "2025-11-04";
+    event8->allDay        = false;
+    event8->isToday       = false;
+    event8->isTomorrow    = false;
+    event8->dayOfMonth    = 4;
     events.push_back(event8);
 
     // Event on Christmas Eve (December)
     CalendarEvent* event9 = new CalendarEvent();
-    event9->title = "Vigilia di Natale";
-    event9->location = "Casa";
-    event9->startTimeStr = "19:00";
-    event9->endTimeStr = "23:59";
-    event9->date = "2025-12-24";
-    event9->allDay = false;
-    event9->isToday = false;
-    event9->isTomorrow = false;
-    event9->dayOfMonth = 24;
+    event9->title         = "Vigilia di Natale";
+    event9->location      = "Casa";
+    event9->startTimeStr  = "19:00";
+    event9->endTimeStr    = "23:59";
+    event9->date          = "2025-12-24";
+    event9->allDay        = false;
+    event9->isToday       = false;
+    event9->isTomorrow    = false;
+    event9->dayOfMonth    = 24;
     events.push_back(event9);
 
     // Event on New Year's Day 2026 (next year)
     CalendarEvent* event10 = new CalendarEvent();
-    event10->title = "Nuovo Anno";
-    event10->location = "Casa";
-    event10->startTimeStr = "12:00";
-    event10->endTimeStr = "13:00";
-    event10->date = "2026-01-01";
-    event10->allDay = false;
-    event10->isToday = false;
-    event10->isTomorrow = false;
-    event10->dayOfMonth = 1;
+    event10->title         = "Nuovo Anno";
+    event10->location      = "Casa";
+    event10->startTimeStr  = "12:00";
+    event10->endTimeStr    = "13:00";
+    event10->date          = "2026-01-01";
+    event10->allDay        = false;
+    event10->isToday       = false;
+    event10->isTomorrow    = false;
+    event10->dayOfMonth    = 1;
     events.push_back(event10);
 
     return events;
 }
 
-WeatherData generateMockWeather()
-{
+WeatherData generateMockWeather() {
     WeatherData weatherData;
 
     // Current weather
-    weatherData.currentTemp = 15.5;
+    weatherData.currentTemp        = 15.5;
     weatherData.currentWeatherCode = 2; // Partly cloudy
-    weatherData.isDay = true;
+    weatherData.isDay              = true;
 
     // Daily forecast (today and tomorrow)
     WeatherDay today;
-    today.date = "2025-10-16";
-    today.weatherCode = 2;
-    today.tempMax = 18.5;
-    today.tempMin = 8.0;
-    today.sunrise = "2025-10-16T06:42";
-    today.sunset = "2025-10-16T18:15";
+    today.date                     = "2025-10-16";
+    today.weatherCode              = 2;
+    today.tempMax                  = 18.5;
+    today.tempMin                  = 8.0;
+    today.sunrise                  = "2025-10-16T06:42";
+    today.sunset                   = "2025-10-16T18:15";
     today.precipitationProbability = 15; // 15% chance of rain
     weatherData.dailyForecast.push_back(today);
 
     WeatherDay tomorrow;
-    tomorrow.date = "2025-10-17";
-    tomorrow.weatherCode = 3;
-    tomorrow.tempMax = 16.2;
-    tomorrow.tempMin = 9.5;
-    tomorrow.sunrise = "2025-10-17T06:44";
-    tomorrow.sunset = "2025-10-17T18:13";
+    tomorrow.date                     = "2025-10-17";
+    tomorrow.weatherCode              = 3;
+    tomorrow.tempMax                  = 16.2;
+    tomorrow.tempMin                  = 9.5;
+    tomorrow.sunrise                  = "2025-10-17T06:44";
+    tomorrow.sunset                   = "2025-10-17T18:13";
     tomorrow.precipitationProbability = 45; // 45% chance of rain
     weatherData.dailyForecast.push_back(tomorrow);
 
@@ -1304,34 +1295,33 @@ WeatherData generateMockWeather()
 
 // LiPo battery discharge curve lookup table
 // Based on typical LiPo discharge characteristics
-int getBatteryPercentage(float voltage)
-{
+int getBatteryPercentage(float voltage) {
     // Voltage to percentage lookup table for single LiPo cell
     const struct {
         float voltage;
         int percentage;
     } lipoTable[] = {
-        { 4.20, 100 },
-        { 4.15, 95 },
-        { 4.11, 90 },
-        { 4.08, 85 },
-        { 4.02, 80 },
-        { 3.98, 75 },
-        { 3.95, 70 },
-        { 3.91, 65 },
-        { 3.87, 60 },
-        { 3.85, 55 },
-        { 3.84, 50 },
-        { 3.82, 45 },
-        { 3.80, 40 },
-        { 3.79, 35 },
-        { 3.77, 30 },
-        { 3.75, 25 },
-        { 3.73, 20 },
-        { 3.71, 15 },
-        { 3.69, 10 },
-        { 3.60, 5 },
-        { 3.50, 0 }
+        {4.20, 100},
+        {4.15, 95 },
+        {4.11, 90 },
+        {4.08, 85 },
+        {4.02, 80 },
+        {3.98, 75 },
+        {3.95, 70 },
+        {3.91, 65 },
+        {3.87, 60 },
+        {3.85, 55 },
+        {3.84, 50 },
+        {3.82, 45 },
+        {3.80, 40 },
+        {3.79, 35 },
+        {3.77, 30 },
+        {3.75, 25 },
+        {3.73, 20 },
+        {3.71, 15 },
+        {3.69, 10 },
+        {3.60, 5  },
+        {3.50, 0  }
     };
 
     const int tableSize = sizeof(lipoTable) / sizeof(lipoTable[0]);
@@ -1346,10 +1336,10 @@ int getBatteryPercentage(float voltage)
     for (int i = 0; i < tableSize - 1; i++) {
         if (voltage >= lipoTable[i + 1].voltage) {
             // Linear interpolation between two points
-            float v1 = lipoTable[i].voltage;
-            float v2 = lipoTable[i + 1].voltage;
-            int p1 = lipoTable[i].percentage;
-            int p2 = lipoTable[i + 1].percentage;
+            float v1    = lipoTable[i].voltage;
+            float v2    = lipoTable[i + 1].voltage;
+            int p1      = lipoTable[i].percentage;
+            int p2      = lipoTable[i + 1].percentage;
 
             float ratio = (voltage - v2) / (v1 - v2);
             return p2 + (int)(ratio * (p1 - p2));
@@ -1360,8 +1350,7 @@ int getBatteryPercentage(float voltage)
 }
 
 // Helper function to list files recursively
-void listDirectory(File dir, int numTabs = 1)
-{
+void listDirectory(File dir, int numTabs = 1) {
     while (true) {
         File entry = dir.openNextFile();
         if (!entry) {
@@ -1390,8 +1379,7 @@ void listDirectory(File dir, int numTabs = 1)
     }
 }
 
-void testLittleFSConfig()
-{
+void testLittleFSConfig() {
     Serial.println("\n========================================");
     Serial.println("Testing LittleFS Configuration");
     Serial.println("========================================\n");
@@ -1411,7 +1399,7 @@ void testLittleFSConfig()
 
     // Show filesystem info after initialization
     size_t totalBytes = LittleFS.totalBytes();
-    size_t usedBytes = LittleFS.usedBytes();
+    size_t usedBytes  = LittleFS.usedBytes();
     Serial.println("\n--- LittleFS Filesystem Status ---");
     Serial.println("Total space: " + String(totalBytes / 1024.0, 2) + " KB");
     Serial.println("Used space: " + String(usedBytes / 1024.0, 2) + " KB");
@@ -1461,7 +1449,8 @@ void testLittleFSConfig()
     Serial.println("--- Loading configuration via configLoader.loadConfiguration() ---");
     if (!testConfigLoader.loadConfiguration()) {
         Serial.println("ERROR: Failed to load configuration via configLoader.loadConfiguration()!");
-        Serial.println("The config.json file exists but may have JSON syntax errors or parsing issues.");
+        Serial.println(
+            "The config.json file exists but may have JSON syntax errors or parsing issues.");
         Serial.println("Check the debug output above for specific parsing errors.");
         return;
     }
@@ -1471,7 +1460,9 @@ void testLittleFSConfig()
     // Display all configuration values
     Serial.println("--- WiFi Configuration ---");
     Serial.println("SSID: " + testConfigLoader.getWiFiSSID());
-    Serial.println("Password: " + String(testConfigLoader.getWiFiPassword().isEmpty() ? "(no password)" : "********"));
+    Serial.println("Password: " + String(testConfigLoader.getWiFiPassword().isEmpty()
+                                             ? "(no password)"
+                                             : "********"));
 
     Serial.println("\n--- Time & Location ---");
     Serial.println("Timezone: " + testConfigLoader.getTimezone());
@@ -1480,7 +1471,8 @@ void testLittleFSConfig()
     Serial.println("Update Hour: " + String(testConfigLoader.getUpdateHour()) + ":00");
 
     Serial.println("\n--- Display Settings ---");
-    Serial.println("First Day of Week: " + String(FIRST_DAY_OF_WEEK) + (FIRST_DAY_OF_WEEK == 0 ? " (Sunday)" : " (Monday)"));
+    Serial.println("First Day of Week: " + String(FIRST_DAY_OF_WEEK) +
+                   (FIRST_DAY_OF_WEEK == 0 ? " (Sunday)" : " (Monday)"));
     Serial.println("Time Format: " + String(TIME_FORMAT_24H ? "24-hour" : "12-hour"));
     Serial.println("Display Language: " + String(DISPLAY_LANGUAGE));
 
@@ -1495,13 +1487,17 @@ void testLittleFSConfig()
             Serial.println("  Color: " + calendars[i].color);
             Serial.println("  Days to fetch: " + String(calendars[i].days_to_fetch));
             Serial.println("  Enabled: " + String(calendars[i].enabled ? "Yes" : "No"));
-            Serial.println("  URL: " + calendars[i].url.substring(0, 50) + (calendars[i].url.length() > 50 ? "..." : ""));
+            Serial.println("  URL: " + calendars[i].url.substring(0, 50) +
+                           (calendars[i].url.length() > 50 ? "..." : ""));
         }
     } else {
         // Fallback to single calendar
         String calendarUrl = testConfigLoader.getCalendarUrl();
         Serial.println("Single calendar mode");
-        Serial.println("Calendar URL: " + (calendarUrl.isEmpty() ? "(not configured)" : calendarUrl.substring(0, 50) + (calendarUrl.length() > 50 ? "..." : "")));
+        Serial.println("Calendar URL: " + (calendarUrl.isEmpty()
+                                               ? "(not configured)"
+                                               : calendarUrl.substring(0, 50) +
+                                                     (calendarUrl.length() > 50 ? "..." : "")));
     }
 
     // Display on screen as well
@@ -1545,7 +1541,8 @@ void testLittleFSConfig()
         y += 25;
 
         display.setCursor(50, y);
-        display.print("Location: " + String(testConfigLoader.getLatitude(), 2) + ", " + String(testConfigLoader.getLongitude(), 2));
+        display.print("Location: " + String(testConfigLoader.getLatitude(), 2) + ", " +
+                      String(testConfigLoader.getLongitude(), 2));
         y += 25;
 
         display.setCursor(50, y);
@@ -1569,12 +1566,11 @@ void testLittleFSConfig()
     Serial.println("========================================\n");
 }
 
-const char HelloWorld[] = "Hello World!";
+const char HelloWorld[]   = "Hello World!";
 const char HelloArduino[] = "Hello Arduino!";
-const char HelloEpaper[] = "Hello E-Paper!";
+const char HelloEpaper[]  = "Hello E-Paper!";
 
-void helloWorld()
-{
+void helloWorld() {
     Serial.println("helloWorld");
     display.setRotation(1);
     display.setFont(&FreeMonoBold9pt7b);
@@ -1597,19 +1593,18 @@ void helloWorld()
     Serial.println("helloWorld done");
 }
 
-void testDisplayCapabilities()
-{
+void testDisplayCapabilities() {
     Serial.println("\n========================================");
     Serial.println("Testing Display Capabilities");
     Serial.println("========================================\n");
 
     // Get display info
-    int width = display.width();
-    int height = display.height();
-    int pages = display.pages();
-    int pageHeight = display.pageHeight();
-    bool hasColor = display.hasColor();
-    bool hasPartialUpdate = display.hasPartialUpdate();
+    int width                 = display.width();
+    int height                = display.height();
+    int pages                 = display.pages();
+    int pageHeight            = display.pageHeight();
+    bool hasColor             = display.hasColor();
+    bool hasPartialUpdate     = display.hasPartialUpdate();
     bool hasFastPartialUpdate = display.hasFastPartialUpdate();
 
     // Print to serial
@@ -1641,7 +1636,7 @@ void testDisplayCapabilities()
         display.print("Display Capabilities");
 
         display.setFont(&Ubuntu_R_12pt8b);
-        int y = 100;
+        int y          = 100;
         int lineHeight = 30;
 
         display.setCursor(50, y);
@@ -1668,11 +1663,11 @@ void testDisplayCapabilities()
         y += lineHeight;
 
         display.setCursor(50, y);
-    #ifdef DISP_TYPE_BW
+#ifdef DISP_TYPE_BW
         display.print("Type: Black & White");
-    #elif defined(DISP_TYPE_6C)
+#elif defined(DISP_TYPE_6C)
         display.print("Type: 6-Color (Red/Orange/Yellow)");
-    #endif
+#endif
         y += lineHeight + 20;
 
         display.setFont(&Ubuntu_R_9pt8b);
@@ -1702,35 +1697,37 @@ void testDisplayCapabilities()
         display.setFont(&Ubuntu_R_18pt8b);
         display.setCursor(50, 50);
 
-    #ifdef DISP_TYPE_BW
+#ifdef DISP_TYPE_BW
         display.print("B&W Display - Dithering");
-    #elif defined(DISP_TYPE_6C)
+#elif defined(DISP_TYPE_6C)
         display.print("Color Display Test");
-    #endif
+#endif
 
-        int startY = 80;
-        int barWidth = 70;
+        int startY    = 80;
+        int barWidth  = 70;
         int barHeight = 300;
-        int spacing = 20;
-        int x = 50;
+        int spacing   = 20;
+        int x         = 50;
 
-    #ifdef DISP_TYPE_BW
+#ifdef DISP_TYPE_BW
         // For B&W displays: show dithering levels + special colors
 
         // Dithering levels
-        DitherLevel ditherLevels[] = {
-            DitherLevel::DITHER_10,
-            DitherLevel::DITHER_25,
-            DitherLevel::DITHER_50,
-            DitherLevel::DITHER_75
-        };
+        DitherLevel ditherLevels[] = {DitherLevel::DITHER_10,
+                                      DitherLevel::DITHER_25,
+                                      DitherLevel::DITHER_50,
+                                      DitherLevel::DITHER_75};
 
         const char* ditherLabels[] = {"10%", "25%", "50%", "75%"};
 
         for (int i = 0; i < 4; i++) {
-            display.applyDithering(x, startY, barWidth, barHeight,
-                                  GxEPD_WHITE, GxEPD_BLACK,
-                                  static_cast<int>(ditherLevels[i]) / 100.0f);
+            display.applyDithering(x,
+                                   startY,
+                                   barWidth,
+                                   barHeight,
+                                   GxEPD_WHITE,
+                                   GxEPD_BLACK,
+                                   static_cast<int>(ditherLevels[i]) / 100.0f);
 
             display.setFont(&Ubuntu_R_9pt8b);
             display.setCursor(x + 10, startY + barHeight + 20);
@@ -1740,7 +1737,7 @@ void testDisplayCapabilities()
         }
 
         // Add special colors: Black, White, Dark Grey, Light Grey
-        uint16_t specialColors[] = {GxEPD_BLACK, GxEPD_WHITE, GxEPD_DARKGREY, GxEPD_LIGHTGREY};
+        uint16_t specialColors[]  = {GxEPD_BLACK, GxEPD_WHITE, GxEPD_DARKGREY, GxEPD_LIGHTGREY};
         const char* colorLabels[] = {"Black", "White", "Dark", "Light"};
 
         for (int i = 0; i < 4; i++) {
@@ -1756,27 +1753,17 @@ void testDisplayCapabilities()
             x += barWidth + spacing;
         }
 
-    #elif defined(DISP_TYPE_6C)
+#elif defined(DISP_TYPE_6C)
         // For color displays: show all supported colors
-        uint16_t colors[] = {
-            GxEPD_BLACK,
-            GxEPD_WHITE,
-            GxEPD_RED,
-            GxEPD_YELLOW,
-            GxEPD_ORANGE,
-            GxEPD_DARKGREY,
-            GxEPD_LIGHTGREY
-        };
+        uint16_t colors[]         = {GxEPD_BLACK,
+                                     GxEPD_WHITE,
+                                     GxEPD_RED,
+                                     GxEPD_YELLOW,
+                                     GxEPD_ORANGE,
+                                     GxEPD_DARKGREY,
+                                     GxEPD_LIGHTGREY};
 
-        const char* colorLabels[] = {
-            "Black",
-            "White",
-            "Red",
-            "Yellow",
-            "Orange",
-            "Dark",
-            "Light"
-        };
+        const char* colorLabels[] = {"Black", "White", "Red", "Yellow", "Orange", "Dark", "Light"};
 
         for (int i = 0; i < 7; i++) {
             display.fillRect(x, startY, barWidth, barHeight, colors[i]);
@@ -1800,7 +1787,7 @@ void testDisplayCapabilities()
                 startY += barHeight + 50;
             }
         }
-    #endif
+#endif
 
     } while (display.nextPage());
 

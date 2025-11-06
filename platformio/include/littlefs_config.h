@@ -1,20 +1,20 @@
 #ifndef LITTLEFS_CONFIG_H
 #define LITTLEFS_CONFIG_H
 
-#include <Arduino.h>
-#include <LittleFS.h>
-#include <ArduinoJson.h>
-#include <vector>
 #include "config.h"
+#include <Arduino.h>
+#include <ArduinoJson.h>
+#include <LittleFS.h>
+#include <vector>
 
 // Structure for individual calendar configuration
 struct CalendarConfig {
-    String name;              // Display name for the calendar
-    String url;               // ICS URL
-    String color;             // Optional: color code for this calendar's events
-    bool enabled;             // Whether this calendar is active
-    int days_to_fetch;        // How many days ahead to fetch for this calendar
-    bool holiday_calendar;    // True if full-day events from this calendar are holidays
+    String name;           // Display name for the calendar
+    String url;            // ICS URL
+    String color;          // Optional: color code for this calendar's events
+    bool enabled;          // Whether this calendar is active
+    int days_to_fetch;     // How many days ahead to fetch for this calendar
+    bool holiday_calendar; // True if full-day events from this calendar are holidays
 };
 
 struct RuntimeConfig {
@@ -39,11 +39,11 @@ struct RuntimeConfig {
 };
 
 class LittleFSConfig {
-private:
+  private:
     RuntimeConfig config;
     const char* CONFIG_FILE = "/config.json";
 
-public:
+  public:
     LittleFSConfig();
     bool begin();
     bool loadConfiguration();

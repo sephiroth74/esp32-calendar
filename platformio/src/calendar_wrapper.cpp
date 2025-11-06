@@ -1,18 +1,14 @@
 #include "calendar_wrapper.h"
-#include "event_cache.h"
-#include "debug_config.h"
 #include "config.h"
+#include "debug_config.h"
+#include "event_cache.h"
 #include <algorithm>
 
 // CalendarWrapper implementation
 
-CalendarWrapper::CalendarWrapper()
-    : lastFetchTime(0), loaded(false), debug(false) {
-}
+CalendarWrapper::CalendarWrapper() : lastFetchTime(0), loaded(false), debug(false) {}
 
-CalendarWrapper::~CalendarWrapper() {
-    clearCache();
-}
+CalendarWrapper::~CalendarWrapper() { clearCache(); }
 
 void CalendarWrapper::clearCache() {
     for (auto event : cachedEvents) {
@@ -57,18 +53,20 @@ bool CalendarWrapper::load(bool forceRefresh) {
 
     // Clear previous events
     clearCache();
-    loaded = false;
+    loaded  = false;
     isStale = false; // Reset stale flag
 
     // Check if calendar is enabled
     if (!config.enabled) {
-        if (debug) DEBUG_VERBOSE_PRINTLN("Calendar is disabled, skipping");
+        if (debug)
+            DEBUG_VERBOSE_PRINTLN("Calendar is disabled, skipping");
         return true; // Not an error, just disabled
     }
 
     // Check if URL is configured
     if (config.url.isEmpty()) {
-        if (debug) DEBUG_ERROR_PRINTLN("Error: No URL configured");
+        if (debug)
+            DEBUG_ERROR_PRINTLN("Error: No URL configured");
         lastError = "No URL configured";
         return false;
     }
@@ -81,7 +79,7 @@ bool CalendarWrapper::load(bool forceRefresh) {
     parser.setDebug(debug);
 
     // Get date range for fetching events
-    time_t now = time(nullptr);
+    time_t now     = time(nullptr);
     time_t endDate = now + (config.days_to_fetch * 86400); // days_to_fetch days from now
 
     if (debug) {
@@ -91,12 +89,14 @@ bool CalendarWrapper::load(bool forceRefresh) {
 
     // Try fetching from remote with retries (cache only used as fallback)
     FilteredEvents* result = nullptr;
-    int retryCount = 0;
-    bool fetchSuccess = false;
+    int retryCount         = 0;
+    bool fetchSuccess      = false;
 
     while (retryCount < CALENDAR_FETCH_MAX_RETRIES && !fetchSuccess) {
         if (retryCount > 0) {
-            if (debug) DEBUG_INFO_PRINTLN("Retry attempt " + String(retryCount) + "/" + String(CALENDAR_FETCH_MAX_RETRIES));
+            if (debug)
+                DEBUG_INFO_PRINTLN("Retry attempt " + String(retryCount) + "/" +
+                                   String(CALENDAR_FETCH_MAX_RETRIES));
             delay(CALENDAR_FETCH_RETRY_DELAY_MS);
         }
 
@@ -109,7 +109,8 @@ bool CalendarWrapper::load(bool forceRefresh) {
             retryCount++;
             if (result && !result->error.isEmpty()) {
                 lastError = result->error;
-                if (debug) DEBUG_WARN_PRINTLN("Fetch failed: " + result->error);
+                if (debug)
+                    DEBUG_WARN_PRINTLN("Fetch failed: " + result->error);
             }
             if (result) {
                 delete result;
@@ -124,20 +125,23 @@ bool CalendarWrapper::load(bool forceRefresh) {
         result->events.clear(); // Prevent double deletion
 
         if (debug) {
-            DEBUG_INFO_PRINTLN("Successfully fetched " + String(cachedEvents.size()) + " events from remote");
+            DEBUG_INFO_PRINTLN("Successfully fetched " + String(cachedEvents.size()) +
+                               " events from remote");
         }
 
         delete result;
 
         // Save to binary cache for future use
         if (EventCache::save(cachePath, cachedEvents, config.url)) {
-            if (debug) DEBUG_INFO_PRINTLN("Saved events to binary cache");
+            if (debug)
+                DEBUG_INFO_PRINTLN("Saved events to binary cache");
         } else {
-            if (debug) DEBUG_WARN_PRINTLN("Failed to save events to binary cache");
+            if (debug)
+                DEBUG_WARN_PRINTLN("Failed to save events to binary cache");
         }
 
-        loaded = true;
-        isStale = false;
+        loaded        = true;
+        isStale       = false;
         lastFetchTime = time(nullptr);
         return true;
     }
@@ -152,17 +156,21 @@ bool CalendarWrapper::load(bool forceRefresh) {
 
     if (!cachedEvents.empty()) {
         if (debug) {
-            DEBUG_WARN_PRINTLN("Using stale cached data (" + String(cachedEvents.size()) + " events)");
+            DEBUG_WARN_PRINTLN("Using stale cached data (" + String(cachedEvents.size()) +
+                               " events)");
         }
-        loaded = true;
-        isStale = true;
-        lastError = "Using stale cached data - remote fetch failed after " + String(retryCount) + " retries";
+        loaded    = true;
+        isStale   = true;
+        lastError = "Using stale cached data - remote fetch failed after " + String(retryCount) +
+                    " retries";
         return true;
     }
 
     // Total failure - no remote data and no cache available
-    if (debug) DEBUG_ERROR_PRINTLN("Failed to load from remote and no cache available");
-    lastError = "Failed to fetch calendar after " + String(retryCount) + " retries and no cache available";
+    if (debug)
+        DEBUG_ERROR_PRINTLN("Failed to load from remote and no cache available");
+    lastError =
+        "Failed to fetch calendar after " + String(retryCount) + " retries and no cache available";
     loaded = false;
     return false;
 }
@@ -179,7 +187,7 @@ std::vector<CalendarEvent*> CalendarWrapper::getEvents(time_t startDate, time_t 
         if (event) {
             // Check if event is in range
             time_t eventStart = event->startTime;
-            time_t eventEnd = event->endTime;
+            time_t eventEnd   = event->endTime;
 
             if (eventEnd == 0) {
                 eventEnd = eventStart;
@@ -188,7 +196,7 @@ std::vector<CalendarEvent*> CalendarWrapper::getEvents(time_t startDate, time_t 
             // Check if event overlaps with the date range
             if ((eventStart <= endDate) && (eventEnd >= startDate)) {
                 // Add calendar metadata to each event
-                event->calendarName = config.name;
+                event->calendarName  = config.name;
                 event->calendarColor = config.color;
                 // Mark as holiday if it's from a holiday calendar and is all-day
                 event->isHoliday = (config.holiday_calendar && event->allDay);
@@ -208,7 +216,7 @@ std::vector<CalendarEvent*> CalendarWrapper::getAllEvents() {
     // Return all cached events with metadata
     for (auto event : cachedEvents) {
         if (event) {
-            event->calendarName = config.name;
+            event->calendarName  = config.name;
             event->calendarColor = config.color;
             // Mark as holiday if it's from a holiday calendar and is all-day
             event->isHoliday = (config.holiday_calendar && event->allDay);
@@ -229,7 +237,7 @@ size_t CalendarWrapper::getEventCountInRange(time_t startDate, time_t endDate) c
     for (auto event : cachedEvents) {
         if (event) {
             time_t eventStart = event->startTime;
-            time_t eventEnd = event->endTime;
+            time_t eventEnd   = event->endTime;
 
             if (eventEnd == 0) {
                 eventEnd = eventStart;
@@ -247,12 +255,9 @@ size_t CalendarWrapper::getEventCountInRange(time_t startDate, time_t endDate) c
 
 // CalendarManager implementation
 
-CalendarManager::CalendarManager() : debug(false) {
-}
+CalendarManager::CalendarManager() : debug(false) {}
 
-CalendarManager::~CalendarManager() {
-    clear();
-}
+CalendarManager::~CalendarManager() { clear(); }
 
 void CalendarManager::clear() {
     for (auto cal : calendars) {
@@ -297,13 +302,14 @@ bool CalendarManager::loadAll(bool forceRefresh) {
 
     bool allSuccess = true;
     int loadedCount = 0;
-    int errorCount = 0;
+    int errorCount  = 0;
 
     for (size_t i = 0; i < calendars.size(); i++) {
         CalendarWrapper* cal = calendars[i];
 
         if (debug) {
-            DEBUG_INFO_PRINTLN("\nLoading calendar " + String(i+1) + "/" + String(calendars.size()));
+            DEBUG_INFO_PRINTLN("\nLoading calendar " + String(i + 1) + "/" +
+                               String(calendars.size()));
         }
 
         if (cal->load(forceRefresh)) {
@@ -334,9 +340,10 @@ bool CalendarManager::loadAll(bool forceRefresh) {
         time_t now = time(nullptr);
         for (auto cal : calendars) {
             if (cal->isLoaded()) {
-                time_t endDate = now + (cal->getDaysToFetch() * 86400);
+                time_t endDate       = now + (cal->getDaysToFetch() * 86400);
                 size_t eventsInRange = cal->getEventCountInRange(now, endDate);
-                DEBUG_INFO_PRINTLN("  " + cal->getName() + ": " + String(eventsInRange) + " events in next " + String(cal->getDaysToFetch()) + " days");
+                DEBUG_INFO_PRINTLN("  " + cal->getName() + ": " + String(eventsInRange) +
+                                   " events in next " + String(cal->getDaysToFetch()) + " days");
             }
         }
     }
@@ -361,7 +368,8 @@ std::vector<CalendarEvent*> CalendarManager::getAllEvents(time_t startDate, time
     });
 
     if (debug) {
-        DEBUG_INFO_PRINTLN("Merged events from all calendars: " + String(allEvents.size()) + " events");
+        DEBUG_INFO_PRINTLN("Merged events from all calendars: " + String(allEvents.size()) +
+                           " events");
     }
 
     return allEvents;
@@ -389,31 +397,34 @@ void CalendarManager::printStatus() const {
     DEBUG_INFO_PRINTLN("Total calendars: " + String(calendars.size()));
 
     // Calculate the date range we're looking at
-    time_t now = time(nullptr);
-    time_t startDate = now;
+    time_t now                = time(nullptr);
+    time_t startDate          = now;
 
-    int enabledCount = 0;
-    int loadedCount = 0;
+    int enabledCount          = 0;
+    int loadedCount           = 0;
     size_t totalEventsInRange = 0;
 
     for (size_t i = 0; i < calendars.size(); i++) {
         CalendarWrapper* cal = calendars[i];
 
-        if (cal->isEnabled()) enabledCount++;
-        if (cal->isLoaded()) loadedCount++;
+        if (cal->isEnabled())
+            enabledCount++;
+        if (cal->isLoaded())
+            loadedCount++;
 
-        DEBUG_INFO_PRINTLN("\nCalendar " + String(i+1) + ": " + cal->getName());
+        DEBUG_INFO_PRINTLN("\nCalendar " + String(i + 1) + ": " + cal->getName());
         DEBUG_INFO_PRINTLN("  Enabled: " + String(cal->isEnabled() ? "Yes" : "No"));
         DEBUG_INFO_PRINTLN("  Loaded: " + String(cal->isLoaded() ? "Yes" : "No"));
 
         if (cal->isLoaded()) {
             // Calculate events in range for this calendar
-            time_t calEndDate = now + (cal->getDaysToFetch() * 86400);
+            time_t calEndDate    = now + (cal->getDaysToFetch() * 86400);
             size_t eventsInRange = cal->getEventCountInRange(startDate, calEndDate);
             totalEventsInRange += eventsInRange;
 
             DEBUG_INFO_PRINTLN("  Total events: " + String(cal->getEventCount()));
-            DEBUG_INFO_PRINTLN("  Events in range: " + String(eventsInRange) + " (next " + String(cal->getDaysToFetch()) + " days)");
+            DEBUG_INFO_PRINTLN("  Events in range: " + String(eventsInRange) + " (next " +
+                               String(cal->getDaysToFetch()) + " days)");
 
             // List events in range
             if (eventsInRange > 0) {
@@ -426,9 +437,9 @@ void CalendarManager::printStatus() const {
                         char dateStr[32];
                         strftime(dateStr, sizeof(dateStr), "%b %d, %H:%M", tm);
 
-                        DEBUG_INFO_PRINTLN("    " + String(j+1) + ". " + events[j]->summary +
-                                         " - " + String(dateStr) +
-                                         (events[j]->allDay ? " (all day)" : ""));
+                        DEBUG_INFO_PRINTLN("    " + String(j + 1) + ". " + events[j]->summary +
+                                           " - " + String(dateStr) +
+                                           (events[j]->allDay ? " (all day)" : ""));
                     }
                 }
             }

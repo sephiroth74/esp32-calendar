@@ -4,22 +4,45 @@
 
 // LiPo discharge curve lookup table
 const BatteryMonitor::BatteryPoint BatteryMonitor::lipoTable[] = {
-    {4.20, 100}, {4.15, 95}, {4.10, 90}, {4.05, 85}, {4.00, 80},
-    {3.95, 75}, {3.90, 70}, {3.85, 65}, {3.80, 60}, {3.75, 55},
-    {3.70, 50}, {3.65, 45}, {3.60, 40}, {3.55, 35}, {3.50, 30},
-    {3.45, 25}, {3.40, 20}, {3.35, 15}, {3.30, 10}, {3.20, 5}, {3.00, 0}
+    {4.20, 100},
+    {4.15, 95 },
+    {4.10, 90 },
+    {4.05, 85 },
+    {4.00, 80 },
+    {3.95, 75 },
+    {3.90, 70 },
+    {3.85, 65 },
+    {3.80, 60 },
+    {3.75, 55 },
+    {3.70, 50 },
+    {3.65, 45 },
+    {3.60, 40 },
+    {3.55, 35 },
+    {3.50, 30 },
+    {3.45, 25 },
+    {3.40, 20 },
+    {3.35, 15 },
+    {3.30, 10 },
+    {3.20, 5  },
+    {3.00, 0  }
 };
 
-const int BatteryMonitor::tableSize = sizeof(BatteryMonitor::lipoTable) / sizeof(BatteryMonitor::lipoTable[0]);
+const int BatteryMonitor::tableSize =
+    sizeof(BatteryMonitor::lipoTable) / sizeof(BatteryMonitor::lipoTable[0]);
 
-BatteryMonitor::BatteryMonitor(int pin, float divider)
-    : batteryPin(pin), voltageDivider(divider), lastVoltage(0.0), lastPercentage(0), debug(false) {
-}
+BatteryMonitor::BatteryMonitor(int pin, float divider) :
+    batteryPin(pin),
+    voltageDivider(divider),
+    lastVoltage(0.0),
+    lastPercentage(0),
+    debug(false) {}
 
-BatteryMonitor::BatteryMonitor()
-    : batteryPin(BATTERY_PIN), voltageDivider(BATTERY_VOLTAGE_DIVIDER),
-      lastVoltage(0.0), lastPercentage(0), debug(false) {
-}
+BatteryMonitor::BatteryMonitor() :
+    batteryPin(BATTERY_PIN),
+    voltageDivider(BATTERY_VOLTAGE_DIVIDER),
+    lastVoltage(0.0),
+    lastPercentage(0),
+    debug(false) {}
 
 void BatteryMonitor::update() {
     // Read ADC value
@@ -60,10 +83,10 @@ int BatteryMonitor::calculatePercentage(float voltage) const {
     for (int i = 0; i < tableSize - 1; i++) {
         if (voltage >= lipoTable[i + 1].voltage) {
             // Linear interpolation between two points
-            float v1 = lipoTable[i].voltage;
-            float v2 = lipoTable[i + 1].voltage;
-            int p1 = lipoTable[i].percentage;
-            int p2 = lipoTable[i + 1].percentage;
+            float v1    = lipoTable[i].voltage;
+            float v2    = lipoTable[i + 1].voltage;
+            int p1      = lipoTable[i].percentage;
+            int p2      = lipoTable[i + 1].percentage;
 
             float slope = (p1 - p2) / (v1 - v2);
             return p2 + slope * (voltage - v2);

@@ -1,12 +1,12 @@
 #ifndef WEATHER_CLIENT_H
 #define WEATHER_CLIENT_H
 
-#include <Arduino.h>
-#include <WiFiClientSecure.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-#include <vector>
 #include "config.h"
+#include <Arduino.h>
+#include <ArduinoJson.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <vector>
 
 /**
  * @brief Weather forecast data for a single day
@@ -16,13 +16,13 @@
  * Used by Open-Meteo weather API integration.
  */
 struct WeatherDay {
-    String date;                      ///< ISO format date (YYYY-MM-DD)
-    int weatherCode;                  ///< WMO weather code (0-99)
-    float tempMax;                    ///< Maximum temperature in degrees Celsius
-    float tempMin;                    ///< Minimum temperature in degrees Celsius
-    String sunrise;                   ///< Sunrise time in ISO format (YYYY-MM-DDTHH:MM)
-    String sunset;                    ///< Sunset time in ISO format (YYYY-MM-DDTHH:MM)
-    int precipitationProbability;     ///< Max precipitation probability for the day (0-100%)
+    String date;                  ///< ISO format date (YYYY-MM-DD)
+    int weatherCode;              ///< WMO weather code (0-99)
+    float tempMax;                ///< Maximum temperature in degrees Celsius
+    float tempMin;                ///< Minimum temperature in degrees Celsius
+    String sunrise;               ///< Sunrise time in ISO format (YYYY-MM-DDTHH:MM)
+    String sunset;                ///< Sunset time in ISO format (YYYY-MM-DDTHH:MM)
+    int precipitationProbability; ///< Max precipitation probability for the day (0-100%)
 };
 
 /**
@@ -33,12 +33,12 @@ struct WeatherDay {
  */
 struct WeatherData {
     // Current weather
-    float currentTemp;                ///< Current temperature in degrees Celsius
-    int currentWeatherCode;           ///< Current WMO weather code
-    bool isDay;                       ///< True if currently daytime (for icon selection)
+    float currentTemp;      ///< Current temperature in degrees Celsius
+    int currentWeatherCode; ///< Current WMO weather code
+    bool isDay;             ///< True if currently daytime (for icon selection)
 
     // Daily forecast (next 3 days)
-    std::vector<WeatherDay> dailyForecast;  ///< Vector of daily forecasts (today + 2 days)
+    std::vector<WeatherDay> dailyForecast; ///< Vector of daily forecasts (today + 2 days)
 };
 
 /**
@@ -60,10 +60,10 @@ struct WeatherData {
  * Endpoint: https://api.open-meteo.com/v1/forecast
  */
 class WeatherClient {
-private:
-    WiFiClientSecure* client;         ///< Secure WiFi client for HTTPS requests
-    float latitude;                   ///< Location latitude for weather queries
-    float longitude;                  ///< Location longitude for weather queries
+  private:
+    WiFiClientSecure* client; ///< Secure WiFi client for HTTPS requests
+    float latitude;           ///< Location latitude for weather queries
+    float longitude;          ///< Location longitude for weather queries
 
     /**
      * @brief Map WMO weather code to icon name
@@ -99,7 +99,7 @@ private:
      */
     String buildWeatherUrl();
 
-public:
+  public:
     /**
      * @brief Construct a new Weather Client object
      * @param wifiClient Pointer to WiFiClientSecure for HTTPS requests

@@ -1,10 +1,10 @@
+#include "date_utils.h"
+#include "debug_config.h"
 #include "display_manager.h"
 #include "localization.h"
-#include "debug_config.h"
-#include "weather_client.h"
 #include "string_utils.h"
 #include "version.h"
-#include "date_utils.h"
+#include "weather_client.h"
 #include <assets/fonts.h>
 #include <assets/icons/icons.h>
 
@@ -20,13 +20,12 @@
 // Header
 // ============================================================================
 
-void DisplayManager::drawLandscapeHeader(time_t now, const WeatherData* weatherData)
-{
+void DisplayManager::drawLandscapeHeader(time_t now, const WeatherData* weatherData) {
     // Extract date/time components
     struct tm* timeinfo = localtime(&now);
-    int currentDay = timeinfo->tm_mday;
-    int currentMonth = timeinfo->tm_mon + 1;
-    int currentYear = timeinfo->tm_year + 1900;
+    int currentDay      = timeinfo->tm_mday;
+    int currentMonth    = timeinfo->tm_mon + 1;
+    int currentYear     = timeinfo->tm_year + 1900;
 
     // Format month/year string
     String monthYear;
@@ -57,7 +56,7 @@ void DisplayManager::drawLandscapeHeader(time_t now, const WeatherData* weatherD
         if (today.sunset.length() >= 16) {
             String sunsetTime = today.sunset.substring(11, 16);
             int16_t textWidth = getTextWidth(sunsetTime, &FONT_SUNRISE_SUNSET);
-            int iconX = LEFT_WIDTH - textWidth - 38;
+            int iconX         = LEFT_WIDTH - textWidth - 38;
             display.drawInvertedBitmap(iconX, 8, wi_sunset_24x24, 24, 24, GxEPD_BLACK);
             display.setCursor(iconX + 28, 22);
             display.print(sunsetTime);
@@ -65,12 +64,12 @@ void DisplayManager::drawLandscapeHeader(time_t now, const WeatherData* weatherD
     }
 
     // Use font metrics for accurate centering
-    int16_t dayWidth = getTextWidth(dayStr, &FONT_HEADER_DAY_NUMBER);
+    int16_t dayWidth       = getTextWidth(dayStr, &FONT_HEADER_DAY_NUMBER);
     int16_t monthYearWidth = getTextWidth(monthYear, &FONT_HEADER_MONTH_YEAR);
 
     // Calculate vertical positions
     int16_t dayBaseline = getFontBaseline(&FONT_HEADER_DAY_NUMBER);
-    int16_t dayY = 10 + dayBaseline;
+    int16_t dayY        = 10 + dayBaseline;
 
     // Center and draw the day number
     display.setFont(&FONT_HEADER_DAY_NUMBER);
@@ -104,10 +103,9 @@ void DisplayManager::drawLandscapeHeader(time_t now, const WeatherData* weatherD
 // ============================================================================
 
 void DisplayManager::drawLandscapeCalendar(const MonthCalendar& calendar,
-                                           const std::vector<CalendarEvent*>& events)
-{
-    int startX = CALENDAR_MARGIN;
-    int startY = CALENDAR_START_Y;
+                                           const std::vector<CalendarEvent*>& events) {
+    int startX    = CALENDAR_MARGIN;
+    int startY    = CALENDAR_START_Y;
     int cellWidth = (LEFT_WIDTH - (2 * CALENDAR_MARGIN)) / 7;
 
     // Draw day labels
@@ -132,27 +130,26 @@ void DisplayManager::drawLandscapeCalendar(const MonthCalendar& calendar,
 // Events
 // ============================================================================
 
-void DisplayManager::drawLandscapeEvents(const std::vector<CalendarEvent*>& events)
-{
+void DisplayManager::drawLandscapeEvents(const std::vector<CalendarEvent*>& events) {
     // Draw events in the top right section
     DEBUG_VERBOSE_PRINTLN("=== DrawLandscapeEvents called ===");
     DEBUG_VERBOSE_PRINTLN("Total events received: " + String(events.size()));
 
-    int x = RIGHT_START_X + 20;
-    int y = 25;
+    int x          = RIGHT_START_X + 20;
+    int y          = 25;
     const int maxY = WEATHER_START_Y - 30;
 
     if (events.empty()) {
         // Use font metrics for proper centering
         String noEventsText = String(LOC_NO_EVENTS);
-        int16_t textWidth = getTextWidth(noEventsText, &FONT_NO_EVENTS);
-        int16_t baseline = getFontBaseline(&FONT_NO_EVENTS);
+        int16_t textWidth   = getTextWidth(noEventsText, &FONT_NO_EVENTS);
+        int16_t baseline    = getFontBaseline(&FONT_NO_EVENTS);
 
-        int boxWidth = display.width() - RIGHT_START_X;
-        int boxHeight = WEATHER_START_Y - HEADER_HEIGHT;
+        int boxWidth        = display.width() - RIGHT_START_X;
+        int boxHeight       = WEATHER_START_Y - HEADER_HEIGHT;
 
-        int centerX = RIGHT_START_X + boxWidth / 2 - textWidth / 2;
-        int centerY = HEADER_HEIGHT + boxHeight / 2 + baseline / 2;
+        int centerX         = RIGHT_START_X + boxWidth / 2 - textWidth / 2;
+        int centerY         = HEADER_HEIGHT + boxHeight / 2 + baseline / 2;
 
         display.setFont(&FONT_NO_EVENTS);
         display.setCursor(centerX, centerY);
@@ -163,13 +160,13 @@ void DisplayManager::drawLandscapeEvents(const std::vector<CalendarEvent*>& even
     // Get current date for formatting
     time_t now;
     time(&now);
-    struct tm* timeinfo = localtime(&now);
-    int currentYear = timeinfo->tm_year + 1900;
-    int currentMonth = timeinfo->tm_mon + 1;
-    int currentDay = timeinfo->tm_mday;
+    struct tm* timeinfo      = localtime(&now);
+    int currentYear          = timeinfo->tm_year + 1900;
+    int currentMonth         = timeinfo->tm_mon + 1;
+    int currentDay           = timeinfo->tm_mday;
 
     String currentDateHeader = "";
-    int eventCount = 0;
+    int eventCount           = 0;
 
     for (size_t i = 0; i < events.size() && y < maxY; i++) {
         CalendarEvent* event = events[i];
@@ -219,9 +216,10 @@ void DisplayManager::drawLandscapeEvents(const std::vector<CalendarEvent*>& even
 
         // Draw event title
         display.setFont(&FONT_EVENT_TITLE);
-        int titleX = x + 50;
+        int titleX        = x + 50;
         int titleMaxWidth = DISPLAY_WIDTH - titleX - 20;
-        String title = StringUtils::truncate(StringUtils::removeAccents(event->title), titleMaxWidth, "...");
+        String title =
+            StringUtils::truncate(StringUtils::removeAccents(event->title), titleMaxWidth, "...");
         display.setCursor(titleX, y);
         display.print(title);
 
@@ -234,8 +232,7 @@ void DisplayManager::drawLandscapeEvents(const std::vector<CalendarEvent*>& even
 // Weather
 // ============================================================================
 
-void DisplayManager::drawLandscapeWeatherPlaceholder()
-{
+void DisplayManager::drawLandscapeWeatherPlaceholder() {
     int x = RIGHT_START_X + 20;
     int y = WEATHER_START_Y + 6;
 
@@ -256,8 +253,7 @@ void DisplayManager::drawLandscapeWeatherPlaceholder()
     display.print(LOC_WEATHER_COMING_SOON);
 }
 
-void DisplayManager::drawLandscapeWeather(const WeatherData& weatherData)
-{
+void DisplayManager::drawLandscapeWeather(const WeatherData& weatherData) {
     if (weatherData.dailyForecast.empty()) {
         display.setFont(&FONT_WEATHER_MESSAGE);
         int x = RIGHT_START_X + 20;
@@ -268,17 +264,17 @@ void DisplayManager::drawLandscapeWeather(const WeatherData& weatherData)
     }
 
     int sectionWidth = RIGHT_WIDTH - 40;
-    int halfWidth = sectionWidth / 2;
-    int startX = RIGHT_START_X + 20;
-    int startY = WEATHER_START_Y + 10;
+    int halfWidth    = sectionWidth / 2;
+    int startX       = RIGHT_START_X + 20;
+    int startY       = WEATHER_START_Y + 10;
 
     WeatherClient tempClient(nullptr);
 
     // Today's weather
     if (weatherData.dailyForecast.size() > 0) {
-        const WeatherDay& today = weatherData.dailyForecast[0];
-        int x = startX;
-        int y = startY;
+        const WeatherDay& today  = weatherData.dailyForecast[0];
+        int x                    = startX;
+        int y                    = startY;
 
         const uint8_t* todayIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 64);
         if (todayIcon) {
@@ -298,7 +294,8 @@ void DisplayManager::drawLandscapeWeather(const WeatherData& weatherData)
         display.print(String(today.precipitationProbability) + "% " + LOC_RAIN);
 
         display.setFont(&FONT_WEATHER_TEMP_MAIN);
-        String tempRange = String(int(today.tempMin)) + "\260 / " + String(int(today.tempMax)) + "\260";
+        String tempRange =
+            String(int(today.tempMin)) + "\260 / " + String(int(today.tempMax)) + "\260";
         display.setCursor(x + 70, y + 55);
         display.print(tempRange);
     }
@@ -306,10 +303,11 @@ void DisplayManager::drawLandscapeWeather(const WeatherData& weatherData)
     // Tomorrow's weather
     if (weatherData.dailyForecast.size() > 1) {
         const WeatherDay& tomorrow = weatherData.dailyForecast[1];
-        int x = startX + halfWidth;
-        int y = startY;
+        int x                      = startX + halfWidth;
+        int y                      = startY;
 
-        const uint8_t* tomorrowIcon = tempClient.getWeatherIconBitmap(tomorrow.weatherCode, true, 64);
+        const uint8_t* tomorrowIcon =
+            tempClient.getWeatherIconBitmap(tomorrow.weatherCode, true, 64);
         if (tomorrowIcon) {
 #ifdef DISP_TYPE_6C
             display.drawInvertedBitmap(x, y, tomorrowIcon, 64, 64, COLOR_WEATHER_ICON);
@@ -327,7 +325,8 @@ void DisplayManager::drawLandscapeWeather(const WeatherData& weatherData)
         display.print(String(tomorrow.precipitationProbability) + "% " + LOC_RAIN);
 
         display.setFont(&FONT_WEATHER_TEMP_MAIN);
-        String tempRange = String(int(tomorrow.tempMin)) + "\260 / " + String(int(tomorrow.tempMax)) + "\260";
+        String tempRange =
+            String(int(tomorrow.tempMin)) + "\260 / " + String(int(tomorrow.tempMax)) + "\260";
         display.setCursor(x + 70, y + 55);
         display.print(tempRange);
     }
@@ -337,12 +336,14 @@ void DisplayManager::drawLandscapeWeather(const WeatherData& weatherData)
 // Status Bar
 // ============================================================================
 
-void DisplayManager::drawLandscapeStatusBar(bool wifiConnected, int rssi,
-    float batteryVoltage, int batteryPercentage,
-    time_t now, bool isStale)
-{
+void DisplayManager::drawLandscapeStatusBar(bool wifiConnected,
+                                            int rssi,
+                                            float batteryVoltage,
+                                            int batteryPercentage,
+                                            time_t now,
+                                            bool isStale) {
     display.setFont(&FONT_STATUSBAR);
-    int y = DISPLAY_HEIGHT;
+    int y     = DISPLAY_HEIGHT;
     int textY = y - 5;
 
     // LEFT: Battery icon and percentage

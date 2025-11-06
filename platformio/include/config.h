@@ -30,7 +30,7 @@
  */
 
 // Default values used when LittleFS config is missing
-#define LOC_LATITUDE 40.7128
+#define LOC_LATITUDE  40.7128
 #define LOC_LONGITUDE -74.0060
 
 // =============================================================================
@@ -38,7 +38,7 @@
 // =============================================================================
 // Orientation constants
 #define LANDSCAPE 0
-#define PORTRAIT 1
+#define PORTRAIT  1
 
 // Set display orientation
 // Options: LANDSCAPE or PORTRAIT
@@ -52,10 +52,10 @@
 // Standard resolution for 7.5" e-paper displays
 // Automatically adjusted based on orientation
 #if DISPLAY_ORIENTATION == PORTRAIT
-#define DISPLAY_WIDTH 480
+#define DISPLAY_WIDTH  480
 #define DISPLAY_HEIGHT 800
 #else // LANDSCAPE
-#define DISPLAY_WIDTH 800
+#define DISPLAY_WIDTH  800
 #define DISPLAY_HEIGHT 480
 #endif
 
@@ -82,7 +82,7 @@
 
 // Weekend cell background (will be dithered)
 #define COLOR_CALENDAR_WEEKEND_BG GxEPD_YELLOW
-#define DITHER_CALENDAR_WEEKEND 25 // 25% dithering for weekend cells
+#define DITHER_CALENDAR_WEEKEND   25 // 25% dithering for weekend cells
 
 // Previous/next month days dithering
 #define DITHER_CALENDAR_OUTSIDE_MONTH 20 // 20% dithering for prev/next month days
@@ -122,35 +122,35 @@
 
 // Calendar Header Fonts
 #define FONT_HEADER_DAY_NUMBER Luna_ITC_Std_Bold32pt7b // Large day number in header
-#define FONT_HEADER_MONTH_YEAR Luna_ITC_Regular26pt7b // Month and year text
-#define FONT_SUNRISE_SUNSET Ubuntu_R_7pt8b // Sunrise/sunset times in header
+#define FONT_HEADER_MONTH_YEAR Luna_ITC_Regular26pt7b  // Month and year text
+#define FONT_SUNRISE_SUNSET    Ubuntu_R_7pt8b          // Sunrise/sunset times in header
 
 // Calendar Grid Fonts
-#define FONT_CALENDAR_DAY_LABELS Luna_ITC_Std_Bold9pt7b // Day of week labels (M, T, W, etc.)
-#define FONT_CALENDAR_DAY_NUMBERS Luna_ITC_Std_Bold12pt7b // Day numbers in calendar grid
-#define FONT_CALENDAR_OUTSIDE_MONTH Luna_ITC_Regular12pt7b // Previous/next month days
+#define FONT_CALENDAR_DAY_LABELS    Luna_ITC_Std_Bold9pt7b  // Day of week labels (M, T, W, etc.)
+#define FONT_CALENDAR_DAY_NUMBERS   Luna_ITC_Std_Bold12pt7b // Day numbers in calendar grid
+#define FONT_CALENDAR_OUTSIDE_MONTH Luna_ITC_Regular12pt7b  // Previous/next month days
 
 // Events Section Fonts
 #define FONT_EVENT_DATE_HEADER Luna_ITC_Std_Bold12pt7b // Date headers (Today, Tomorrow, etc.)
-#define FONT_EVENT_TIME Ubuntu_R_9pt8b // Event time display
-#define FONT_EVENT_TITLE Ubuntu_R_9pt8b // Event title text
-#define FONT_EVENT_LOCATION Ubuntu_R_7pt8b // Event location (if shown)
-#define FONT_EVENT_DETAILS Ubuntu_R_9pt8b // Event details and more events text
-#define FONT_NO_EVENTS Luna_ITC_Regular14pt7b // "No Events" message
+#define FONT_EVENT_TIME        Ubuntu_R_9pt8b          // Event time display
+#define FONT_EVENT_TITLE       Ubuntu_R_9pt8b          // Event title text
+#define FONT_EVENT_LOCATION    Ubuntu_R_7pt8b          // Event location (if shown)
+#define FONT_EVENT_DETAILS     Ubuntu_R_9pt8b          // Event details and more events text
+#define FONT_NO_EVENTS         Luna_ITC_Regular14pt7b  // "No Events" message
 
 // Weather Section Fonts (increased for better readability in portrait mode)
 #define FONT_WEATHER_TEMP_MAIN Ubuntu_R_9pt8b // Main temperature display (increased from 9pt)
-#define FONT_WEATHER_MESSAGE Luna_ITC_Regular12pt7b // Weather status messages
-#define FONT_WEATHER_LABEL Ubuntu_R_11pt8b // Today/Tomorrow labels (increased from 8pt)
-#define FONT_WEATHER_RAIN Ubuntu_R_9pt8b // Rain percentage display (increased from 8pt)
+#define FONT_WEATHER_MESSAGE   Luna_ITC_Regular12pt7b // Weather status messages
+#define FONT_WEATHER_LABEL     Ubuntu_R_11pt8b        // Today/Tomorrow labels (increased from 8pt)
+#define FONT_WEATHER_RAIN      Ubuntu_R_9pt8b // Rain percentage display (increased from 8pt)
 
 // Error Display Fonts
-#define FONT_ERROR_TITLE Luna_ITC_Std_Bold18pt7b // Error title
-#define FONT_ERROR_MESSAGE Luna_ITC_Regular12pt7b // Error message text
-#define FONT_ERROR_DETAILS Ubuntu_R_9pt8b // Error details/codes
+#define FONT_ERROR_TITLE   Luna_ITC_Std_Bold18pt7b // Error title
+#define FONT_ERROR_MESSAGE Luna_ITC_Regular12pt7b  // Error message text
+#define FONT_ERROR_DETAILS Ubuntu_R_9pt8b          // Error details/codes
 
 // Legacy compatibility (deprecated - use new font defines above)
-#define EVENT_BODY_FONT FONT_EVENT_TITLE
+#define EVENT_BODY_FONT   FONT_EVENT_TITLE
 #define EVENT_HEADER_FONT FONT_EVENT_DATE_HEADER
 
 // Statusbar
@@ -159,34 +159,34 @@
 #else
 
 // Calendar Header Fonts
-#define FONT_HEADER_DAY_NUMBER Luna_ITC_Std_Bold26pt7b // Large day number in header
-#define FONT_HEADER_MONTH_YEAR Luna_ITC_Regular20pt7b // Month and year text
-#define FONT_SUNRISE_SUNSET Ubuntu_R_6pt8b // Sunrise/sunset times in header
+#define FONT_HEADER_DAY_NUMBER      Luna_ITC_Std_Bold26pt7b // Large day number in header
+#define FONT_HEADER_MONTH_YEAR      Luna_ITC_Regular20pt7b  // Month and year text
+#define FONT_SUNRISE_SUNSET         Ubuntu_R_6pt8b          // Sunrise/sunset times in header
 
 // Calendar Grid Fonts
-#define FONT_CALENDAR_DAY_LABELS Luna_ITC_Std_Bold9pt7b // Day of week labels (M, T, W, etc.)
-#define FONT_CALENDAR_DAY_NUMBERS Luna_ITC_Std_Bold12pt7b // Day numbers in calendar grid
-#define FONT_CALENDAR_OUTSIDE_MONTH Luna_ITC_Regular12pt7b // Previous/next month days
+#define FONT_CALENDAR_DAY_LABELS    Luna_ITC_Std_Bold9pt7b  // Day of week labels (M, T, W, etc.)
+#define FONT_CALENDAR_DAY_NUMBERS   Luna_ITC_Std_Bold12pt7b // Day numbers in calendar grid
+#define FONT_CALENDAR_OUTSIDE_MONTH Luna_ITC_Regular12pt7b  // Previous/next month days
 
 // Events Section Fonts
-#define FONT_EVENT_DATE_HEADER Luna_ITC_Std_Bold11pt7b // Date headers (Today, Tomorrow, etc.)
-#define FONT_EVENT_TIME Ubuntu_R_8pt8b // Event time display
-#define FONT_EVENT_TITLE Ubuntu_R_8pt8b // Event title text
-#define FONT_NO_EVENTS Luna_ITC_Regular14pt7b // "No Events" message
+#define FONT_EVENT_DATE_HEADER      Luna_ITC_Std_Bold11pt7b // Date headers (Today, Tomorrow, etc.)
+#define FONT_EVENT_TIME             Ubuntu_R_8pt8b          // Event time display
+#define FONT_EVENT_TITLE            Ubuntu_R_8pt8b          // Event title text
+#define FONT_NO_EVENTS              Luna_ITC_Regular14pt7b  // "No Events" message
 
 // Weather Section Fonts (increased for better readability in portrait mode)
-#define FONT_WEATHER_TEMP_MAIN Ubuntu_R_9pt8b // Main temperature display (increased from 9pt)
-#define FONT_WEATHER_MESSAGE Luna_ITC_Regular11pt7b // Weather status messages
-#define FONT_WEATHER_LABEL Ubuntu_R_10pt8b // Today/Tomorrow labels (increased from 8pt)
-#define FONT_WEATHER_RAIN Ubuntu_R_9pt8b // Rain percentage display (increased from 8pt)
+#define FONT_WEATHER_TEMP_MAIN      Ubuntu_R_9pt8b // Main temperature display (increased from 9pt)
+#define FONT_WEATHER_MESSAGE        Luna_ITC_Regular11pt7b // Weather status messages
+#define FONT_WEATHER_LABEL          Ubuntu_R_10pt8b // Today/Tomorrow labels (increased from 8pt)
+#define FONT_WEATHER_RAIN           Ubuntu_R_9pt8b  // Rain percentage display (increased from 8pt)
 
 // Error Display Fonts
-#define FONT_ERROR_TITLE Luna_ITC_Std_Bold18pt7b // Error title
-#define FONT_ERROR_MESSAGE Luna_ITC_Regular12pt7b // Error message text
-#define FONT_ERROR_DETAILS Ubuntu_R_9pt8b // Error details/codes
+#define FONT_ERROR_TITLE            Luna_ITC_Std_Bold18pt7b // Error title
+#define FONT_ERROR_MESSAGE          Luna_ITC_Regular12pt7b  // Error message text
+#define FONT_ERROR_DETAILS          Ubuntu_R_9pt8b          // Error details/codes
 
 // Statusbar
-#define FONT_STATUSBAR Ubuntu_R_5pt8b // Statusbar text
+#define FONT_STATUSBAR              Ubuntu_R_5pt8b          // Statusbar text
 
 #endif // DISPLAY_ORIENTATION
 
@@ -221,7 +221,9 @@
 // These defaults are used only when config.json is missing or incomplete
 
 // Default calendar URL (used as fallback)
-#define DEFAULT_CALENDAR_URL "https://calendar.google.com/calendar/ical/it.ch%23holiday%40group.v.calendar.google.com/public/basic.ics"
+#define DEFAULT_CALENDAR_URL                                                                       \
+    "https://calendar.google.com/calendar/ical/it.ch%23holiday%40group.v.calendar.google.com/"     \
+    "public/basic.ics"
 
 // Default number of days to fetch events
 #define DEFAULT_DAYS_TO_FETCH 30
@@ -232,12 +234,12 @@
 
 // Daily update time and timezone are now configured in data/config.json
 // Default values (used only if config.json is missing):
-#define DEFAULT_UPDATE_HOUR 5 // 5:00 AM
-#define DEFAULT_TIMEZONE "CET-1CEST,M3.5.0,M10.5.0/3" // Central European Time
+#define DEFAULT_UPDATE_HOUR 5                            // 5:00 AM
+#define DEFAULT_TIMEZONE    "CET-1CEST,M3.5.0,M10.5.0/3" // Central European Time
 
 // Error retry intervals (in minutes)
 // How long to wait before retrying after specific errors
-#define WIFI_ERROR_RETRY_MINUTES 30 // Retry after 30 minutes if WiFi fails
+#define WIFI_ERROR_RETRY_MINUTES     30 // Retry after 30 minutes if WiFi fails
 #define CALENDAR_ERROR_RETRY_MINUTES 60 // Retry after 1 hour if calendar fetch fails
 // Note: Battery low error will not set a wake-up timer (sleep indefinitely)
 
@@ -332,13 +334,13 @@
 // =============================================================================
 
 // Binary event cache settings
-#define EVENT_CACHE_MAGIC 0xCAFEEE00 // Magic number for cache file validation
-#define EVENT_CACHE_VERSION 2 // Cache format version (v2: removed startTimeStr/endTimeStr)
-#define EVENT_CACHE_MAX_EVENTS 200 // Maximum events per cache file
+#define EVENT_CACHE_MAGIC            0xCAFEEE00 // Magic number for cache file validation
+#define EVENT_CACHE_VERSION          2 // Cache format version (v2: removed startTimeStr/endTimeStr)
+#define EVENT_CACHE_MAX_EVENTS       200   // Maximum events per cache file
 #define EVENT_CACHE_VALIDITY_SECONDS 86400 // Cache validity: 24 hours
 
 // Calendar fetch retry configuration
-#define CALENDAR_FETCH_MAX_RETRIES 3 // Maximum retry attempts before using cache
+#define CALENDAR_FETCH_MAX_RETRIES    3    // Maximum retry attempts before using cache
 #define CALENDAR_FETCH_RETRY_DELAY_MS 2000 // Delay between retries (2 seconds)
 
 // =============================================================================
@@ -365,7 +367,7 @@
 // =============================================================================
 // NeoPixel RGB LED CONFIGURATION
 // =============================================================================
-#define RGB_LED_PIN 21 // GPIO pin for RGB LED (if used)
+#define RGB_LED_PIN        21 // GPIO pin for RGB LED (if used)
 
 #define RGB_LED_BRIGHTNESS 50 // About 20% brightness for power efficiency
 

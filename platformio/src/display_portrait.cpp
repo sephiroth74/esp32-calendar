@@ -1,10 +1,10 @@
+#include "date_utils.h"
+#include "debug_config.h"
 #include "display_manager.h"
 #include "localization.h"
-#include "debug_config.h"
-#include "weather_client.h"
 #include "string_utils.h"
-#include "date_utils.h"
 #include "version.h"
+#include "weather_client.h"
 #include <assets/fonts.h>
 #include <assets/icons/icons.h>
 
@@ -20,13 +20,12 @@
 // Header
 // ============================================================================
 
-void DisplayManager::drawPortraitHeader(time_t now, const WeatherData* weatherData)
-{
+void DisplayManager::drawPortraitHeader(time_t now, const WeatherData* weatherData) {
     // Extract date/time components
     struct tm* timeinfo = localtime(&now);
-    int currentDay = timeinfo->tm_mday;
-    int currentMonth = timeinfo->tm_mon + 1;
-    int currentYear = timeinfo->tm_year + 1900;
+    int currentDay      = timeinfo->tm_mday;
+    int currentMonth    = timeinfo->tm_mon + 1;
+    int currentYear     = timeinfo->tm_year + 1900;
 
     // Format month/year string
     String monthYear;
@@ -54,7 +53,7 @@ void DisplayManager::drawPortraitHeader(time_t now, const WeatherData* weatherDa
         if (today.sunset.length() >= 16) {
             String sunsetTime = today.sunset.substring(11, 16);
             int16_t textWidth = getTextWidth(sunsetTime, &FONT_SUNRISE_SUNSET);
-            int iconX = DISPLAY_WIDTH - textWidth - 38;
+            int iconX         = DISPLAY_WIDTH - textWidth - 38;
             display.drawInvertedBitmap(iconX, 8, wi_sunset_16x16, 16, 16, GxEPD_BLACK);
             display.setCursor(iconX + 20, 19);
             display.print(sunsetTime);
@@ -65,9 +64,9 @@ void DisplayManager::drawPortraitHeader(time_t now, const WeatherData* weatherDa
     String dayStr = (currentDay > 0 && currentDay <= 31) ? String(currentDay) : "--";
 
     // Calculate widths
-    int16_t dayWidth = getTextWidth(dayStr, &FONT_HEADER_DAY_NUMBER);
+    int16_t dayWidth       = getTextWidth(dayStr, &FONT_HEADER_DAY_NUMBER);
     int16_t monthYearWidth = getTextWidth(monthYear, &FONT_HEADER_MONTH_YEAR);
-    int16_t spaceWidth = 15; // More space between day and month (was 10)
+    int16_t spaceWidth     = 15; // More space between day and month (was 10)
 
     // Total width of the title
     int16_t totalWidth = dayWidth + spaceWidth + monthYearWidth;
@@ -76,9 +75,9 @@ void DisplayManager::drawPortraitHeader(time_t now, const WeatherData* weatherDa
     int16_t startX = (DISPLAY_WIDTH - totalWidth) / 2;
 
     // Calculate Y position (using the larger font's baseline)
-    int16_t dayBaseline = getFontBaseline(&FONT_HEADER_DAY_NUMBER);
+    int16_t dayBaseline   = getFontBaseline(&FONT_HEADER_DAY_NUMBER);
     int16_t monthBaseline = getFontBaseline(&FONT_HEADER_MONTH_YEAR);
-    int16_t y = 25 + max(dayBaseline, monthBaseline); // Moved up 5px (was 30)
+    int16_t y             = 25 + max(dayBaseline, monthBaseline); // Moved up 5px (was 30)
 
     // Draw the day number
     display.setFont(&FONT_HEADER_DAY_NUMBER);
@@ -106,11 +105,10 @@ void DisplayManager::drawPortraitHeader(time_t now, const WeatherData* weatherDa
 // ============================================================================
 
 void DisplayManager::drawPortraitCalendar(const MonthCalendar& calendar,
-                                          const std::vector<CalendarEvent*>& events)
-{
+                                          const std::vector<CalendarEvent*>& events) {
     // Draw calendar grid using full width
-    int startX = 10;
-    int startY = CALENDAR_START_Y;
+    int startX    = 10;
+    int startY    = CALENDAR_START_Y;
     int cellWidth = CELL_WIDTH;
 
     // Draw day labels (M T W T F S S)
@@ -136,22 +134,29 @@ void DisplayManager::drawPortraitCalendar(const MonthCalendar& calendar,
         bool isToday = (day == calendar.today);
 
         // Check if weekend
-        int dayOfWeek = (col + FIRST_DAY_OF_WEEK) % 7;
+        int dayOfWeek  = (col + FIRST_DAY_OF_WEEK) % 7;
         bool isWeekend = (dayOfWeek == 0 || dayOfWeek == 6);
 
         // Draw weekend background
         if (isWeekend && !isToday) {
 #ifdef DISP_TYPE_6C
-            drawDitheredRectangle(x, y, cellWidth, CELL_HEIGHT,
-                GxEPD_WHITE, COLOR_CALENDAR_WEEKEND_BG, static_cast<DitherLevel>(DITHER_CALENDAR_WEEKEND));
+            drawDitheredRectangle(x,
+                                  y,
+                                  cellWidth,
+                                  CELL_HEIGHT,
+                                  GxEPD_WHITE,
+                                  COLOR_CALENDAR_WEEKEND_BG,
+                                  static_cast<DitherLevel>(DITHER_CALENDAR_WEEKEND));
 #endif
         }
 
         // Draw today's cell with border
         if (isToday) {
 #ifdef DISP_TYPE_6C
-            display.drawRect(x + 1, y + 1, cellWidth - 2, CELL_HEIGHT - 2, COLOR_CALENDAR_TODAY_BORDER);
-            display.drawRect(x + 2, y + 2, cellWidth - 4, CELL_HEIGHT - 4, COLOR_CALENDAR_TODAY_BORDER);
+            display.drawRect(
+                x + 1, y + 1, cellWidth - 2, CELL_HEIGHT - 2, COLOR_CALENDAR_TODAY_BORDER);
+            display.drawRect(
+                x + 2, y + 2, cellWidth - 4, CELL_HEIGHT - 4, COLOR_CALENDAR_TODAY_BORDER);
 #else
             display.drawRect(x + 1, y + 1, cellWidth - 2, CELL_HEIGHT - 2, GxEPD_BLACK);
 #endif
@@ -183,14 +188,19 @@ void DisplayManager::drawPortraitCalendar(const MonthCalendar& calendar,
             uint16_t dotColor = GxEPD_BLACK;
             if (!calendar.eventColors[day][0].isEmpty()) {
                 String colorStr = calendar.eventColors[day][0];
-                if (colorStr == "red") dotColor = GxEPD_RED;
-                else if (colorStr == "orange") dotColor = GxEPD_ORANGE;
-                else if (colorStr == "yellow") dotColor = GxEPD_YELLOW;
-                else if (colorStr == "green") dotColor = GxEPD_GREEN;
+                if (colorStr == "red")
+                    dotColor = GxEPD_RED;
+                else if (colorStr == "orange")
+                    dotColor = GxEPD_ORANGE;
+                else if (colorStr == "yellow")
+                    dotColor = GxEPD_YELLOW;
+                else if (colorStr == "green")
+                    dotColor = GxEPD_GREEN;
             }
             display.fillCircle(x + cellWidth / 2, y + 32, 2, dotColor); // Moved down from 26 to 32
 #else
-            display.fillCircle(x + cellWidth / 2, y + 32, 2, GxEPD_BLACK); // Moved down from 26 to 32
+            display.fillCircle(
+                x + cellWidth / 2, y + 32, 2, GxEPD_BLACK); // Moved down from 26 to 32
 #endif
         }
 
@@ -211,8 +221,7 @@ void DisplayManager::drawPortraitCalendar(const MonthCalendar& calendar,
 // ============================================================================
 
 void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEvent*>& events,
-                                                    const WeatherData* weatherData)
-{
+                                                   const WeatherData* weatherData) {
     // WEATHER section: Left side with large icons ABOVE text
     // Draw weather on the left
     if (weatherData && !weatherData->dailyForecast.empty()) {
@@ -220,15 +229,16 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
 
         // Get today's and tomorrow's forecast
         const WeatherDay& today = weatherData->dailyForecast[0];
-        const WeatherDay* tomorrow = weatherData->dailyForecast.size() > 1 ?
-                                     &weatherData->dailyForecast[1] : nullptr;
+        const WeatherDay* tomorrow =
+            weatherData->dailyForecast.size() > 1 ? &weatherData->dailyForecast[1] : nullptr;
 
         // Calculate available space for weather section
         int availableHeight = (DISPLAY_HEIGHT - STATUS_BAR_HEIGHT) - EVENTS_START_Y;
-        int iconSize = 96; // Much larger icons
-        int textHeight = 55; // Approximate height for 3 text lines with spacing
-        int rowHeight = iconSize + textHeight + 10; // Icon + gap + text
-        int totalContentHeight = tomorrow ? (rowHeight * 2 + 15) : rowHeight; // 15px spacing between rows
+        int iconSize        = 96; // Much larger icons
+        int textHeight      = 55; // Approximate height for 3 text lines with spacing
+        int rowHeight       = iconSize + textHeight + 10; // Icon + gap + text
+        int totalContentHeight =
+            tomorrow ? (rowHeight * 2 + 15) : rowHeight; // 15px spacing between rows
 
         // Center weather rows vertically
         int weatherStartY = (EVENTS_START_Y - 5) + (availableHeight - totalContentHeight) / 2;
@@ -242,9 +252,11 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
         const uint8_t* weatherIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 96);
         if (weatherIcon) {
 #ifdef DISP_TYPE_6C
-            display.drawInvertedBitmap(weatherX, todayY, weatherIcon, iconSize, iconSize, COLOR_WEATHER_ICON);
+            display.drawInvertedBitmap(
+                weatherX, todayY, weatherIcon, iconSize, iconSize, COLOR_WEATHER_ICON);
 #else
-            display.drawInvertedBitmap(weatherX, todayY, weatherIcon, iconSize, iconSize, GxEPD_BLACK);
+            display.drawInvertedBitmap(
+                weatherX, todayY, weatherIcon, iconSize, iconSize, GxEPD_BLACK);
 #endif
         }
 
@@ -254,7 +266,7 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
         // Line 1: Day label
         display.setFont(&FONT_WEATHER_LABEL);
         display.setTextColor(GxEPD_BLACK);
-        String todayStr = String(LOC_TODAY);
+        String todayStr   = String(LOC_TODAY);
         int16_t textWidth = getTextWidth(todayStr, &FONT_WEATHER_LABEL);
         display.setCursor((WEATHER_WIDTH - textWidth) / 2, textStartY);
         display.print(todayStr);
@@ -262,14 +274,14 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
         // Line 2: Rain probability
         display.setFont(&FONT_WEATHER_RAIN);
         String rainStr = String((int)today.precipitationProbability) + "%";
-        textWidth = getTextWidth(rainStr, &FONT_WEATHER_RAIN);
+        textWidth      = getTextWidth(rainStr, &FONT_WEATHER_RAIN);
         display.setCursor((WEATHER_WIDTH - textWidth) / 2, textStartY + 22);
         display.print(rainStr);
 
         // Line 3: Temperature range
         display.setFont(&FONT_WEATHER_TEMP_MAIN);
         String tempStr = String((int)today.tempMin) + "\260/" + String((int)today.tempMax) + "\260";
-        textWidth = getTextWidth(tempStr, &FONT_WEATHER_TEMP_MAIN);
+        textWidth      = getTextWidth(tempStr, &FONT_WEATHER_TEMP_MAIN);
         display.setCursor((WEATHER_WIDTH - textWidth) / 2, textStartY + 46);
         display.print(tempStr);
 
@@ -281,9 +293,11 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
             weatherIcon = tempClient.getWeatherIconBitmap(tomorrow->weatherCode, true, 96);
             if (weatherIcon) {
 #ifdef DISP_TYPE_6C
-                display.drawInvertedBitmap(weatherX, tomorrowY, weatherIcon, iconSize, iconSize, COLOR_WEATHER_ICON);
+                display.drawInvertedBitmap(
+                    weatherX, tomorrowY, weatherIcon, iconSize, iconSize, COLOR_WEATHER_ICON);
 #else
-                display.drawInvertedBitmap(weatherX, tomorrowY, weatherIcon, iconSize, iconSize, GxEPD_BLACK);
+                display.drawInvertedBitmap(
+                    weatherX, tomorrowY, weatherIcon, iconSize, iconSize, GxEPD_BLACK);
 #endif
             }
 
@@ -293,20 +307,21 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
             // Line 1: Day label
             display.setFont(&FONT_WEATHER_LABEL);
             String tomorrowStr = String(LOC_TOMORROW);
-            textWidth = getTextWidth(tomorrowStr, &FONT_WEATHER_LABEL);
+            textWidth          = getTextWidth(tomorrowStr, &FONT_WEATHER_LABEL);
             display.setCursor((WEATHER_WIDTH - textWidth) / 2, textStartY);
             display.print(tomorrowStr);
 
             // Line 2: Rain probability
             display.setFont(&FONT_WEATHER_RAIN);
-            rainStr = String((int)tomorrow->precipitationProbability) + "%";
+            rainStr   = String((int)tomorrow->precipitationProbability) + "%";
             textWidth = getTextWidth(rainStr, &FONT_WEATHER_RAIN);
             display.setCursor((WEATHER_WIDTH - textWidth) / 2, textStartY + 22);
             display.print(rainStr);
 
             // Line 3: Temperature range
             display.setFont(&FONT_WEATHER_TEMP_MAIN);
-            tempStr = String((int)tomorrow->tempMin) + "\260/" + String((int)tomorrow->tempMax) + "\260";
+            tempStr =
+                String((int)tomorrow->tempMin) + "\260/" + String((int)tomorrow->tempMax) + "\260";
             textWidth = getTextWidth(tempStr, &FONT_WEATHER_TEMP_MAIN);
             display.setCursor((WEATHER_WIDTH - textWidth) / 2, textStartY + 46);
             display.print(tempStr);
@@ -314,7 +329,7 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
     } else {
         // Weather placeholder - centered in available space
         int availableHeight = (DISPLAY_HEIGHT - STATUS_BAR_HEIGHT) - EVENTS_START_Y;
-        int weatherY = EVENTS_START_Y + availableHeight / 2;
+        int weatherY        = EVENTS_START_Y + availableHeight / 2;
 
         display.setFont(&FONT_WEATHER_MESSAGE);
         display.setTextColor(GxEPD_BLACK);
@@ -324,20 +339,20 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
         display.print(weatherStr);
 
         String naStr = "N/A";
-        textWidth = getTextWidth(naStr, &FONT_WEATHER_MESSAGE);
+        textWidth    = getTextWidth(naStr, &FONT_WEATHER_MESSAGE);
         display.setCursor((WEATHER_WIDTH - textWidth) / 2, weatherY + 15);
         display.print(naStr);
     }
 
     // Right side: Events list
-    int eventsX = EVENTS_START_X;
-    int eventsY = EVENTS_START_Y + 12; // More space from separator (was +10)
+    int eventsX    = EVENTS_START_X;
+    int eventsY    = EVENTS_START_Y + 12;                     // More space from separator (was +10)
     const int maxY = DISPLAY_HEIGHT - STATUS_BAR_HEIGHT - 10; // Stop before status bar
 
     if (events.empty()) {
         // No events message
         String noEventsText = String(LOC_NO_EVENTS);
-        int16_t textWidth = getTextWidth(noEventsText, &FONT_NO_EVENTS);
+        int16_t textWidth   = getTextWidth(noEventsText, &FONT_NO_EVENTS);
 
         display.setFont(&FONT_NO_EVENTS);
         display.setTextColor(GxEPD_BLACK);
@@ -350,16 +365,16 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
     } else {
         // Draw events list
         String currentDateHeader = "";
-        int eventsShown = 0;
-        const int maxEvents = 7; // Limit events in portrait mode
+        int eventsShown          = 0;
+        const int maxEvents      = 7; // Limit events in portrait mode
 
         // Get current date info for date formatting
         time_t now;
         time(&now);
         struct tm* timeinfo = localtime(&now);
-        int currentYear = timeinfo->tm_year + 1900;
-        int currentMonth = timeinfo->tm_mon + 1;
-        int currentDay = timeinfo->tm_mday;
+        int currentYear     = timeinfo->tm_year + 1900;
+        int currentMonth    = timeinfo->tm_mon + 1;
+        int currentDay      = timeinfo->tm_mday;
 
         for (size_t i = 0; i < events.size() && eventsShown < maxEvents && eventsY < maxY; i++) {
             CalendarEvent* event = events[i];
@@ -405,9 +420,10 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
 
             // Draw event title next to time
             display.setFont(&FONT_EVENT_TITLE);
-            int titleX = eventsX + 50; // Space for time
+            int titleX        = eventsX + 50; // Space for time
             int titleMaxWidth = DISPLAY_WIDTH - titleX - 20;
-            String title = StringUtils::truncate(StringUtils::removeAccents(event->title), titleMaxWidth, "...");
+            String title      = StringUtils::truncate(
+                StringUtils::removeAccents(event->title), titleMaxWidth, "...");
             display.setCursor(titleX, eventsY);
             display.print(title);
 
@@ -428,38 +444,49 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
 // Status Bar
 // ============================================================================
 
-void DisplayManager::drawPortraitStatusBar(bool wifiConnected, int rssi,
-    float batteryVoltage, int batteryPercentage, time_t now, bool isStale)
-{
+void DisplayManager::drawPortraitStatusBar(bool wifiConnected,
+                                           int rssi,
+                                           float batteryVoltage,
+                                           int batteryPercentage,
+                                           time_t now,
+                                           bool isStale) {
     // Use 6pt font for compact status bar
     display.setFont(&FONT_STATUSBAR);
     display.setTextColor(GxEPD_BLACK);
 
     // Position close to bottom of screen
     int iconSize = 16;
-    int iconY = DISPLAY_HEIGHT - iconSize + 2;
-    int textY = DISPLAY_HEIGHT - 4; // Text baseline close to bottom
+    int iconY    = DISPLAY_HEIGHT - iconSize + 2;
+    int textY    = DISPLAY_HEIGHT - 4; // Text baseline close to bottom
 
     // LEFT SIDE: Battery icon and percentage
     int leftX = 5;
 
     // Draw battery icon
     if (batteryPercentage > 90) {
-        display.drawInvertedBitmap(leftX, iconY, battery_full_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
+        display.drawInvertedBitmap(
+            leftX, iconY, battery_full_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
     } else if (batteryPercentage > 75) {
-        display.drawInvertedBitmap(leftX, iconY, battery_6_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
+        display.drawInvertedBitmap(
+            leftX, iconY, battery_6_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
     } else if (batteryPercentage > 60) {
-        display.drawInvertedBitmap(leftX, iconY, battery_5_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
+        display.drawInvertedBitmap(
+            leftX, iconY, battery_5_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
     } else if (batteryPercentage > 45) {
-        display.drawInvertedBitmap(leftX, iconY, battery_4_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
+        display.drawInvertedBitmap(
+            leftX, iconY, battery_4_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
     } else if (batteryPercentage > 30) {
-        display.drawInvertedBitmap(leftX, iconY, battery_3_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
+        display.drawInvertedBitmap(
+            leftX, iconY, battery_3_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
     } else if (batteryPercentage > 15) {
-        display.drawInvertedBitmap(leftX, iconY, battery_2_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
+        display.drawInvertedBitmap(
+            leftX, iconY, battery_2_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
     } else if (batteryPercentage > 5) {
-        display.drawInvertedBitmap(leftX, iconY, battery_1_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
+        display.drawInvertedBitmap(
+            leftX, iconY, battery_1_bar_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
     } else {
-        display.drawInvertedBitmap(leftX, iconY, battery_alert_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
+        display.drawInvertedBitmap(
+            leftX, iconY, battery_alert_90deg_16x16, iconSize, iconSize, GxEPD_BLACK);
     }
 
     // Draw battery percentage text
@@ -492,11 +519,14 @@ void DisplayManager::drawPortraitStatusBar(bool wifiConnected, int rssi,
     iconY -= 2;
     if (wifiConnected) {
         if (rssi > -60) {
-            display.drawInvertedBitmap(rightX, iconY, wifi_3_bar_16x16, iconSize, iconSize, GxEPD_BLACK);
+            display.drawInvertedBitmap(
+                rightX, iconY, wifi_3_bar_16x16, iconSize, iconSize, GxEPD_BLACK);
         } else if (rssi > -75) {
-            display.drawInvertedBitmap(rightX, iconY, wifi_2_bar_16x16, iconSize, iconSize, GxEPD_BLACK);
+            display.drawInvertedBitmap(
+                rightX, iconY, wifi_2_bar_16x16, iconSize, iconSize, GxEPD_BLACK);
         } else {
-            display.drawInvertedBitmap(rightX, iconY, wifi_1_bar_16x16, iconSize, iconSize, GxEPD_BLACK);
+            display.drawInvertedBitmap(
+                rightX, iconY, wifi_1_bar_16x16, iconSize, iconSize, GxEPD_BLACK);
         }
     } else {
         display.drawInvertedBitmap(rightX, iconY, wifi_off_16x16, iconSize, iconSize, GxEPD_BLACK);

@@ -1,6 +1,6 @@
 #include "wifi_manager.h"
-#include "littlefs_config.h"
 #include "debug_config.h"
+#include "littlefs_config.h"
 
 WiFiManager::WiFiManager() : client(nullptr), lastConnectionAttempt(0), timeConfigured(false) {
     client = new WiFiClientSecure();
@@ -18,7 +18,7 @@ bool WiFiManager::connect(const RuntimeConfig& config) {
     }
 
     // Get WiFi credentials from the passed config
-    String ssid = config.wifi_ssid;
+    String ssid     = config.wifi_ssid;
     String password = config.wifi_password;
 
     if (ssid.isEmpty()) {
@@ -55,9 +55,7 @@ bool WiFiManager::connect(const RuntimeConfig& config) {
     }
 }
 
-bool WiFiManager::isConnected() {
-    return WiFi.status() == WL_CONNECTED;
-}
+bool WiFiManager::isConnected() { return WiFi.status() == WL_CONNECTED; }
 
 void WiFiManager::disconnect() {
     WiFi.disconnect(true);
@@ -65,10 +63,7 @@ void WiFiManager::disconnect() {
     Serial.println("WiFi disconnected");
 }
 
-WiFiClientSecure* WiFiManager::getClient()
-{
-    return client;
-}
+WiFiClientSecure* WiFiManager::getClient() { return client; }
 
 String WiFiManager::getIPAddress() {
     if (isConnected()) {
@@ -95,7 +90,9 @@ void WiFiManager::printStatus() {
     Serial.println(WiFi.macAddress());
 }
 
-bool WiFiManager::syncTimeFromNTP(const String& timezone, const char* ntpServer1, const char* ntpServer2) {
+bool WiFiManager::syncTimeFromNTP(const String& timezone,
+                                  const char* ntpServer1,
+                                  const char* ntpServer2) {
     DEBUG_INFO_PRINTLN("Configuring time with NTP...");
 
     // Check WiFi connection first
@@ -105,27 +102,29 @@ bool WiFiManager::syncTimeFromNTP(const String& timezone, const char* ntpServer1
     }
 
     // First, configure NTP with UTC to get basic time sync
-    DEBUG_INFO_PRINTLN("Initiating NTP sync with servers: " + String(ntpServer1) + ", " + String(ntpServer2));
+    DEBUG_INFO_PRINTLN("Initiating NTP sync with servers: " + String(ntpServer1) + ", " +
+                       String(ntpServer2));
     configTime(0, 0, ntpServer1, ntpServer2);
 
     // Wait for time to be set
-    int retry = 0;
-    const int retry_count = 40;  // Increased timeout to 20 seconds
-    time_t now = time(nullptr);
+    int retry             = 0;
+    const int retry_count = 40; // Increased timeout to 20 seconds
+    time_t now            = time(nullptr);
 
     DEBUG_INFO_PRINT("Waiting for NTP sync");
-    while (now < 8 * 3600 * 365 && retry < retry_count) {  // Check for a reasonable year (> 1970)
+    while (now < 8 * 3600 * 365 && retry < retry_count) { // Check for a reasonable year (> 1970)
         delay(500);
         now = time(nullptr);
         retry++;
-        if (retry % 4 == 0) {  // Print every 2 seconds
-            DEBUG_INFO_PRINT(" (" + String(retry/2) + "s)");
+        if (retry % 4 == 0) { // Print every 2 seconds
+            DEBUG_INFO_PRINT(" (" + String(retry / 2) + "s)");
         }
     }
     DEBUG_INFO_PRINTLN("");
 
     if (now < 8 * 3600 * 365) {
-        DEBUG_ERROR_PRINTLN("Failed to sync time from NTP after " + String(retry_count/2) + " seconds");
+        DEBUG_ERROR_PRINTLN("Failed to sync time from NTP after " + String(retry_count / 2) +
+                            " seconds");
         DEBUG_ERROR_PRINTLN("Current time value: " + String(now));
         timeConfigured = false;
         return false;
@@ -143,7 +142,7 @@ bool WiFiManager::syncTimeFromNTP(const String& timezone, const char* ntpServer1
     struct tm timeinfo_buf;
     struct tm utcinfo_buf;
     struct tm* timeinfo = localtime_r(&now, &timeinfo_buf);
-    struct tm* utcinfo = gmtime_r(&now, &utcinfo_buf);
+    struct tm* utcinfo  = gmtime_r(&now, &utcinfo_buf);
 
     char local_time_str[64];
     char utc_time_str[64];
@@ -161,7 +160,7 @@ bool WiFiManager::syncTimeFromNTP(const String& timezone, const char* ntpServer1
 
     // Calculate and display the offset
     int hour_diff = timeinfo->tm_hour - utcinfo->tm_hour;
-    int day_diff = timeinfo->tm_mday - utcinfo->tm_mday;
+    int day_diff  = timeinfo->tm_mday - utcinfo->tm_mday;
     if (day_diff != 0) {
         hour_diff += day_diff * 24;
     }

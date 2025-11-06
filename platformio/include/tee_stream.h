@@ -4,12 +4,12 @@
 #ifdef NATIVE_TEST
 #include "mock_arduino.h"
 #else
-#include <Stream.h>
 #include <FS.h>
+#include <Stream.h>
 #endif
 
 class TeeStream : public Stream {
-public:
+  public:
     TeeStream(Stream& source, File& dest);
     virtual ~TeeStream();
 
@@ -20,7 +20,7 @@ public:
     virtual size_t write(uint8_t); // Not implemented
     virtual String readString();
 
-private:
+  private:
     Stream& _source;
     File& _dest;
 };

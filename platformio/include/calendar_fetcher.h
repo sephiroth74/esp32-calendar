@@ -18,7 +18,7 @@ struct FetchResult {
 };
 
 class CalendarFetcher {
-private:
+  private:
     HTTPClient http;
     WiFiClient* streamClient;
     File fileStream;
@@ -31,7 +31,7 @@ private:
     FetchResult fetchFromHttp(const String& url);
     FetchResult fetchFromFile(const String& path);
 
-public:
+  public:
     CalendarFetcher();
     ~CalendarFetcher();
 

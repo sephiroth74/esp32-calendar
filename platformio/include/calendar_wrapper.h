@@ -1,9 +1,9 @@
 #ifndef CALENDAR_WRAPPER_H
 #define CALENDAR_WRAPPER_H
 
-#include <Arduino.h>
 #include "calendar_stream_parser.h"
 #include "littlefs_config.h"
+#include <Arduino.h>
 #include <vector>
 
 /**
@@ -24,16 +24,16 @@
  * - Stale data detection (cache vs fresh data)
  */
 class CalendarWrapper {
-private:
-    CalendarStreamParser parser;                   ///< Stream parser for efficient ICS parsing
-    CalendarConfig config;                         ///< Calendar configuration (URL, name, color, etc.)
-    std::vector<CalendarEvent*> cachedEvents;      ///< In-memory cache of parsed events
+  private:
+    CalendarStreamParser parser;              ///< Stream parser for efficient ICS parsing
+    CalendarConfig config;                    ///< Calendar configuration (URL, name, color, etc.)
+    std::vector<CalendarEvent*> cachedEvents; ///< In-memory cache of parsed events
 
-    String cachedFilename;                         ///< LittleFS binary cache filename for this calendar
-    String lastError;                              ///< Last error message if loading failed
-    time_t lastFetchTime;                          ///< Unix timestamp of last successful fetch
-    bool loaded;                                   ///< True if calendar has been loaded
-    bool debug;                                    ///< Enable debug output
+    String cachedFilename; ///< LittleFS binary cache filename for this calendar
+    String lastError;      ///< Last error message if loading failed
+    time_t lastFetchTime;  ///< Unix timestamp of last successful fetch
+    bool loaded;           ///< True if calendar has been loaded
+    bool debug;            ///< Enable debug output
 
     /**
      * @brief Calculate binary cache filename for this calendar based on URL hash
@@ -56,7 +56,7 @@ private:
      */
     bool isCacheValid() const;
 
-public:
+  public:
     /**
      * @brief Construct a new Calendar Wrapper object
      */
@@ -67,7 +67,7 @@ public:
      */
     ~CalendarWrapper();
 
-    bool isStale = false;       ///< True if data was loaded from cache instead of fresh fetch
+    bool isStale = false; ///< True if data was loaded from cache instead of fresh fetch
 
     // Configuration
     /**
@@ -80,7 +80,10 @@ public:
      * @brief Enable or disable debug output
      * @param enable true to enable debug logging
      */
-    void setDebug(bool enable) { debug = enable; parser.setDebug(enable); }
+    void setDebug(bool enable) {
+        debug = enable;
+        parser.setDebug(enable);
+    }
 
     // Get configuration properties
     /** @brief Get calendar name */
@@ -171,11 +174,11 @@ public:
  * - Status reporting and debugging
  */
 class CalendarManager {
-private:
-    std::vector<CalendarWrapper*> calendars;  ///< Collection of calendar wrappers
-    bool debug;                               ///< Enable debug output
+  private:
+    std::vector<CalendarWrapper*> calendars; ///< Collection of calendar wrappers
+    bool debug;                              ///< Enable debug output
 
-public:
+  public:
     /**
      * @brief Construct a new Calendar Manager object
      */

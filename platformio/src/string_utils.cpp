@@ -19,27 +19,29 @@ String StringUtils::convertAccents(const String& text) {
 
                 // Convert common Italian accented characters
                 switch (unicode) {
-                    case 0x00E8: result += "e'"; break; // è
-                    case 0x00E9: result += "e'"; break; // é
-                    case 0x00E0: result += "a'"; break; // à
-                    case 0x00F2: result += "o'"; break; // ò
-                    case 0x00F9: result += "u'"; break; // ù
-                    case 0x00EC: result += "i'"; break; // ì
-                    case 0x00C8: result += "E'"; break; // È
-                    case 0x00C9: result += "E'"; break; // É
-                    case 0x00C0: result += "A'"; break; // À
-                    case 0x00D2: result += "O'"; break; // Ò
-                    case 0x00D9: result += "U'"; break; // Ù
-                    case 0x00CC: result += "I'"; break; // Ì
-                    // Add more as needed
-                    default:
-                        // For other Unicode characters, try to find ASCII equivalent
-                        if (unicode >= 0x00C0 && unicode <= 0x00FF) {
-                            // Latin-1 Supplement range, use simplified mapping
-                            result += '?';
-                        } else {
-                            result += '?';
-                        }
+                case 0x00E8: result += "e'"; break; // è
+                case 0x00E9: result += "e'"; break; // é
+                case 0x00E0: result += "a'"; break; // à
+                case 0x00F2: result += "o'"; break; // ò
+                case 0x00F9: result += "u'"; break; // ù
+                case 0x00EC: result += "i'"; break; // ì
+                case 0x00C8: result += "E'"; break; // È
+                case 0x00C9: result += "E'"; break; // É
+                case 0x00C0: result += "A'"; break; // À
+                case 0x00D2: result += "O'"; break; // Ò
+                case 0x00D9: result += "U'"; break; // Ù
+                case 0x00CC:
+                    result += "I'";
+                    break; // Ì
+                // Add more as needed
+                default:
+                    // For other Unicode characters, try to find ASCII equivalent
+                    if (unicode >= 0x00C0 && unicode <= 0x00FF) {
+                        // Latin-1 Supplement range, use simplified mapping
+                        result += '?';
+                    } else {
+                        result += '?';
+                    }
                 }
                 i++; // Skip the second byte
             }
@@ -67,7 +69,7 @@ String StringUtils::convertAccents(const String& text) {
 }
 
 String StringUtils::removeAccents(const String& text) {
-    return convertAccents(text);  // Alias for convertAccents
+    return convertAccents(text); // Alias for convertAccents
 }
 
 String StringUtils::truncate(const String& text, size_t maxLength, const String& suffix) {
@@ -106,7 +108,7 @@ String StringUtils::replaceAll(const String& text, const String& from, const Str
     }
 
     String result = text;
-    int index = 0;
+    int index     = 0;
 
     while ((index = result.indexOf(from, index)) != -1) {
         result = result.substring(0, index) + to + result.substring(index + from.length());
@@ -133,7 +135,7 @@ bool StringUtils::endsWith(const String& text, const String& suffix) {
 }
 
 String StringUtils::toTitleCase(const String& text) {
-    String result = text;
+    String result  = text;
     bool nextUpper = true;
 
     for (unsigned int i = 0; i < result.length(); i++) {
