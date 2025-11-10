@@ -278,8 +278,11 @@ void DisplayManager::drawLandscapeWeather(const WeatherData& weatherData) {
 
         const uint8_t* todayIcon = tempClient.getWeatherIconBitmap(today.weatherCode, true, 64);
         if (todayIcon) {
+            // Use red color for rain/showers
+            bool isRain = isRainWeatherCode(today.weatherCode);
 #ifdef DISP_TYPE_6C
-            display.drawInvertedBitmap(x, y, todayIcon, 64, 64, COLOR_WEATHER_ICON);
+            uint16_t iconColor = isRain ? GxEPD_RED : COLOR_WEATHER_ICON;
+            display.drawInvertedBitmap(x, y, todayIcon, 64, 64, iconColor);
 #else
             display.drawInvertedBitmap(x, y, todayIcon, 64, 64, GxEPD_BLACK);
 #endif
@@ -309,8 +312,11 @@ void DisplayManager::drawLandscapeWeather(const WeatherData& weatherData) {
         const uint8_t* tomorrowIcon =
             tempClient.getWeatherIconBitmap(tomorrow.weatherCode, true, 64);
         if (tomorrowIcon) {
+            // Use red color for rain/showers
+            bool isRain = isRainWeatherCode(tomorrow.weatherCode);
 #ifdef DISP_TYPE_6C
-            display.drawInvertedBitmap(x, y, tomorrowIcon, 64, 64, COLOR_WEATHER_ICON);
+            uint16_t iconColor = isRain ? GxEPD_RED : COLOR_WEATHER_ICON;
+            display.drawInvertedBitmap(x, y, tomorrowIcon, 64, 64, iconColor);
 #else
             display.drawInvertedBitmap(x, y, tomorrowIcon, 64, 64, GxEPD_BLACK);
 #endif
@@ -370,8 +376,9 @@ void DisplayManager::drawLandscapeStatusBar(bool wifiConnected,
     display.setCursor(iconX, textY);
     display.print(String(batteryPercentage) + "%");
 
-    // CENTER: Last update date and time
-    String dateTimeStr = DateUtils::formatDate(now) + " " + DateUtils::formatTime(now);
+    // CENTER: Last update date and time with version
+    String dateTimeStr =
+        DateUtils::formatDate(now) + " " + DateUtils::formatTime(now) + " (v" + String(VERSION) + ")";
     if (isStale) {
         dateTimeStr = "[!] " + dateTimeStr;
     }

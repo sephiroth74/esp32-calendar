@@ -69,7 +69,7 @@ void DisplayManager::drawCalendarPrevMonthDays(int startX,
         display.print(dayStr);
 #endif
 
-        // Check for events
+        // Check for events - use green dot for outside month
         bool hasEvent = false;
         for (auto event : events) {
             if (event->date.length() >= 10) {
@@ -87,9 +87,9 @@ void DisplayManager::drawCalendarPrevMonthDays(int startX,
 
         if (hasEvent) {
 #ifdef DISP_TYPE_6C
-            display.fillCircle(x + cellWidth / 2, y + 32, 3, COLOR_CALENDAR_OUTSIDE_MONTH);
+            display.fillCircle(x + cellWidth / 2, y + 32, 2, GxEPD_GREEN);
 #else
-            display.fillCircle(x + cellWidth / 2, y + 32, 3, GxEPD_BLACK);
+            display.fillCircle(x + cellWidth / 2, y + 32, 2, GxEPD_BLACK);
 #endif
         }
 
@@ -113,76 +113,42 @@ void DisplayManager::drawCalendarCurrentMonthDays(int startX,
         // Check if this is today
         bool isToday = (day == calendar.today);
 
-        // Check if weekend (Saturday or Sunday)
-        int dayOfWeek  = (col + FIRST_DAY_OF_WEEK) % 7;
-        bool isWeekend = (dayOfWeek == 0 || dayOfWeek == 6); // Sunday or Saturday
+        // Check if weekend (Saturday or Sunday) or holiday
+        int dayOfWeek   = (col + FIRST_DAY_OF_WEEK) % 7;
+        bool isWeekend  = (dayOfWeek == 0 || dayOfWeek == 6); // Sunday or Saturday
+        bool isHoliday  = calendar.hasHoliday[day];
+        bool drawGreyBg = (isWeekend || isHoliday);
 
-        // Draw weekend background with dithering
-        if (isWeekend && !isToday) {
-#ifdef DISP_TYPE_6C
+        // Draw grey background for weekends and holidays with 10% dithering
+        if (drawGreyBg) {
             drawDitheredRectangle(x,
                                   y,
                                   cellWidth,
                                   CELL_HEIGHT,
                                   GxEPD_WHITE,
-                                  COLOR_CALENDAR_WEEKEND_BG,
-                                  static_cast<DitherLevel>(DITHER_CALENDAR_WEEKEND));
-#endif
+                                  GxEPD_BLACK,
+                                  DitherLevel::DITHER_10);
         }
 
-        // Draw today's cell with red border (2px thick)
+        // Draw today's cell with thin black border (1px)
         if (isToday) {
-#ifdef DISP_TYPE_6C
-            display.drawRect(
-                x + 1, y + 1, cellWidth - 2, CELL_HEIGHT - 2, COLOR_CALENDAR_TODAY_BORDER);
-            display.drawRect(
-                x + 2, y + 2, cellWidth - 4, CELL_HEIGHT - 4, COLOR_CALENDAR_TODAY_BORDER);
-#else
-            // Black border for B&W displays
             display.drawRect(x + 1, y + 1, cellWidth - 2, CELL_HEIGHT - 2, GxEPD_BLACK);
-#endif
         }
 
-        // Draw day number
+        // Draw day number (always black, no color change)
         String dayStr = String(day);
         int16_t x1, y1;
         uint16_t w, h;
         display.getTextBounds(dayStr, 0, 0, &x1, &y1, &w, &h);
         display.setCursor(x + (cellWidth - w) / 2, y + 20);
-
-#ifdef DISP_TYPE_6C
-        if (isToday) {
-            display.setTextColor(COLOR_CALENDAR_TODAY_TEXT);
-        }
-#endif
-
         display.print(dayStr);
 
-#ifdef DISP_TYPE_6C
-        if (isToday) {
-            display.setTextColor(GxEPD_BLACK);
-        }
-#endif
-
-        // Draw event indicator if this day has events
+        // Draw single red dot for events
         if (calendar.hasEvent[day]) {
 #ifdef DISP_TYPE_6C
-            // Use first calendar's color if available
-            uint16_t dotColor = GxEPD_BLACK;
-            if (!calendar.eventColors[day][0].isEmpty()) {
-                String colorStr = calendar.eventColors[day][0];
-                if (colorStr == "red")
-                    dotColor = GxEPD_RED;
-                else if (colorStr == "orange")
-                    dotColor = GxEPD_ORANGE;
-                else if (colorStr == "yellow")
-                    dotColor = GxEPD_YELLOW;
-                else if (colorStr == "green")
-                    dotColor = GxEPD_GREEN;
-            }
-            display.fillCircle(x + cellWidth / 2, y + 32, 3, dotColor);
+            display.fillCircle(x + cellWidth / 2, y + 32, 2, GxEPD_RED);
 #else
-            display.fillCircle(x + cellWidth / 2, y + 32, 3, GxEPD_BLACK);
+            display.fillCircle(x + cellWidth / 2, y + 32, 2, GxEPD_BLACK);
 #endif
         }
 
@@ -230,7 +196,7 @@ void DisplayManager::drawCalendarNextMonthDays(int startX,
         display.print(dayStr);
 #endif
 
-        // Check for events
+        // Check for events - use green dot for outside month
         bool hasEvent = false;
         for (auto event : events) {
             if (event->date.length() >= 10) {
@@ -247,9 +213,9 @@ void DisplayManager::drawCalendarNextMonthDays(int startX,
 
         if (hasEvent) {
 #ifdef DISP_TYPE_6C
-            display.fillCircle(x + cellWidth / 2, y + 32, 3, COLOR_CALENDAR_OUTSIDE_MONTH);
+            display.fillCircle(x + cellWidth / 2, y + 32, 2, GxEPD_GREEN);
 #else
-            display.fillCircle(x + cellWidth / 2, y + 32, 3, GxEPD_BLACK);
+            display.fillCircle(x + cellWidth / 2, y + 32, 2, GxEPD_BLACK);
 #endif
         }
 

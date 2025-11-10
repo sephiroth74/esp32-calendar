@@ -1,5 +1,7 @@
 # ESP32 E-Paper Calendar Display
 
+![Preview](./3d models/PXL_20251109_163847280.jpg)
+
 A feature-rich calendar display using ESP32 (S3/C6) and Waveshare/Good Display 7.5" e-paper displays (B/W or 6-color) with dual orientation support, comprehensive error handling, and multiple language support.
 
 **Version 1.9.0** - Timezone fix for recurring events and API improvements!
@@ -15,7 +17,7 @@ A feature-rich calendar display using ESP32 (S3/C6) and Waveshare/Good Display 7
   - Date/time components now extracted internally from single `time_t` parameter
   - All orientation-specific methods updated for consistency
 
-See [CHANGELOG.md](platformio/CHANGELOG.md) for complete details.
+See [CHANGELOG.md](CHANGELOG.md) for complete details.
 
 ## Features
 
@@ -55,7 +57,6 @@ See [CHANGELOG.md](platformio/CHANGELOG.md) for complete details.
 
 - **ESP32 Board**:
   - ESP32-S3 (recommended - includes PSRAM for large calendar data)
-  - ESP32-C6 (supported)
   - Minimum 4MB flash, 2MB PSRAM recommended
 - **Display Options**:
   - **B/W Display**: Waveshare 7.5" (800x480) - Models: V2, V3, GDEY075T7
@@ -79,17 +80,6 @@ See [CHANGELOG.md](platformio/CHANGELOG.md) for complete details.
 | RST     | GPIO 6   | Reset       |
 | BUSY    | GPIO 4   | Busy Signal |
 
-### ESP32-C6 Connections
-| E-Paper | ESP32-C6 | Description |
-|---------|----------|-------------|
-| VCC     | 3.3V     | Power       |
-| GND     | GND      | Ground      |
-| DIN     | GPIO 10  | SPI MOSI    |
-| CLK     | GPIO 8   | SPI Clock   |
-| CS      | GPIO 7   | Chip Select |
-| DC      | GPIO 5   | Data/Command|
-| RST     | GPIO 6   | Reset       |
-| BUSY    | GPIO 4   | Busy Signal |
 
 ## Configuration
 
@@ -397,7 +387,6 @@ Then update `include/localization.h` to include your language file.
 
 - **[Architecture Guide](platformio/docs/ARCHITECTURE.md)** - Comprehensive system architecture, design decisions, and data flow
 - **[Changelog](CHANGELOG.md)** - Version history and release notes
-- **[Migration Guide](platformio/MIGRATION_GUIDE.md)** - Upgrading from previous versions
 
 ## Project Structure
 
@@ -456,16 +445,8 @@ Typical resource usage (ESP32-S3 with 4MB flash):
 - **RAM**: ~112KB (34.2% of 320KB)
 - **PSRAM**: Used for large calendar data when available
 
-*Note: v1.7.8 reduced flash usage by ~600KB through code refactoring and icon optimization. Portrait/landscape compile-time optimization saves an additional ~6KB by excluding unused orientation code.*
 
 ## Version Information
-
-Current version: **1.8.0**
-
-The project uses semantic versioning (MAJOR.MINOR.PATCH):
-- **MAJOR**: Incompatible API changes
-- **MINOR**: Backwards-compatible functionality additions
-- **PATCH**: Backwards-compatible bug fixes
 
 Version details are in `platformio/include/version.h` and displayed on serial startup.
 
@@ -473,7 +454,6 @@ Version details are in `platformio/include/version.h` and displayed on serial st
 
 1. **ICS Timezone Parsing**: Events with UTC timestamps need manual timezone adjustment
 2. **Event Limits**: Display limited to MAX_EVENTS_TO_SHOW (default: 10)
-3. **Deep Sleep**: RTC time drift may occur over extended periods
 
 ## License
 

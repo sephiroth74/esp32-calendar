@@ -232,6 +232,7 @@ class DisplayManager {
                              bool centerX     = false,
                              bool centerY     = false,
                              int16_t maxWidth = 0);
+    bool isRainWeatherCode(int weatherCode);
 
   public:
     /**

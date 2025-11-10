@@ -10,6 +10,17 @@
 // Shared Display Functions (used by both orientations)
 // ============================================================================
 
+// Helper function: Check if weather code represents rain or showers
+bool DisplayManager::isRainWeatherCode(int weatherCode) {
+    // WMO weather codes for rain and showers:
+    // 51, 53, 55 - Drizzle (Light, Moderate, Dense)
+    // 61, 63, 65 - Rain (Slight, Moderate, Heavy)
+    // 80, 81, 82 - Rain showers (Slight, Moderate, Violent)
+    return (weatherCode >= 51 && weatherCode <= 55) ||  // Drizzle
+           (weatherCode >= 61 && weatherCode <= 65) ||  // Rain
+           (weatherCode >= 80 && weatherCode <= 82);    // Rain showers
+}
+
 String DisplayManager::formatEventDate(const String& eventDate,
                                        int currentYear,
                                        int currentMonth,
