@@ -61,11 +61,17 @@ A .3mf 3d model for the enclosure is available here [3d models/esp32-calendar.3m
 ## Hardware Requirements
 
 - **ESP32 Board**:
-  - ESP32-S3 (recommended - includes PSRAM for large calendar data)
+  - ESP32-S3 (recommended - includes PSRAM for large calendar data): [Waveshare ESP32-S3 Zero](https://www.waveshare.com/wiki/ESP32-S3-Zero)
   - Minimum 4MB flash, 2MB PSRAM recommended
 - **Display Options**:
   - **B/W Display**: Waveshare 7.5" (800x480) - Models: V2, V3, GDEY075T7
   - **6-Color Display**: Good Display 7.5" GDEP073E01 (800x480) - Black, White, Red, Yellow, Orange, Green
+- **Display Adapter**:
+  - **Despi-C73**: [GoodDisplay Despi-C73](https://www.good-display.com/product/522.html) adapter board for colored display (or the Despi-C02 for the BW variant)
+- **Breadboard PCB**:
+  - Solderable Breadboard PCB Board [EPLZON PCB](https://www.amazon.com/EPLZON-Solder-able-Breadboard-Electronics-Compatible/dp/B09WZXHMDG?th=1)
+- **Battery**:
+  - [3.7v 3000mAh Li-ion Battery](https://www.amazon.it/3000mAh-103665-Lithium-Replacement-Bluetooth/dp/B091Y3TW9F/ref=sr_1_2?__mk_it_IT=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=E88BGRPKNWEK&dib=eyJ2IjoiMSJ9.F0RxMiAURIkn7hAt_Jou9v9Li-AjYtN4lWXsjuEmg7NXk1TMiMo87Lap1QnMBunFieEITLfbmaXek9lSuug0Vm8Dc_veUR0ZJn37n3BPv4k-s6oYhvO07xp5PvUWYZ9coVX0wG0fBHWwi5504xg-9VPaR92qWqsTyNmDRa2msyqXlthFpqGFUK-oClXu_jN46sN_mQbVscpZ2a039npaUenDt2olPGOxkBEEk5DouDpLYK3kAuZefonQfc80HSeMYgi5-oY4gU_QljCYhf0pIIfwtsGMmdZTOehuxNJFiu4.fVgvULxg3Sdm1zIV5UW9tnteuAuN1A02ieNoXeD43Pw&dib_tag=se&keywords=lipo+lipo+3.7+3000mah&qid=1762758569&sprefix=lipo+lipo+3.7+3000mah%2Caps%2C83&sr=8-2)
 - **Optional Components**:
   - Wake-up button (connected to GPIO 2)
   - LiPo battery for portable operation
