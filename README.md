@@ -1,6 +1,6 @@
 # ESP32 E-Paper Calendar Display
 
-![Preview](./3d models/PXL_20251109_163847280.jpg)
+![Preview](3d%20models/PXL_20251109_163847280.jpg)
 
 A feature-rich calendar display using ESP32 (S3/C6) and Waveshare/Good Display 7.5" e-paper displays (B/W or 6-color) with dual orientation support, comprehensive error handling, and multiple language support.
 
@@ -18,6 +18,11 @@ A feature-rich calendar display using ESP32 (S3/C6) and Waveshare/Good Display 7
   - All orientation-specific methods updated for consistency
 
 See [CHANGELOG.md](CHANGELOG.md) for complete details.
+
+## 3D Model
+
+A .3mf 3d model for the enclosure is available here [3d models/esp32-calendar.3mf](3d%20models/esp32-calendar.3mf).
+
 
 ## Features
 
@@ -444,11 +449,6 @@ Typical resource usage (ESP32-S3 with 4MB flash):
 - **Flash (Portrait)**: ~1.33MB (44.2% of 3.0MB available) - *6KB smaller due to compile-time optimization*
 - **RAM**: ~112KB (34.2% of 320KB)
 - **PSRAM**: Used for large calendar data when available
-
-
-## Version Information
-
-Version details are in `platformio/include/version.h` and displayed on serial startup.
 
 ## Known Issues
 
