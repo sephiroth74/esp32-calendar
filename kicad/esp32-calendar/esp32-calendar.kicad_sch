@@ -2778,7 +2778,7 @@
 				)
 			)
 		)
-		(property "Value" "470k"
+		(property "Value" "780K"
 			(at 90.17 118.11 0)
 			(effects
 				(font
@@ -3072,7 +3072,7 @@
 				)
 			)
 		)
-		(property "Value" "10uF_16V"
+		(property "Value" "0.1uF_16V"
 			(at 212.09 91.44 0)
 			(effects
 				(font
