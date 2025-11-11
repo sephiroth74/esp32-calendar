@@ -2075,6 +2075,7 @@
 		(stroke
 			(width 0)
 			(type default)
+			(color 0 0 0 1)
 		)
 		(uuid "1f46a836-6660-48e6-aa97-e891498bd7b8")
 	)
@@ -2135,6 +2136,7 @@
 		(stroke
 			(width 0)
 			(type default)
+			(color 0 0 0 1)
 		)
 		(uuid "2df878b9-d870-405c-a6da-2ad8cad863fb")
 	)
@@ -2326,6 +2328,7 @@
 		(stroke
 			(width 0)
 			(type default)
+			(color 0 0 0 1)
 		)
 		(uuid "804ca175-c1b8-4491-a1fa-cd3ec8f549c1")
 	)
@@ -2366,6 +2369,7 @@
 		(stroke
 			(width 0)
 			(type default)
+			(color 0 0 0 1)
 		)
 		(uuid "8d511570-18ea-42d2-bcac-0065b54a539d")
 	)
@@ -2386,6 +2390,7 @@
 		(stroke
 			(width 0)
 			(type default)
+			(color 0 0 0 1)
 		)
 		(uuid "9249a7e9-f038-4491-9e80-51c91d1c41cc")
 	)

@@ -463,7 +463,13 @@ Typical resource usage (ESP32-S3 with 4MB flash):
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is released under the GNU General Public License v3.0 (GPLv3).
+
+Why GPLv3?
+
+This project incorporates source code from an external project, lmarzen/esp32-weather-epd, which is licensed under the GPLv3.
+
+Due to the "strong copyleft" nature of the GPLv3, any work that includes or is derived from GPLv3-licensed code must also be licensed under the GPLv3. This license is intended to guarantee users the freedom to share and change all versions of the software.
 
 ## Contributing
 
