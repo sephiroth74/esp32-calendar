@@ -200,15 +200,15 @@ Edit `include/config.h` for display type and orientation:
 ### Standard Build
 1. Open the project folder
 2. Select your board environment in `platformio.ini`:
-   - `esp32-s3-devkitc-1` for ESP32-S3 boards
+   - `esp32-s3-devkitm-1` for ESP32-S3 boards
    - Add your own environment for other boards
 3. Build the project:
    ```bash
-   pio run -e esp32-s3-devkitc-1
+   pio run -e esp32-s3-devkitm-1
    ```
 4. Upload to your board:
    ```bash
-   pio run -t upload -e esp32-s3-devkitc-1
+   pio run -t upload -e esp32-s3-devkitm-1
    ```
 5. Monitor serial output:
    ```bash
@@ -226,7 +226,7 @@ Enable debug mode to test all features without WiFi or calendar configuration:
 
 2. Build and upload:
    ```bash
-   pio run -t upload -e esp32-s3-devkitc-1
+   pio run -t upload -e esp32-s3-devkitm-1
    ```
 
 3. Open serial monitor (115200 baud) and use the interactive menu:
