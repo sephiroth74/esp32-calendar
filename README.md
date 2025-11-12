@@ -1,6 +1,6 @@
 # ESP32 E-Paper Calendar Display
 
-![Preview](3d%20models/PXL_20251109_163847280.jpg)
+![Preview](assets/PXL_20251109_163847280.jpg)
 
 A feature-rich calendar display using ESP32 (S3/C6) and Waveshare/Good Display 7.5" e-paper displays (B/W or 6-color) with dual orientation support, comprehensive error handling, and multiple language support.
 
@@ -21,7 +21,7 @@ See [CHANGELOG.md](CHANGELOG.md) for complete details.
 
 ## 3D Model
 
-A .3mf 3d model for the enclosure is available here [3d models/esp32-calendar.3mf](3d%20models/esp32-calendar.3mf).
+A .3mf 3d model for the enclosure is available here [assets/esp32-calendar.3mf](assets/esp32-calendar.3mf).
 
 
 ## Features
@@ -78,6 +78,8 @@ A .3mf 3d model for the enclosure is available here [3d models/esp32-calendar.3m
   - Voltage divider for battery monitoring (GPIO 1)
 
 ## Wiring
+
+<img src="assets/PXL_20251111_165749349.jpg" alt="Wiring" width="800" />
 
 ### ESP32-S3 Connections
 | E-Paper | ESP32-S3 | Description |
