@@ -32,7 +32,8 @@ struct RuntimeConfig {
 
     // Display settings
     String timezone;
-    int update_hour;
+    int update_hour;                    // Legacy: single update hour (deprecated, use update_hours)
+    std::vector<int> update_hours;      // New: multiple update hours (0-23), max 6 items
 
     // Configuration status
     bool valid = false;

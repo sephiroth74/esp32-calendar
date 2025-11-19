@@ -58,7 +58,7 @@ Create or update your `config.json` file with the new `calendars` array:
   "days_to_fetch": 30,
   "display": {
     "timezone": "CET-1CEST,M3.5.0,M10.5.0",
-    "update_hour": 5
+    "update_hours": [6, 12, 18]
   }
 }
 ```

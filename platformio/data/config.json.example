@@ -27,6 +27,7 @@
   ],
   "display": {
     "timezone": "EST5EDT,M3.2.0,M11.1.0",
-    "update_hour": 5
+    "update_hour": 5,
+    "update_hours": [5,12,20]
   }
 }

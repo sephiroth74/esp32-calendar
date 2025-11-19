@@ -1,5 +1,6 @@
 #include "littlefs_config.h"
 #include "config.h"
+#include <algorithm> // for std::sort, std::unique
 
 LittleFSConfig::LittleFSConfig() {
     // Initialize with default values from config.h
@@ -7,6 +8,8 @@ LittleFSConfig::LittleFSConfig() {
     config.longitude   = LOC_LONGITUDE;
     config.timezone    = DEFAULT_TIMEZONE;
     config.update_hour = DEFAULT_UPDATE_HOUR;
+    config.update_hours.clear();
+    config.update_hours.push_back(DEFAULT_UPDATE_HOUR);
     config.valid       = false;
 
     // Initialize with default calendar for backward compatibility
@@ -215,13 +218,76 @@ bool LittleFSConfig::loadConfiguration() {
         Serial.println("Found 'display' section");
         JsonObject display = doc["display"];
         config.timezone    = display["timezone"] | String(DEFAULT_TIMEZONE);
-        config.update_hour = display["update_hour"] | DEFAULT_UPDATE_HOUR;
+
+        // Parse update_hours (new format) or fall back to update_hour (legacy)
+        config.update_hours.clear();
+        if (display.containsKey("update_hours") && display["update_hours"].is<JsonArray>()) {
+            JsonArray hoursArray = display["update_hours"];
+            Serial.println("  Found 'update_hours' array with " + String(hoursArray.size()) + " items");
+
+            // Validate and parse update_hours
+            if (hoursArray.size() == 0) {
+                Serial.println("  WARNING: update_hours is empty, using default");
+                config.update_hours.push_back(DEFAULT_UPDATE_HOUR);
+            } else if (hoursArray.size() > 6) {
+                Serial.println("  ERROR: update_hours has too many items (max 6), using first 6");
+                for (size_t i = 0; i < 6; i++) {
+                    int hour = hoursArray[i] | -1;
+                    if (hour >= 0 && hour <= 23) {
+                        config.update_hours.push_back(hour);
+                    }
+                }
+            } else {
+                // Parse all hours
+                for (JsonVariant v : hoursArray) {
+                    int hour = v | -1;
+                    if (hour >= 0 && hour <= 23) {
+                        config.update_hours.push_back(hour);
+                    } else {
+                        Serial.println("  WARNING: Invalid hour value: " + String(hour) + " (must be 0-23)");
+                    }
+                }
+            }
+
+            // Remove duplicates
+            std::sort(config.update_hours.begin(), config.update_hours.end());
+            auto last = std::unique(config.update_hours.begin(), config.update_hours.end());
+            if (last != config.update_hours.end()) {
+                Serial.println("  WARNING: Removed duplicate hours");
+                config.update_hours.erase(last, config.update_hours.end());
+            }
+
+            // Ensure we have at least one hour
+            if (config.update_hours.empty()) {
+                Serial.println("  WARNING: No valid hours found, using default");
+                config.update_hours.push_back(DEFAULT_UPDATE_HOUR);
+            }
+
+            // Set update_hour to first value for backward compatibility
+            config.update_hour = config.update_hours[0];
+
+        } else {
+            // Legacy: use update_hour (single value)
+            config.update_hour = display["update_hour"] | DEFAULT_UPDATE_HOUR;
+            config.update_hours.clear();
+            config.update_hours.push_back(config.update_hour);
+            Serial.println("  Using legacy 'update_hour': " + String(config.update_hour));
+        }
+
         Serial.println("  Timezone: " + config.timezone);
-        Serial.println("  Update hour: " + String(config.update_hour));
+        Serial.print("  Update hours: ");
+        for (size_t i = 0; i < config.update_hours.size(); i++) {
+            Serial.print(String(config.update_hours[i]));
+            if (i < config.update_hours.size() - 1) Serial.print(", ");
+        }
+        Serial.println();
+
     } else {
         Serial.println("WARNING: 'display' section not found in JSON!");
         config.timezone    = DEFAULT_TIMEZONE;
         config.update_hour = DEFAULT_UPDATE_HOUR;
+        config.update_hours.clear();
+        config.update_hours.push_back(DEFAULT_UPDATE_HOUR);
     }
 
     // Mark configuration as valid if we have at least WiFi credentials
@@ -301,6 +367,8 @@ void LittleFSConfig::resetConfiguration() {
     config.longitude   = LOC_LONGITUDE;
     config.timezone    = DEFAULT_TIMEZONE;
     config.update_hour = DEFAULT_UPDATE_HOUR;
+    config.update_hours.clear();
+    config.update_hours.push_back(DEFAULT_UPDATE_HOUR);
     config.valid       = false;
 
     // Add default calendar

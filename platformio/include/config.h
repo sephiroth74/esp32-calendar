@@ -250,6 +250,9 @@
 // Maximum number of events to show on the display
 #define MAX_EVENTS_TO_SHOW 10
 
+// Show battery voltage in millivolts in the status bar
+#define DISPLAY_BATTERY_SHOW_MILLIVOLTS true // Show battery voltage in millivolts
+
 // Maximum number of calendars allowed (hardware/memory limitation)
 #define MAX_CALENDARS 3
 

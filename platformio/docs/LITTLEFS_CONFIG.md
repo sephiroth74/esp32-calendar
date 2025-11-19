@@ -33,7 +33,7 @@ The configuration is stored in `/data/config.json` with the following structure:
   },
   "display": {
     "timezone": "EST5EDT,M3.2.0,M11.1.0",
-    "update_hour": 5
+    "update_hours": [6, 12, 18]
   }
 }
 ```
@@ -136,6 +136,49 @@ Common timezone strings for the `display.timezone` field:
 - **Central Europe**: `"CET-1CEST,M3.5.0,M10.5.0"`
 - **Japan**: `"JST-9"`
 - **Australia Sydney**: `"AEST-10AEDT,M10.1.0,M4.1.0"`
+
+## Display Configuration
+
+### Update Hours
+
+The `update_hours` field specifies when the device should wake up and refresh the display. You can configure up to 6 update times per day:
+
+```json
+{
+  "display": {
+    "timezone": "CET-1CEST,M3.5.0,M10.5.0",
+    "update_hours": [6, 12, 18]
+  }
+}
+```
+
+**Features:**
+- Supports up to 6 update times (hours 0-23)
+- Automatically removes duplicates and sorts in ascending order
+- Falls back to default (5 AM) if empty or invalid
+- Backward compatible with legacy `update_hour` (single value)
+
+**Examples:**
+- `[6, 12, 18]` - Update at 6 AM, 12 PM, and 6 PM
+- `[8]` - Update once per day at 8 AM
+- `[0, 6, 12, 18]` - Update four times daily
+
+**Validation:**
+- Invalid values (< 0 or > 23) are ignored
+- Duplicates are automatically removed
+- If more than 6 values, only first 6 are used
+- Empty array uses default (5 AM)
+
+### Battery Display
+
+Control whether battery voltage is shown in the status bar using the compile-time constant in `include/config.h`:
+
+```c
+#define DISPLAY_BATTERY_SHOW_MILLIVOLTS true  // Show voltage with percentage
+```
+
+When enabled, battery status shows as: `85% (4200mV)`
+When disabled: `85%`
 
 ## Google Calendar URL
 

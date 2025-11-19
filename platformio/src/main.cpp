@@ -449,29 +449,56 @@ void enterDeepSleep(int retryMinutes) {
         DEBUG_WARN_PRINTLN("Error retry - sleeping for " + String(retryMinutes) + " minutes");
         esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000ULL);
     } else {
-        // Normal operation - wake up at next update hour
-        struct tm targetTime = *timeinfo;
-
-        // Get update hour from configuration
+        // Normal operation - wake up at next update hour from the configured hours
         const RuntimeConfig& config = configLoader.getConfig();
-        int updateHour              = config.update_hour;
+        const std::vector<int>& updateHours = config.update_hours;
 
-        // Always move to next day's update hour for once-daily update
-        targetTime.tm_mday += 1;
-        targetTime.tm_hour  = updateHour;
-        targetTime.tm_min   = 0;
-        targetTime.tm_sec   = 0;
+        // Find the next update hour
+        int currentHour = timeinfo->tm_hour;
+        int nextHour = -1;
+        bool nextDay = false;
+
+        // Look for next hour today
+        for (int hour : updateHours) {
+            if (hour > currentHour) {
+                nextHour = hour;
+                break;
+            }
+        }
+
+        // If no hour found today, use first hour of tomorrow
+        if (nextHour == -1) {
+            nextHour = updateHours[0];
+            nextDay = true;
+        }
+
+        // Calculate target time
+        struct tm targetTime = *timeinfo;
+        if (nextDay) {
+            targetTime.tm_mday += 1;
+        }
+        targetTime.tm_hour = nextHour;
+        targetTime.tm_min  = 0;
+        targetTime.tm_sec  = 0;
 
         time_t targetWakeup = mktime(&targetTime);
         sleepSeconds        = targetWakeup - now;
 
-        // If somehow negative, sleep for 24 hours
+        // If somehow negative, sleep until first update hour tomorrow
         if (sleepSeconds <= 0) {
-            sleepSeconds = 24 * 60 * 60;
+            targetTime = *timeinfo;
+            targetTime.tm_mday += 1;
+            targetTime.tm_hour = updateHours[0];
+            targetTime.tm_min  = 0;
+            targetTime.tm_sec  = 0;
+            targetWakeup = mktime(&targetTime);
+            sleepSeconds = targetWakeup - now;
         }
 
-        DEBUG_INFO_PRINTLN("Next update at " + String(updateHour) + ":00 tomorrow");
-        DEBUG_INFO_PRINTLN("Sleeping for " + String(sleepSeconds / 3600) + " hours");
+        String dayStr = nextDay ? " tomorrow" : " today";
+        DEBUG_INFO_PRINTLN("Next update at " + String(nextHour) + ":00" + dayStr);
+        DEBUG_INFO_PRINTLN("Sleeping for " + String(sleepSeconds / 3600) + " hours " +
+                           String((sleepSeconds % 3600) / 60) + " minutes");
         esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000ULL);
     }
 

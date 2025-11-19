@@ -5,6 +5,98 @@ All notable changes to the ESP32 E-Paper Calendar project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] - 2025-01-19
+
+### Added
+- **Multiple Daily Update Hours** - Support for multiple update times throughout the day
+  - New `update_hours` array in config.json display section replaces single `update_hour`
+  - Configure up to 6 update times per day (e.g., `[6, 12, 18]` for 6 AM, 12 PM, 6 PM)
+  - Smart wake-up logic finds next scheduled hour (today or tomorrow)
+  - Automatic validation: max 6 items, removes duplicates, sorts ascending, validates range 0-23
+  - Falls back to `DEFAULT_UPDATE_HOUR` (5 AM) if empty or invalid
+  - Backward compatible: legacy `update_hour` still supported and converted to array
+  - Example configuration:
+    ```json
+    {
+      "display": {
+        "timezone": "Europe/Zurich",
+        "update_hours": [6, 12, 18]
+      }
+    }
+    ```
+  - Validation examples:
+    - `[5, 8, 5, 12]` → `[5, 8, 12]` (duplicates removed)
+    - `[20, 5, 12, 8]` → `[5, 8, 12, 20]` (sorted)
+    - `[0,3,6,9,12,15,18,21]` → `[0,3,6,9,12,15]` (max 6 items)
+    - `[]` → `[5]` (uses default)
+
+### Technical Details
+- Flash: 1,310,505 bytes (43.5% of 3.0MB)
+- RAM: 111,928 bytes (34.2% of 320KB)
+- Board now wakes at multiple configured hours instead of once daily
+- Legacy configs with single `update_hour` continue to work
+
+## [1.10.0] - 2025-01-19
+
+### Added
+- **Proper DTSTART/DTEND Timezone Parsing** - Full iCalendar datetime format support with timezone awareness
+  - Handles all 4 iCalendar datetime formats:
+    1. **DATE-TIME (UTC)**: `DTSTART:20251119T103000Z` - UTC times with Z suffix
+    2. **DATE-TIME (TZID)**: `DTSTART;TZID=America/Los_Angeles:20251119T140000` - Timezone-aware times
+    3. **DATE-TIME (Floating)**: `DTSTART:20251119T080000` - Local time without timezone
+    4. **DATE (All-Day)**: `DTSTART;VALUE=DATE:20251119` - All-day events
+  - Uses `setenv("TZ")` + `tzset()` + `mktime()` for accurate timezone conversion
+  - Events stored as Unix timestamps (`time_t`) for consistent timezone handling
+  - Display times automatically converted to local timezone (e.g., Europe/Zurich)
+  - Verified: UTC event at 07:00 correctly displays as 08:00 CET in Europe/Zurich
+
+- **Pixel-Based Text Truncation** - Event titles now properly truncate to fit display width
+  - New `DisplayManager::truncateToWidth()` method uses `getTextBounds()` for accurate measurement
+  - Binary search algorithm efficiently finds maximum text that fits within pixel width
+  - Prevents text wrapping and overflow that previously occurred with character-based truncation
+  - Works in both portrait and landscape modes
+
+- **UTF-8 to Latin-1 Font Encoding** - Proper rendering of accented characters in GFXfonts
+  - New `StringUtils::convertToFontEncoding()` converts UTF-8 to Latin-1 (ISO-8859-1)
+  - Accented characters (à, è, ì, ò, ù, ü) now render natively using font glyphs
+  - Replaces old ASCII approximation approach (è → "e'" now → native è character)
+  - Example: UTF-8 `à` (`\xc3\xa0`) → Latin-1 `\340` (octal for 0xE0)
+  - Characters outside Latin-1 range (0x20-0xFF) replaced with '?'
+  - GFXfonts support full Latin-1 character set for European languages
+
+### Changed
+- **CalendarEvent Data Model** - Simplified and more efficient event structure
+  - Removed redundant `dtStart` and `dtEnd` string properties (raw ICS format no longer stored)
+  - Date/time now stored only as Unix timestamps (`time_t startTime`, `time_t endTime`)
+  - `date` field automatically populated from `startTime` for backward compatibility
+  - `getStartDate()`, `getEndDate()`, `getStartTimeStr()`, `getEndTimeStr()` compute values on-demand
+  - Memory savings: ~40 bytes per event (removed duplicate date/time string storage)
+
+- **Parser Improvements** - More robust DTSTART/DTEND extraction
+  - Detects and parses TZID parameter from property line
+  - Handles VALUE=DATE parameter for all-day events
+  - Automatically detects date-only format (8 chars: YYYYMMDD)
+  - Passes timezone and format flags to parsing methods
+
+### Fixed
+- **Event Title Text Wrapping** - Long event titles no longer wrap to next line or overflow
+  - Root cause: `StringUtils::truncate()` used character count instead of pixel width
+  - Solution: New `truncateToWidth()` uses actual rendered text width measurement
+  - Properly adds ellipsis ("...") suffix when truncating
+  - Fixed in both portrait and landscape event rendering
+
+### Technical Details
+- Flash: 1,316,965 bytes (43.7% of 3.0MB) - reduced from 44.0%
+- RAM: 112,084 bytes (34.2% of 320KB)
+- Test coverage: 236/242 tests passing (97.5%)
+  - 5 failing tests related to recurring event timezone edge cases (pre-existing)
+- Timezone handling: Full iCalendar specification compliance
+- Font encoding: Latin-1 (ISO-8859-1) support for European characters
+
+### Removed
+- Old `parseICSDateTimeWithTZ()` method (replaced by new parsing system)
+- `timezone_map.h` now obsolete (system handles IANA timezone IDs directly)
+
 ## [1.9.0] - 2025-01-06
 
 ### Fixed

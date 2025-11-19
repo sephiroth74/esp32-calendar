@@ -374,7 +374,12 @@ void DisplayManager::drawLandscapeStatusBar(bool wifiConnected,
 
     iconX += 20;
     display.setCursor(iconX, textY);
+#if DISPLAY_BATTERY_SHOW_MILLIVOLTS
+    int millivolts = (int)(batteryVoltage * 1000);
+    display.print(String(batteryPercentage) + "% (" + String(millivolts) + "mV)");
+#else
     display.print(String(batteryPercentage) + "%");
+#endif
 
     // CENTER: Last update date and time with version
     String dateTimeStr =
