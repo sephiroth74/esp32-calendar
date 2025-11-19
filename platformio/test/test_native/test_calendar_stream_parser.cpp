@@ -29,11 +29,13 @@ time_t parseICSDateTime(const String& dtString);
 CalendarEvent* createMockEvent(const String& summary, const String& startTime, const String& endTime, bool allDay = false) {
     CalendarEvent* event = new CalendarEvent();
     event->summary = summary;
-    event->startTime = parseICSDateTime(startTime);
-    event->endTime = parseICSDateTime(endTime);
-    event->dtStart = startTime;  // Set the raw dtStart string
-    event->dtEnd = endTime;      // Set the raw dtEnd string
-    event->allDay = allDay;
+    // Use the new setStartDateTime/setEndDateTime methods
+    bool isDate = allDay || (startTime.length() == 8);
+    event->setStartDateTime(startTime, "", isDate);
+    if (!endTime.isEmpty()) {
+        bool isEndDate = allDay || (endTime.length() == 8);
+        event->setEndDateTime(endTime, "", isEndDate);
+    }
     event->calendarName = "Test Calendar";
     event->calendarColor = "blue";
     return event;
@@ -121,8 +123,8 @@ TEST_SUITE("CalendarStreamParser - Basic Parsing") {
         );
 
         CHECK(event->summary == "Team Meeting");
-        CHECK(event->dtStart == "20251029T140000");
-        CHECK(event->dtEnd == "20251029T150000");
+        CHECK(event->startTime > 0);  // Should have valid timestamp
+        CHECK(event->endTime > 0);    // Should have valid timestamp
         CHECK(event->allDay == false);
         CHECK(event->isRecurring == false);
         CHECK(event->calendarName == "Test Calendar");
@@ -140,7 +142,7 @@ TEST_SUITE("CalendarStreamParser - Basic Parsing") {
 
         CHECK(event->summary == "Birthday");
         CHECK(event->allDay == true);
-        CHECK(event->dtStart == "20251029");
+        CHECK(event->startTime > 0);  // Should have valid timestamp
 
         delete event;
     }
@@ -341,10 +343,10 @@ TEST_SUITE("CalendarStreamParser - Date Range Filtering") {
         CalendarEvent* event2 = createMockEvent("Tomorrow", "20251030T100000", "20251030T110000");
         CalendarEvent* event3 = createMockEvent("Next Week", "20251105T100000", "20251105T110000");
 
-        // Parse dates
-        time_t date1 = parseICSDateTime(event1->dtStart);
-        time_t date2 = parseICSDateTime(event2->dtStart);
-        time_t date3 = parseICSDateTime(event3->dtStart);
+        // Dates are now already parsed as timestamps
+        time_t date1 = event1->startTime;
+        time_t date2 = event2->startTime;
+        time_t date3 = event3->startTime;
 
         // Check that dates are in order
         CHECK(date1 < date2);
@@ -368,7 +370,7 @@ TEST_SUITE("CalendarStreamParser - Date Range Filtering") {
 
         std::vector<CalendarEvent*> filtered;
         for (auto event : allEvents) {
-            time_t eventDate = parseICSDateTime(event->dtStart);
+            time_t eventDate = event->startTime;
             if (eventDate >= targetDate && eventDate < nextDay) {
                 filtered.push_back(event);
             }

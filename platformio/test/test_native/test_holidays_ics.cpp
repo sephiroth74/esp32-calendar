@@ -382,7 +382,7 @@ TEST_SUITE("Holidays ICS File - Parser Integration") {
 
         MESSAGE("Ognissanti event parsed successfully");
         MESSAGE("Summary: ", event->summary.c_str());
-        MESSAGE("Start: ", event->dtStart.c_str());
+        MESSAGE("Start: ", event->getStartDate().c_str(), " ", event->getStartTimeStr().c_str());
 
         delete event;
     }

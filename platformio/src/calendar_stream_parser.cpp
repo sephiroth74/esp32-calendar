@@ -387,18 +387,18 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
 
     // Extract event fields
     event->summary     = extractValueFromBuffer(eventData, "SUMMARY:");
-    event->location    = extractValueFromBuffer(eventData, "LOCATION:");
     event->description = extractValueFromBuffer(eventData, "DESCRIPTION:");
     event->uid         = extractValueFromBuffer(eventData, "UID:");
     event->status      = extractValueFromBuffer(eventData, "STATUS:");
     event->rrule       = extractValueFromBuffer(eventData, "RRULE:");
     event->isRecurring = !event->rrule.isEmpty();
 
-    // Parse start date/time (with timezone support)
+    // Parse start date/time (with full timezone support)
     String dtStart;
     String dtStartTZID;
+    bool dtStartIsDate = false;
 
-    // Check for TZID parameter first (e.g., DTSTART;TZID=Europe/Amsterdam:20120119T150000)
+    // Check for TZID parameter first (e.g., DTSTART;TZID=America/Los_Angeles:20251119T140000)
     int dtStartPos = eventData.indexOf("DTSTART;TZID=");
     if (dtStartPos >= 0) {
         int colonPos   = eventData.indexOf(":", dtStartPos);
@@ -415,35 +415,32 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
         // Extract datetime value
         dtStart = eventData.substring(colonPos + 1, newlinePos);
         dtStart.trim();
+
+    } else if (eventData.indexOf("DTSTART;VALUE=DATE:") >= 0) {
+        // All-day event (DATE format)
+        dtStart = extractValueFromBuffer(eventData, "DTSTART;VALUE=DATE:");
+        dtStartIsDate = true;
+
     } else {
-        // No TZID - try standard patterns
+        // No TZID - could be UTC (ends with Z) or floating time
         dtStart = extractValueFromBuffer(eventData, "DTSTART:");
         if (dtStart.isEmpty()) {
-            dtStart = extractValueFromBuffer(eventData, "DTSTART;VALUE=DATE:");
-        }
-        if (dtStart.isEmpty()) {
             dtStart = extractValueFromBuffer(eventData, "DTSTART;VALUE=DATE-TIME:");
+        }
+        // Check if it's a date-only format (8 chars: YYYYMMDD)
+        if (!dtStart.isEmpty() && dtStart.length() == 8) {
+            dtStartIsDate = true;
         }
     }
 
     if (!dtStart.isEmpty()) {
-        event->dtStart = dtStart;
-        event->allDay  = (dtStart.length() == 8);
-
-        if (!dtStartTZID.isEmpty()) {
-            // Parse with timezone conversion
-            event->startTime = CalendarEvent::parseICSDateTimeWithTZ(dtStart, dtStartTZID);
-            // Note: startDate and startTimeStr are now computed on-demand via getters
-            // No need to store them
-        } else {
-            // Parse without timezone (UTC or all-day)
-            event->setStartDateTime(dtStart);
-        }
+        event->setStartDateTime(dtStart, dtStartTZID, dtStartIsDate);
     }
 
-    // Parse end date/time (with timezone support)
+    // Parse end date/time (with full timezone support)
     String dtEnd;
     String dtEndTZID;
+    bool dtEndIsDate = false;
 
     // Check for TZID parameter first
     int dtEndPos = eventData.indexOf("DTEND;TZID=");
@@ -462,27 +459,26 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
         // Extract datetime value
         dtEnd = eventData.substring(colonPos + 1, newlinePos);
         dtEnd.trim();
+
+    } else if (eventData.indexOf("DTEND;VALUE=DATE:") >= 0) {
+        // All-day event (DATE format)
+        dtEnd = extractValueFromBuffer(eventData, "DTEND;VALUE=DATE:");
+        dtEndIsDate = true;
+
     } else {
-        // No TZID - try standard patterns
+        // No TZID - could be UTC (ends with Z) or floating time
         dtEnd = extractValueFromBuffer(eventData, "DTEND:");
         if (dtEnd.isEmpty()) {
-            dtEnd = extractValueFromBuffer(eventData, "DTEND;VALUE=DATE:");
-        }
-        if (dtEnd.isEmpty()) {
             dtEnd = extractValueFromBuffer(eventData, "DTEND;VALUE=DATE-TIME:");
+        }
+        // Check if it's a date-only format (8 chars: YYYYMMDD)
+        if (!dtEnd.isEmpty() && dtEnd.length() == 8) {
+            dtEndIsDate = true;
         }
     }
 
     if (!dtEnd.isEmpty()) {
-        event->dtEnd = dtEnd;
-
-        if (!dtEndTZID.isEmpty()) {
-            // Parse with timezone conversion
-            event->endTime = CalendarEvent::parseICSDateTimeWithTZ(dtEnd, dtEndTZID);
-        } else {
-            // Parse without timezone (UTC or all-day)
-            event->setEndDateTime(dtEnd);
-        }
+        event->setEndDateTime(dtEnd, dtEndTZID, dtEndIsDate);
     }
 
     // Debug: Track specific event
@@ -498,8 +494,6 @@ CalendarEvent* CalendarStreamParser::parseEventFromBuffer(const String& eventDat
         DEBUG_INFO_PRINTF(">>> PARSING TARGET EVENT (Cambio gomme) <<<\n");
         DEBUG_INFO_PRINTF("  Summary: %s\n", event->summary.c_str());
         DEBUG_INFO_PRINTF("  UID: %s\n", event->uid.c_str());
-        DEBUG_INFO_PRINTF("  dtStart string: %s\n", event->dtStart.c_str());
-        DEBUG_INFO_PRINTF("  dtEnd string: %s\n", event->dtEnd.c_str());
         DEBUG_INFO_PRINTF("  All-day: %s\n", event->allDay ? "YES" : "NO");
         DEBUG_INFO_PRINTF("  Parsed startTime: %s (unix: %ld)\n", startStr, event->startTime);
         DEBUG_INFO_PRINTF("  Parsed endTime: %s (unix: %ld)\n", endStr, event->endTime);

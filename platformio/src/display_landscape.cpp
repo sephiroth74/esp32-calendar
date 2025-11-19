@@ -219,7 +219,7 @@ void DisplayManager::drawLandscapeEvents(const std::vector<CalendarEvent*>& even
         int titleX        = x + 50;
         int titleMaxWidth = DISPLAY_WIDTH - titleX - 20;
         String title =
-            StringUtils::truncate(StringUtils::removeAccents(event->title), titleMaxWidth, "...");
+            truncateToWidth(StringUtils::removeAccents(event->title), &FONT_EVENT_TITLE, titleMaxWidth, "...");
         display.setCursor(titleX, y);
         display.print(title);
 

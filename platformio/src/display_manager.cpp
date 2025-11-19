@@ -416,6 +416,50 @@ int16_t DisplayManager::getTextWidth(const String& text, const GFXfont* font) {
     return w;
 }
 
+String DisplayManager::truncateToWidth(const String& text, const GFXfont* font, int16_t maxWidth, const String& suffix) {
+    // Set font for accurate measurement
+    display.setFont(font);
+
+    int16_t x1, y1;
+    uint16_t w, h;
+
+    // Check if full text fits
+    display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+    if (w <= maxWidth) {
+        return text;
+    }
+
+    // Get suffix width
+    display.getTextBounds(suffix, 0, 0, &x1, &y1, &w, &h);
+    int16_t suffixWidth = w;
+
+    // If even the suffix is too wide, return empty or truncated suffix
+    if (suffixWidth >= maxWidth) {
+        return suffix;
+    }
+
+    // Binary search for the right length
+    int availableWidth = maxWidth - suffixWidth;
+    int left = 0;
+    int right = text.length();
+    int bestLength = 0;
+
+    while (left <= right) {
+        int mid = (left + right) / 2;
+        String testStr = text.substring(0, mid);
+        display.getTextBounds(testStr, 0, 0, &x1, &y1, &w, &h);
+
+        if (w <= availableWidth) {
+            bestLength = mid;
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+
+    return text.substring(0, bestLength) + suffix;
+}
+
 int16_t DisplayManager::calculateYPosition(int16_t baseY, const GFXfont* font, int16_t spacing) {
     // Calculate next Y position based on font height and spacing
     int16_t fontHeight = getFontHeight(font);

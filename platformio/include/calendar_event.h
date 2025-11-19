@@ -38,15 +38,10 @@ class CalendarEvent {
     String description; // Event description (DESCRIPTION)
     String location;    // Event location (LOCATION)
 
-    // Date and time properties
-    String dtStart;  // Start date/time in ICS format (DTSTART)
-    String dtEnd;    // End date/time in ICS format (DTEND)
-    String duration; // Duration of the event (DURATION)
-    bool allDay;     // True if this is an all-day event
-
-    // Parsed date/time for convenience
-    time_t startTime; // Start time as Unix timestamp
-    time_t endTime;   // End time as Unix timestamp
+    // Date and time properties (stored as Unix timestamps)
+    time_t startTime; // Start time as Unix timestamp (converted from DTSTART)
+    time_t endTime;   // End time as Unix timestamp (converted from DTEND)
+    bool allDay;      // True if this is an all-day event (VALUE=DATE)
 
     // Computed properties (memory optimization - computed on-demand instead of stored)
     String getStartDate() const;    // Start date in YYYY-MM-DD format
@@ -68,19 +63,9 @@ class CalendarEvent {
     int priority;      // Priority level (0-9, 0 = undefined)
     int sequence;      // Sequence number for updates
 
-    // Organizer and attendees
-    String organizer; // Event organizer
-    String attendees; // Comma-separated list of attendees
-
-    // Timestamps
-    String created;      // Creation timestamp (CREATED)
-    String lastModified; // Last modification timestamp (LAST-MODIFIED)
-    String dtStamp;      // Timestamp of ICS creation (DTSTAMP)
-
     // Calendar metadata
     String calendarName;  // Name of the source calendar
     String calendarColor; // Color associated with this calendar
-    String categories;    // Event categories (CATEGORIES)
 
     // Alarm/reminder
     String alarm; // Alarm/reminder settings
@@ -98,25 +83,26 @@ class CalendarEvent {
     int dayOfMonth;  // Day of month (1-31) for calendar display
     bool isHoliday;  // True if this is a holiday (from holiday_calendar)
 
-    // Compatibility fields for DisplayManager (set by CalendarDisplayAdapter)
+    // Compatibility fields for DisplayManager (computed from startTime)
     String title; // Alias for summary (for backward compatibility)
-    String date;  // Formatted date string YYYY-MM-DD
+    String date;  // Formatted date string YYYY-MM-DD (computed from startTime)
 
     // Methods
     void clear();
     bool isValid() const;
 
     // Date/time parsing helpers
-    bool parseDateTime(const String& icsDateTime, time_t& timestamp, bool& isAllDay);
     String formatDate(time_t timestamp) const;
     String formatTime(time_t timestamp) const;
 
-    // Set date/time from ICS format
-    bool setStartDateTime(const String& dtStart, const String& params = "");
-    bool setEndDateTime(const String& dtEnd, const String& params = "");
-
-    // Timezone-aware datetime parsing
-    static time_t parseICSDateTimeWithTZ(const String& dt, const String& tzid);
+    // Parse DTSTART/DTEND from ICS format with full timezone support
+    // Handles:
+    //   - DATE-TIME (UTC): "20251119T103000Z"
+    //   - DATE-TIME (TZID): "20251119T140000" with tzid="America/Los_Angeles"
+    //   - DATE-TIME (Floating): "20251119T080000" (no tzid, no Z)
+    //   - DATE (All-Day): "20251119" with isDate=true
+    bool setStartDateTime(const String& value, const String& tzid = "", bool isDate = false);
+    bool setEndDateTime(const String& value, const String& tzid = "", bool isDate = false);
 
     // Comparison operators
     bool operator<(const CalendarEvent& other) const;
@@ -127,9 +113,8 @@ class CalendarEvent {
     void print() const;
 
   private:
-    // Helper methods
-    time_t parseICSDateTime(const String& dateTime, bool isUTC = false) const;
-    String timeToICSFormat(time_t timestamp, bool includeTime = true) const;
+    // Helper method to parse ICS datetime with timezone support
+    time_t parseICSDateTime(const String& value, const String& tzid, bool isDate, bool hasZ) const;
 };
 
 #endif // CALENDAR_EVENT_H

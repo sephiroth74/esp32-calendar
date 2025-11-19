@@ -16,19 +16,17 @@ void CalendarEvent::clear() {
     uid           = "";
     summary       = "";
     description   = "";
-    location      = "";
 
-    dtStart       = "";
-    dtEnd         = "";
-    duration      = "";
     allDay        = false;
-
     startTime     = 0;
     endTime       = 0;
 
     rrule         = "";
     rdate         = "";
     exdate        = "";
+
+    title         = "";
+    date          = "";
     recurrenceId  = "";
     isRecurring   = false;
 
@@ -38,16 +36,8 @@ void CalendarEvent::clear() {
     priority      = 0;
     sequence      = 0;
 
-    organizer     = "";
-    attendees     = "";
-
-    created       = "";
-    lastModified  = "";
-    dtStamp       = "";
-
     calendarName  = "";
     calendarColor = "";
-    categories    = "";
 
     alarm         = "";
     timezone      = "";
@@ -61,84 +51,113 @@ void CalendarEvent::clear() {
 }
 
 bool CalendarEvent::isValid() const {
-    // An event must have at least a UID and a start time
-    return !uid.isEmpty() && !dtStart.isEmpty();
+    // An event must have at least a UID and a valid start time
+    return !uid.isEmpty() && startTime > 0;
 }
 
-bool CalendarEvent::setStartDateTime(const String& dt, const String& params) {
-    dtStart = dt;
+bool CalendarEvent::setStartDateTime(const String& value, const String& tzid, bool isDate) {
+    // Check if value ends with 'Z' (UTC indicator)
+    bool hasZ = !value.isEmpty() && value.charAt(value.length() - 1) == 'Z';
 
-    // Check if it's an all-day event
-    if (params.indexOf("VALUE=DATE") != -1 || dt.length() == 8) {
-        allDay    = true;
-        startTime = parseICSDateTime(dt, false);
-    } else {
-        allDay     = false;
-        bool isUTC = dt.charAt(dt.length() - 1) == 'Z';
-        startTime  = parseICSDateTime(dt, isUTC);
+    // Set allDay flag
+    allDay = isDate;
+
+    // Parse the datetime
+    startTime = parseICSDateTime(value, tzid, isDate, hasZ);
+
+    // Automatically populate the date field for backward compatibility
+    if (startTime > 0) {
+        date = getStartDate();
     }
 
     return startTime > 0;
 }
 
-bool CalendarEvent::setEndDateTime(const String& dt, const String& params) {
-    dtEnd = dt;
+bool CalendarEvent::setEndDateTime(const String& value, const String& tzid, bool isDate) {
+    // Check if value ends with 'Z' (UTC indicator)
+    bool hasZ = !value.isEmpty() && value.charAt(value.length() - 1) == 'Z';
 
-    // Check if it's an all-day event
-    bool isAllDay = params.indexOf("VALUE=DATE") != -1 || dt.length() == 8;
-
-    if (isAllDay) {
-        endTime = parseICSDateTime(dt, false);
-    } else {
-        bool isUTC = dt.charAt(dt.length() - 1) == 'Z';
-        endTime    = parseICSDateTime(dt, isUTC);
-    }
+    // Parse the datetime
+    endTime = parseICSDateTime(value, tzid, isDate, hasZ);
 
     return endTime > 0;
 }
 
-time_t CalendarEvent::parseICSDateTime(const String& dateTime, bool isUTC) const {
+time_t CalendarEvent::parseICSDateTime(const String& value, const String& tzid, bool isDate, bool hasZ) const {
     // Parse ICS date/time format: YYYYMMDD[THHMMSS[Z]]
+    // Supports 4 formats:
+    //   1. DATE-TIME (UTC): "20251119T103000Z" (hasZ=true)
+    //   2. DATE-TIME (TZID): "20251119T140000" with tzid (tzid!="")
+    //   3. DATE-TIME (Floating): "20251119T080000" (tzid="", hasZ=false)
+    //   4. DATE (All-Day): "20251119" (isDate=true)
 
-    if (dateTime.length() < 8) {
+    if (value.length() < 8) {
         return 0; // Invalid format
     }
 
     struct tm timeinfo;
     memset(&timeinfo, 0, sizeof(struct tm));
 
-    // Parse date components
-    String yearStr   = dateTime.substring(0, 4);
-    String monthStr  = dateTime.substring(4, 6);
-    String dayStr    = dateTime.substring(6, 8);
+    // Parse date components (YYYYMMDD)
+    String yearStr  = value.substring(0, 4);
+    String monthStr = value.substring(4, 6);
+    String dayStr   = value.substring(6, 8);
 
     timeinfo.tm_year = yearStr.toInt() - 1900;
     timeinfo.tm_mon  = monthStr.toInt() - 1;
     timeinfo.tm_mday = dayStr.toInt();
 
-    // Parse time components if present
-    if (dateTime.length() >= 15 && dateTime.charAt(8) == 'T') {
-        String hourStr   = dateTime.substring(9, 11);
-        String minStr    = dateTime.substring(11, 13);
-        String secStr    = dateTime.substring(13, 15);
+    // Parse time components if present (THHMMSS)
+    if (!isDate && value.length() >= 15 && value.charAt(8) == 'T') {
+        String hourStr = value.substring(9, 11);
+        String minStr  = value.substring(11, 13);
+        String secStr  = value.substring(13, 15);
 
         timeinfo.tm_hour = hourStr.toInt();
         timeinfo.tm_min  = minStr.toInt();
         timeinfo.tm_sec  = secStr.toInt();
+    } else {
+        // All-day event or date-only: set time to midnight
+        timeinfo.tm_hour = 0;
+        timeinfo.tm_min  = 0;
+        timeinfo.tm_sec  = 0;
     }
 
-    // Convert to time_t
-    // Note: mktime interprets the time as local time
-    // For UTC times, we'd need to adjust for timezone offset
-    time_t result = mktime(&timeinfo);
+    timeinfo.tm_isdst = -1; // Let mktime determine DST
 
-    // If UTC, adjust for local timezone
-    // This is a simplified approach - proper timezone handling would be more complex
-    if (isUTC) {
-        // Get local timezone offset
-        // This is platform-specific and simplified
-        // In a real implementation, you'd use proper timezone libraries
+    // Save current timezone
+    char* oldTZ = getenv("TZ");
+    String savedTZ = oldTZ ? String(oldTZ) : "";
+
+    time_t result = 0;
+
+    if (hasZ) {
+        // Format 1: DATE-TIME (UTC) - "20251119T103000Z"
+        // Set timezone to UTC for parsing
+        setenv("TZ", "UTC0", 1);
+        tzset();
+        result = mktime(&timeinfo);
+
+    } else if (!tzid.isEmpty()) {
+        // Format 2: DATE-TIME (TZID) - "20251119T140000" with tzid="America/Los_Angeles"
+        // Set timezone to the specified TZID for parsing
+        setenv("TZ", tzid.c_str(), 1);
+        tzset();
+        result = mktime(&timeinfo);
+
+    } else {
+        // Format 3: DATE-TIME (Floating) or Format 4: DATE (All-Day)
+        // Use local timezone (don't change TZ)
+        result = mktime(&timeinfo);
     }
+
+    // Restore original timezone
+    if (!savedTZ.isEmpty()) {
+        setenv("TZ", savedTZ.c_str(), 1);
+    } else {
+        unsetenv("TZ");
+    }
+    tzset();
 
     return result;
 }
@@ -181,30 +200,29 @@ String CalendarEvent::toString() const {
     String result = "CalendarEvent {\n";
     result += "  UID: " + uid + "\n";
     result += "  Summary: " + summary + "\n";
-    result += "  Start: " + dtStart;
-    String startDate = getStartDate();
-    if (!startDate.isEmpty()) {
-        result += " (" + startDate;
-        String startTimeStr = getStartTimeStr();
-        if (!startTimeStr.isEmpty()) {
-            result += " " + startTimeStr;
-        }
-        result += ")";
-    }
-    result += "\n";
 
-    if (!dtEnd.isEmpty()) {
-        result += "  End: " + dtEnd;
+    if (startTime > 0) {
+        String startDate = getStartDate();
+        result += "  Start: " + startDate;
+        if (!allDay) {
+            String startTimeStr = getStartTimeStr();
+            if (!startTimeStr.isEmpty()) {
+                result += " " + startTimeStr;
+            }
+        }
+        result += " (timestamp: " + String((unsigned long)startTime) + ")\n";
+    }
+
+    if (endTime > 0) {
         String endDate = getEndDate();
-        if (!endDate.isEmpty()) {
-            result += " (" + endDate;
+        result += "  End: " + endDate;
+        if (!allDay) {
             String endTimeStr = getEndTimeStr();
             if (!endTimeStr.isEmpty()) {
                 result += " " + endTimeStr;
             }
-            result += ")";
         }
-        result += "\n";
+        result += " (timestamp: " + String((unsigned long)endTime) + ")\n";
     }
 
     if (!location.isEmpty()) {
@@ -273,85 +291,4 @@ static bool parseICSDateTimeToTm(const String& dt, struct tm& timeinfo) {
     timeinfo.tm_isdst = -1; // Let mktime determine DST
 
     return true;
-}
-
-/**
- * Parse ICS datetime string with timezone conversion
- *
- * Converts a datetime from the specified timezone to UTC using ESP32's built-in
- * timezone support via POSIX TZ strings.
- *
- * @param dt ICS datetime string (e.g., "20120119T150000")
- * @param tzid IANA timezone identifier (e.g., "Europe/Amsterdam")
- * @return UTC timestamp, or -1 if parsing fails
- */
-time_t CalendarEvent::parseICSDateTimeWithTZ(const String& dt, const String& tzid) {
-    if (dt.isEmpty()) {
-        return -1;
-    }
-
-    // Get POSIX TZ string for this IANA timezone ID
-    String posixTZ = getPosixTZ(tzid);
-
-    if (posixTZ.isEmpty()) {
-        // Unknown timezone - fall back to parsing as UTC
-        struct tm timeinfo;
-        if (!parseICSDateTimeToTm(dt, timeinfo)) {
-            return -1;
-        }
-        timeinfo.tm_isdst = 0; // UTC has no DST
-
-        // For UTC, use timegm (or mktime after setting TZ=UTC)
-#ifndef ARDUINO
-        return timegm(&timeinfo); // Available in POSIX
-#else
-        // On Arduino, temporarily set UTC
-        char* oldTZ    = getenv("TZ");
-        String savedTZ = oldTZ ? String(oldTZ) : "";
-        setenv("TZ", "UTC0", 1);
-        tzset();
-        time_t result = mktime(&timeinfo);
-        if (!savedTZ.isEmpty()) {
-            setenv("TZ", savedTZ.c_str(), 1);
-        } else {
-            unsetenv("TZ");
-        }
-        tzset();
-        return result;
-#endif
-    }
-
-    // Save current TZ environment variable
-    char* oldTZ    = getenv("TZ");
-    String savedTZ = oldTZ ? String(oldTZ) : "";
-
-    // Temporarily set TZ to the event's timezone
-    setenv("TZ", posixTZ.c_str(), 1);
-    tzset(); // Apply timezone change
-
-    // Parse datetime string: YYYYMMDDTHHmmSS
-    struct tm timeinfo;
-    if (!parseICSDateTimeToTm(dt, timeinfo)) {
-        // Restore original TZ before returning
-        if (!savedTZ.isEmpty()) {
-            setenv("TZ", savedTZ.c_str(), 1);
-        } else {
-            unsetenv("TZ");
-        }
-        tzset();
-        return -1;
-    }
-
-    // mktime interprets timeinfo as local time (in our set TZ) and returns UTC timestamp
-    time_t result = mktime(&timeinfo);
-
-    // Restore original TZ environment variable
-    if (!savedTZ.isEmpty()) {
-        setenv("TZ", savedTZ.c_str(), 1);
-    } else {
-        unsetenv("TZ");
-    }
-    tzset(); // Apply timezone restoration
-
-    return result;
 }

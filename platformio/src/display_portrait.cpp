@@ -396,8 +396,8 @@ void DisplayManager::drawPortraitEventsWithWeather(const std::vector<CalendarEve
             display.setFont(&FONT_EVENT_TITLE);
             int titleX        = eventsX + 50; // Space for time
             int titleMaxWidth = DISPLAY_WIDTH - titleX - 20;
-            String title      = StringUtils::truncate(
-                StringUtils::removeAccents(event->title), titleMaxWidth, "...");
+            String title      = truncateToWidth(
+                StringUtils::removeAccents(event->title), &FONT_EVENT_TITLE, titleMaxWidth, "...");
             display.setCursor(titleX, eventsY);
             display.print(title);
 

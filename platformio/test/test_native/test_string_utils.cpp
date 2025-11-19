@@ -15,37 +15,52 @@ int main(int argc, char** argv) {
 #include "../../src/string_utils.cpp"
 
 TEST_SUITE("StringUtils") {
-    TEST_CASE("convertAccents - Italian accented characters") {
-        // Test lowercase Italian vowels
-        CHECK(StringUtils::convertAccents("è") == "e'");
-        CHECK(StringUtils::convertAccents("à") == "a'");
-        CHECK(StringUtils::convertAccents("ò") == "o'");
-        CHECK(StringUtils::convertAccents("ù") == "u'");
-        CHECK(StringUtils::convertAccents("ì") == "i'");
+    TEST_CASE("convertToFontEncoding - Latin-1 characters preserved") {
+        // Test that UTF-8 encoded Latin-1 characters are converted to single-byte Latin-1
+        // The output should contain the actual Latin-1 character (0xE0 for à, etc.)
 
-        // Test uppercase Italian vowels
-        CHECK(StringUtils::convertAccents("È") == "E'");
-        CHECK(StringUtils::convertAccents("À") == "A'");
-        CHECK(StringUtils::convertAccents("Ò") == "O'");
-        CHECK(StringUtils::convertAccents("Ù") == "U'");
-        CHECK(StringUtils::convertAccents("Ì") == "I'");
+        // Test lowercase vowels with accents
+        String result_a = StringUtils::convertToFontEncoding("à");  // UTF-8: 0xC3 0xA0 -> Latin-1: 0xE0
+        CHECK(result_a.length() == 1);
+        CHECK((unsigned char)result_a[0] == 0xE0);
 
-        // Test mixed text
-        CHECK(StringUtils::convertAccents("Caffè") == "Caffe'");
-        CHECK(StringUtils::convertAccents("Università") == "Universita'");
-        CHECK(StringUtils::convertAccents("Lunedì") == "Lunedi'");
-        CHECK(StringUtils::convertAccents("È già mezzogiorno") == "E' gia' mezzogiorno");
-        CAPTURE(1);
+        String result_e = StringUtils::convertToFontEncoding("è");  // UTF-8: 0xC3 0xA8 -> Latin-1: 0xE8
+        CHECK(result_e.length() == 1);
+        CHECK((unsigned char)result_e[0] == 0xE8);
+
+        String result_i = StringUtils::convertToFontEncoding("ì");  // UTF-8: 0xC3 0xAC -> Latin-1: 0xEC
+        CHECK(result_i.length() == 1);
+        CHECK((unsigned char)result_i[0] == 0xEC);
+
+        String result_o = StringUtils::convertToFontEncoding("ò");  // UTF-8: 0xC3 0xB2 -> Latin-1: 0xF2
+        CHECK(result_o.length() == 1);
+        CHECK((unsigned char)result_o[0] == 0xF2);
+
+        String result_u = StringUtils::convertToFontEncoding("ù");  // UTF-8: 0xC3 0xB9 -> Latin-1: 0xF9
+        CHECK(result_u.length() == 1);
+        CHECK((unsigned char)result_u[0] == 0xF9);
+
+        String result_u2 = StringUtils::convertToFontEncoding("ü");  // UTF-8: 0xC3 0xBC -> Latin-1: 0xFC
+        CHECK(result_u2.length() == 1);
+        CHECK((unsigned char)result_u2[0] == 0xFC);
     }
 
-    TEST_CASE("convertAccents - Other European characters") {
-        // Test French accents
-        CHECK(StringUtils::convertAccents("é") == "e'");
-        CHECK(StringUtils::convertAccents("É") == "E'");
+    TEST_CASE("convertToFontEncoding - Mixed text") {
+        // Test mixed text with accents
+        String result = StringUtils::convertToFontEncoding("Caffè");
+        CHECK(result.length() == 5);
+        CHECK(result[0] == 'C');
+        CHECK(result[1] == 'a');
+        CHECK(result[2] == 'f');
+        CHECK(result[3] == 'f');
+        CHECK((unsigned char)result[4] == 0xE8);  // è
+    }
 
-        // Test text with multiple accents
-        CHECK(StringUtils::convertAccents("café") == "cafe'");
-        CHECK(StringUtils::convertAccents("naïve") == "na?ve"); // ï not mapped to i'
+    TEST_CASE("convertAccents - Legacy function uses new encoding") {
+        // convertAccents now uses convertToFontEncoding
+        String result = StringUtils::convertAccents("à");
+        CHECK(result.length() == 1);
+        CHECK((unsigned char)result[0] == 0xE0);
     }
 
     TEST_CASE("convertAccents - ASCII text unchanged") {
@@ -180,21 +195,28 @@ TEST_SUITE("StringUtils") {
         text = StringUtils::trim(text);
         CHECK(text == "Università di Milano");
 
+        // After conversion, accented characters are preserved as Latin-1
         text = StringUtils::convertAccents(text);
-        CHECK(text == "Universita' di Milano");
+        // "Università" = U-n-i-v-e-r-s-i-t-à (10 chars in Latin-1, position 9 is à)
+        CHECK(text.length() == 20);  // "Università di Milano" in Latin-1
+        CHECK((unsigned char)text[9] == 0xE0);  // à in Latin-1
 
-        text = StringUtils::truncate(text, 15);
-        CHECK(text == "Universita' ...");
+        // Test truncation with Latin-1 text
+        String shortened = StringUtils::truncate(text, 10);
+        CHECK(shortened.length() == 10);
 
-        // Another combination
+        // Another combination with toTitleCase
         String event = "caffè break";
         event = StringUtils::toTitleCase(event);
         CHECK(event == "Caffè Break");
 
+        // After conversion, è becomes Latin-1 0xE8
         event = StringUtils::convertAccents(event);
-        CHECK(event == "Caffe' Break");
+        CHECK(event.length() == 11);  // "Caffè Break" in Latin-1
+        CHECK((unsigned char)event[4] == 0xE8);  // è
 
         event = StringUtils::replaceAll(event, " ", "_");
-        CHECK(event == "Caffe'_Break");
+        CHECK(event.length() == 11);
+        CHECK((unsigned char)event[4] == 0xE8);  // è still preserved
     }
 }

@@ -232,6 +232,7 @@ class DisplayManager {
                              bool centerX     = false,
                              bool centerY     = false,
                              int16_t maxWidth = 0);
+    String truncateToWidth(const String& text, const GFXfont* font, int16_t maxWidth, const String& suffix = "...");
     bool isRainWeatherCode(int weatherCode);
 
   public:

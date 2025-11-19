@@ -25,10 +25,12 @@ void CalendarDisplayAdapter::prepareEventForDisplay(CalendarEvent* event) {
     // DisplayManager expects 'title' but CalendarEvent uses 'summary'
     event->title = event->summary;
 
-    // Format date for display
+    // Format date for display (timestamp is always set by parser)
     if (event->startTime > 0) {
-        event->date = formatDate(event->startTime);
-        // Note: startTimeStr and startDate are now computed on-demand via getters
+        // date field is already set by setStartDateTime(), but ensure it's populated
+        if (event->date.isEmpty()) {
+            event->date = formatDate(event->startTime);
+        }
 
         // Set day of month for calendar highlighting
         event->dayOfMonth = getDayOfMonth(event->startTime);
@@ -37,12 +39,8 @@ void CalendarDisplayAdapter::prepareEventForDisplay(CalendarEvent* event) {
         event->isToday    = isToday(event->startTime);
         event->isTomorrow = isTomorrow(event->startTime);
     } else {
-        // Parse from dtStart if timestamp not available
-        event->date = event->dtStart.substring(0, 10); // Extract YYYY-MM-DD
-        if (event->date.indexOf('T') > 0) {
-            event->date = event->date.substring(0, event->date.indexOf('T'));
-        }
-        // Note: startDate is now computed on-demand via getStartDate()
+        // Invalid event - should not happen with proper parsing
+        event->date       = "";
         event->dayOfMonth = 0;
         event->isToday    = false;
         event->isTomorrow = false;

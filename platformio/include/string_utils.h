@@ -9,11 +9,17 @@
 
 class StringUtils {
   public:
-    // Convert Unicode accented characters to ASCII approximations
-    // e.g., è → e', à → a', ò → o', ù → u', ì → i'
+    // Convert UTF-8 encoded text to Latin-1 encoding for GFXfont rendering
+    // Characters in Latin-1 range (0x20-0xFF) are preserved and converted
+    // to their single-byte representation for GFX fonts.
+    // For example: UTF-8 "à" (\xc3\xa0) → Latin-1 '\340' (octal for 0xE0)
+    // Characters outside Latin-1 range are replaced with '?'
+    static String convertToFontEncoding(const String& text);
+
+    // Legacy alias - now converts to font encoding instead of ASCII approximations
     static String convertAccents(const String& text);
 
-    // Alias for convertAccents (removes accented characters)
+    // Alias for convertToFontEncoding
     static String removeAccents(const String& text);
 
     // Truncate string to specified length with ellipsis
