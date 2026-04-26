@@ -26,7 +26,8 @@
 time_t parseICSDateTime(const String& dtString);
 
 // Test helper to create mock events
-CalendarEvent* createMockEvent(const String& summary, const String& startTime, const String& endTime, bool allDay = false) {
+CalendarEvent* createMockEvent(const String& summary, const String& startTime, const String& endTime, bool allDay = false)
+{
     CalendarEvent* event = new CalendarEvent();
     event->summary = summary;
     // Use the new setStartDateTime/setEndDateTime methods
@@ -42,12 +43,14 @@ CalendarEvent* createMockEvent(const String& summary, const String& startTime, c
 }
 
 // Test helper to check time parsing
-time_t parseICSDateTime(const String& dtString) {
+time_t parseICSDateTime(const String& dtString)
+{
     // Simple ICS date-time parser for testing
     // Format: YYYYMMDDTHHMMSS or YYYYMMDD
-    if (dtString.length() < 8) return 0;
+    if (dtString.length() < 8)
+        return 0;
 
-    struct tm timeinfo = {0};
+    struct tm timeinfo = { 0 };
 
     // Parse YYYYMMDD
     timeinfo.tm_year = dtString.substring(0, 4).toInt() - 1900;
@@ -70,9 +73,11 @@ time_t parseICSDateTime(const String& dtString) {
 }
 
 // Basic ICS parsing tests without full parser integration
-TEST_SUITE("CalendarStreamParser - Basic Parsing") {
+TEST_SUITE("CalendarStreamParser - Basic Parsing")
+{
 
-    TEST_CASE("DateTime Parsing - Basic Format") {
+    TEST_CASE("DateTime Parsing - Basic Format")
+    {
         MESSAGE("Testing ICS date-time parsing");
 
         // Test date only
@@ -93,7 +98,8 @@ TEST_SUITE("CalendarStreamParser - Basic Parsing") {
         CHECK(tm2->tm_sec == 0);
     }
 
-    TEST_CASE("DateTime Parsing - Edge Cases") {
+    TEST_CASE("DateTime Parsing - Edge Cases")
+    {
         // Start of year
         time_t date1 = parseICSDateTime("20250101T000000");
         struct tm* tm1 = localtime(&date1);
@@ -112,19 +118,19 @@ TEST_SUITE("CalendarStreamParser - Basic Parsing") {
         CHECK(tm2->tm_sec == 59);
     }
 
-    TEST_CASE("CalendarEvent - Basic Properties") {
+    TEST_CASE("CalendarEvent - Basic Properties")
+    {
         MESSAGE("Testing CalendarEvent structure");
 
         CalendarEvent* event = createMockEvent(
             "Team Meeting",
             "20251029T140000",
             "20251029T150000",
-            false
-        );
+            false);
 
         CHECK(event->summary == "Team Meeting");
-        CHECK(event->startTime > 0);  // Should have valid timestamp
-        CHECK(event->endTime > 0);    // Should have valid timestamp
+        CHECK(event->startTime > 0); // Should have valid timestamp
+        CHECK(event->endTime > 0); // Should have valid timestamp
         CHECK(event->allDay == false);
         CHECK(event->isRecurring == false);
         CHECK(event->calendarName == "Test Calendar");
@@ -132,28 +138,28 @@ TEST_SUITE("CalendarStreamParser - Basic Parsing") {
         delete event;
     }
 
-    TEST_CASE("CalendarEvent - All Day Event") {
+    TEST_CASE("CalendarEvent - All Day Event")
+    {
         CalendarEvent* event = createMockEvent(
             "Birthday",
             "20251029",
             "20251030",
-            true
-        );
+            true);
 
         CHECK(event->summary == "Birthday");
         CHECK(event->allDay == true);
-        CHECK(event->startTime > 0);  // Should have valid timestamp
+        CHECK(event->startTime > 0); // Should have valid timestamp
 
         delete event;
     }
 
-    TEST_CASE("CalendarEvent - Today/Tomorrow Flags") {
+    TEST_CASE("CalendarEvent - Today/Tomorrow Flags")
+    {
         CalendarEvent* event = createMockEvent(
             "Today's Event",
             "20251029T100000",
             "20251029T110000",
-            false
-        );
+            false);
 
         event->isToday = true;
         event->isTomorrow = false;
@@ -164,7 +170,8 @@ TEST_SUITE("CalendarStreamParser - Basic Parsing") {
         delete event;
     }
 
-    TEST_CASE("CalendarEvent - Multiple Events") {
+    TEST_CASE("CalendarEvent - Multiple Events")
+    {
         std::vector<CalendarEvent*> events;
 
         events.push_back(createMockEvent("Event 1", "20251029T090000", "20251029T100000"));
@@ -183,9 +190,11 @@ TEST_SUITE("CalendarStreamParser - Basic Parsing") {
     }
 }
 
-TEST_SUITE("CalendarStreamParser - ICS Content Validation") {
+TEST_SUITE("CalendarStreamParser - ICS Content Validation")
+{
 
-    TEST_CASE("ICS Structure - Basic Validation") {
+    TEST_CASE("ICS Structure - Basic Validation")
+    {
         MESSAGE("Testing basic ICS file structure validation");
 
         const char* validICS = R"(BEGIN:VCALENDAR
@@ -201,7 +210,8 @@ END:VCALENDAR)";
         CHECK(icsContent.indexOf("END:VCALENDAR") != -1);
     }
 
-    TEST_CASE("ICS Structure - With Event") {
+    TEST_CASE("ICS Structure - With Event")
+    {
         const char* icsWithEvent = R"(BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Test//Test Calendar 1.0//EN
@@ -220,7 +230,8 @@ END:VCALENDAR)";
         CHECK(icsContent.indexOf("END:VEVENT") != -1);
     }
 
-    TEST_CASE("ICS Properties - Extract Calendar Name") {
+    TEST_CASE("ICS Properties - Extract Calendar Name")
+    {
         const char* icsWithName = R"(BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Test//Test Calendar 1.0//EN
@@ -238,7 +249,8 @@ END:VCALENDAR)";
         }
     }
 
-    TEST_CASE("ICS Properties - Extract Timezone") {
+    TEST_CASE("ICS Properties - Extract Timezone")
+    {
         const char* icsWithTZ = R"(BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Test//Test Calendar 1.0//EN
@@ -256,7 +268,8 @@ END:VCALENDAR)";
         }
     }
 
-    TEST_CASE("ICS Line Folding - Unfold Long Lines") {
+    TEST_CASE("ICS Line Folding - Unfold Long Lines")
+    {
         // RFC 5545: Lines are folded at 75 octets, continuation starts with space
         const char* foldedICS = R"(X-WR-CALDESC:This is a very long description that needs to be folded beca
  use it exceeds the 75 character limit)";
@@ -273,14 +286,15 @@ END:VCALENDAR)";
     }
 }
 
-TEST_SUITE("CalendarStreamParser - Event Properties") {
+TEST_SUITE("CalendarStreamParser - Event Properties")
+{
 
-    TEST_CASE("Event Properties - Recurring Event") {
+    TEST_CASE("Event Properties - Recurring Event")
+    {
         CalendarEvent* event = createMockEvent(
             "Weekly Meeting",
             "20251029T100000",
-            "20251029T110000"
-        );
+            "20251029T110000");
 
         event->isRecurring = true;
         event->rrule = "FREQ=WEEKLY;BYDAY=TU";
@@ -291,12 +305,12 @@ TEST_SUITE("CalendarStreamParser - Event Properties") {
         delete event;
     }
 
-    TEST_CASE("Event Properties - With Location") {
+    TEST_CASE("Event Properties - With Location")
+    {
         CalendarEvent* event = createMockEvent(
             "Conference",
             "20251029T090000",
-            "20251029T170000"
-        );
+            "20251029T170000");
 
         event->location = "Conference Room A";
 
@@ -306,12 +320,12 @@ TEST_SUITE("CalendarStreamParser - Event Properties") {
         delete event;
     }
 
-    TEST_CASE("Event Properties - With Description") {
+    TEST_CASE("Event Properties - With Description")
+    {
         CalendarEvent* event = createMockEvent(
             "Project Review",
             "20251029T140000",
-            "20251029T150000"
-        );
+            "20251029T150000");
 
         event->description = "Quarterly project review with team";
 
@@ -320,7 +334,8 @@ TEST_SUITE("CalendarStreamParser - Event Properties") {
         delete event;
     }
 
-    TEST_CASE("Event Properties - Calendar Colors") {
+    TEST_CASE("Event Properties - Calendar Colors")
+    {
         CalendarEvent* event1 = createMockEvent("Work Event", "20251029T100000", "20251029T110000");
         event1->calendarColor = "blue";
 
@@ -335,9 +350,11 @@ TEST_SUITE("CalendarStreamParser - Event Properties") {
     }
 }
 
-TEST_SUITE("CalendarStreamParser - Date Range Filtering") {
+TEST_SUITE("CalendarStreamParser - Date Range Filtering")
+{
 
-    TEST_CASE("Date Range - Events Within Range") {
+    TEST_CASE("Date Range - Events Within Range")
+    {
         // Create events for different days
         CalendarEvent* event1 = createMockEvent("Today", "20251029T100000", "20251029T110000");
         CalendarEvent* event2 = createMockEvent("Tomorrow", "20251030T100000", "20251030T110000");
@@ -358,7 +375,8 @@ TEST_SUITE("CalendarStreamParser - Date Range Filtering") {
         delete event3;
     }
 
-    TEST_CASE("Date Range - Filter By Date") {
+    TEST_CASE("Date Range - Filter By Date")
+    {
         std::vector<CalendarEvent*> allEvents;
         allEvents.push_back(createMockEvent("Event 1", "20251029T100000", "20251029T110000"));
         allEvents.push_back(createMockEvent("Event 2", "20251030T100000", "20251030T110000"));
@@ -388,9 +406,67 @@ TEST_SUITE("CalendarStreamParser - Date Range Filtering") {
     }
 }
 
-TEST_SUITE("CalendarStreamParser - Memory Management") {
+TEST_SUITE("CalendarStreamParser - Multi-day Non-Recurring")
+{
 
-    TEST_CASE("Memory - Event Cleanup") {
+    TEST_CASE("All-day event spanning multiple days is expanded daily")
+    {
+        // Keep parsing deterministic across environments.
+        setenv("TZ", "UTC0", 1);
+        tzset();
+
+        const char* icsData = R"(BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Multi-day//EN
+BEGIN:VEVENT
+DTSTART;VALUE=DATE:20260501
+DTEND;VALUE=DATE:20260508
+UID:test-multiday@example.com
+SUMMARY:Imperia
+END:VEVENT
+END:VCALENDAR
+)";
+
+        StringStream stream(String(icsData));
+        CalendarStreamParser parser;
+
+        std::vector<CalendarEvent*> parsedEvents;
+
+        time_t rangeStart = parseICSDateTime("20260430T000000");
+        time_t rangeEnd = parseICSDateTime("20260510T000000");
+
+        bool ok = parser.streamParseFromStream(
+            &stream,
+            [&parsedEvents](CalendarEvent* event) { parsedEvents.push_back(event); },
+            rangeStart,
+            rangeEnd);
+
+        CHECK(ok == true);
+        CHECK(parsedEvents.size() == 7); // May 1..May 7 (DTEND is exclusive)
+
+        for (size_t i = 0; i < parsedEvents.size(); i++) {
+            CHECK(parsedEvents[i] != nullptr);
+            CHECK(parsedEvents[i]->summary == "Imperia");
+            CHECK(parsedEvents[i]->allDay == true);
+
+            struct tm* tmStart = localtime(&parsedEvents[i]->startTime);
+            CHECK(tmStart->tm_year + 1900 == 2026);
+            CHECK(tmStart->tm_mon + 1 == 5);
+            CHECK(tmStart->tm_mday == static_cast<int>(i) + 1);
+        }
+
+        for (auto event : parsedEvents) {
+            delete event;
+        }
+        parsedEvents.clear();
+    }
+}
+
+TEST_SUITE("CalendarStreamParser - Memory Management")
+{
+
+    TEST_CASE("Memory - Event Cleanup")
+    {
         MESSAGE("Testing proper memory management of events");
 
         std::vector<CalendarEvent*> events;
@@ -413,7 +489,8 @@ TEST_SUITE("CalendarStreamParser - Memory Management") {
         CHECK(events.size() == 0);
     }
 
-    TEST_CASE("Memory - Event Vector Management") {
+    TEST_CASE("Memory - Event Vector Management")
+    {
         std::vector<CalendarEvent*> events;
 
         events.push_back(createMockEvent("Event 1", "20251029T100000", "20251029T110000"));
@@ -443,10 +520,12 @@ TEST_SUITE("CalendarStreamParser - Memory Management") {
 // RRULE Parser Tests
 // ============================================================================
 
-TEST_SUITE("CalendarStreamParser - RRULE Parser") {
+TEST_SUITE("CalendarStreamParser - RRULE Parser")
+{
     CalendarStreamParser parser;
 
-    TEST_CASE("RRULE Parser - FREQ with BYDAY") {
+    TEST_CASE("RRULE Parser - FREQ with BYDAY")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=WEEKLY;BYDAY=MO,WE,FR");
 
         CHECK(rule.isWeekly());
@@ -454,7 +533,8 @@ TEST_SUITE("CalendarStreamParser - RRULE Parser") {
         CHECK(rule.hasByDay());
     }
 
-    TEST_CASE("RRULE Parser - FREQ with BYMONTHDAY") {
+    TEST_CASE("RRULE Parser - FREQ with BYMONTHDAY")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=MONTHLY;BYMONTHDAY=1,15");
 
         CHECK(rule.isMonthly());
@@ -462,7 +542,8 @@ TEST_SUITE("CalendarStreamParser - RRULE Parser") {
         CHECK(rule.hasByMonthDay());
     }
 
-    TEST_CASE("RRULE Parser - FREQ with BYMONTH") {
+    TEST_CASE("RRULE Parser - FREQ with BYMONTH")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=YEARLY;BYMONTH=1,7");
 
         CHECK(rule.isYearly());
@@ -470,7 +551,8 @@ TEST_SUITE("CalendarStreamParser - RRULE Parser") {
         CHECK(rule.hasByMonth());
     }
 
-    TEST_CASE("RRULE Parser - Complex Rule") {
+    TEST_CASE("RRULE Parser - Complex Rule")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=20;INTERVAL=2");
 
         CHECK(rule.isWeekly());
@@ -482,67 +564,77 @@ TEST_SUITE("CalendarStreamParser - RRULE Parser") {
         CHECK(rule.hasInterval());
     }
 
-    TEST_CASE("RRULE Parser - Empty String") {
+    TEST_CASE("RRULE Parser - Empty String")
+    {
         RRuleComponents rule = parser.parseRRule("");
 
         CHECK(!rule.isValid());
         CHECK(rule.freq.isEmpty());
     }
 
-    TEST_CASE("RRULE Parser - Invalid INTERVAL defaults to 1") {
+    TEST_CASE("RRULE Parser - Invalid INTERVAL defaults to 1")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;INTERVAL=0");
 
         CHECK(rule.interval == 1);
     }
 
-    TEST_CASE("RRULE Parser - Negative COUNT sanitized") {
+    TEST_CASE("RRULE Parser - Negative COUNT sanitized")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=-5");
 
         CHECK(rule.count == -1);
     }
 }
 
-TEST_SUITE("CalendarStreamParser - RRULE Helper Methods") {
+TEST_SUITE("CalendarStreamParser - RRULE Helper Methods")
+{
     CalendarStreamParser parser;
 
-    TEST_CASE("Parse BYDAY - Single Day") {
+    TEST_CASE("Parse BYDAY - Single Day")
+    {
         std::vector<int> days = parser.parseByDay("MO");
 
         CHECK(days.size() == 1);
-        CHECK(days[0] == 1);  // Monday
+        CHECK(days[0] == 1); // Monday
     }
 
-    TEST_CASE("Parse BYDAY - Multiple Days") {
+    TEST_CASE("Parse BYDAY - Multiple Days")
+    {
         std::vector<int> days = parser.parseByDay("MO,WE,FR");
 
         CHECK(days.size() == 3);
-        CHECK(days[0] == 1);  // Monday
-        CHECK(days[1] == 3);  // Wednesday
-        CHECK(days[2] == 5);  // Friday
+        CHECK(days[0] == 1); // Monday
+        CHECK(days[1] == 3); // Wednesday
+        CHECK(days[2] == 5); // Friday
     }
 
-    TEST_CASE("Parse BYDAY - All Days") {
+    TEST_CASE("Parse BYDAY - All Days")
+    {
         std::vector<int> days = parser.parseByDay("SU,MO,TU,WE,TH,FR,SA");
 
         CHECK(days.size() == 7);
-        CHECK(days[0] == 0);  // Sunday
-        CHECK(days[6] == 6);  // Saturday
+        CHECK(days[0] == 0); // Sunday
+        CHECK(days[6] == 6); // Saturday
     }
 
-    TEST_CASE("Parse BYDAY - Empty String") {
+    TEST_CASE("Parse BYDAY - Empty String")
+    {
         std::vector<int> days = parser.parseByDay("");
 
         CHECK(days.size() == 0);
     }
 
-    TEST_CASE("Parse BYMONTHDAY - Single Day") {
+    TEST_CASE("Parse BYMONTHDAY - Single Day")
+    {
         std::vector<int> days = parser.parseByMonthDay("15");
 
         CHECK(days.size() == 1);
         CHECK(days[0] == 15);
     }
 
-    TEST_CASE("Parse BYMONTHDAY - Multiple Days") {
+    TEST_CASE("Parse BYMONTHDAY - Multiple Days")
+    {
         std::vector<int> days = parser.parseByMonthDay("1,15,30");
 
         CHECK(days.size() == 3);
@@ -551,33 +643,37 @@ TEST_SUITE("CalendarStreamParser - RRULE Helper Methods") {
         CHECK(days[2] == 30);
     }
 
-    TEST_CASE("Parse BYMONTHDAY - Negative (Last Day)") {
+    TEST_CASE("Parse BYMONTHDAY - Negative (Last Day)")
+    {
         std::vector<int> days = parser.parseByMonthDay("-1");
 
         CHECK(days.size() == 1);
         CHECK(days[0] == -1);
     }
 
-    TEST_CASE("Parse BYMONTH - Single Month") {
+    TEST_CASE("Parse BYMONTH - Single Month")
+    {
         std::vector<int> months = parser.parseByMonth("7");
 
         CHECK(months.size() == 1);
         CHECK(months[0] == 7);
     }
 
-    TEST_CASE("Parse BYMONTH - Multiple Months") {
+    TEST_CASE("Parse BYMONTH - Multiple Months")
+    {
         std::vector<int> months = parser.parseByMonth("1,7,12");
 
         CHECK(months.size() == 3);
-        CHECK(months[0] == 1);   // January
-        CHECK(months[1] == 7);   // July
-        CHECK(months[2] == 12);  // December
+        CHECK(months[0] == 1); // January
+        CHECK(months[1] == 7); // July
+        CHECK(months[2] == 12); // December
     }
 
-    TEST_CASE("Parse BYMONTH - Invalid Month Filtered") {
+    TEST_CASE("Parse BYMONTH - Invalid Month Filtered")
+    {
         std::vector<int> months = parser.parseByMonth("0,13,15");
 
-        CHECK(months.size() == 0);  // All invalid
+        CHECK(months.size() == 0); // All invalid
     }
 }
 
@@ -585,165 +681,187 @@ TEST_SUITE("CalendarStreamParser - RRULE Helper Methods") {
 // RRULE Parser - Edge Cases & Validation Tests
 // ============================================================================
 
-TEST_SUITE("CalendarStreamParser - RRULE Edge Cases") {
+TEST_SUITE("CalendarStreamParser - RRULE Edge Cases")
+{
     CalendarStreamParser parser;
 
-    TEST_CASE("RRULE - Whitespace handling") {
+    TEST_CASE("RRULE - Whitespace handling")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ = WEEKLY ; COUNT = 10 ");
 
         CHECK(rule.isWeekly());
         CHECK(rule.count == 10);
     }
 
-    TEST_CASE("RRULE - Case sensitivity") {
+    TEST_CASE("RRULE - Case sensitivity")
+    {
         // RRULE keys should be case-sensitive (uppercase per RFC 5545)
         RRuleComponents rule = parser.parseRRule("freq=daily;count=5");
 
         // Our implementation treats keys as case-sensitive
         // lowercase 'freq' won't match "FREQ"
-        CHECK(rule.freq.isEmpty());  // Should not parse lowercase
+        CHECK(rule.freq.isEmpty()); // Should not parse lowercase
     }
 
-    TEST_CASE("RRULE - Missing equals sign") {
+    TEST_CASE("RRULE - Missing equals sign")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT");
 
         CHECK(rule.isDaily());
-        CHECK(rule.count == -1);  // COUNT without value should be ignored
+        CHECK(rule.count == -1); // COUNT without value should be ignored
     }
 
-    TEST_CASE("RRULE - Empty value") {
+    TEST_CASE("RRULE - Empty value")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=;COUNT=10");
 
         CHECK(rule.freq.isEmpty());
         CHECK(rule.count == 10);
     }
 
-    TEST_CASE("RRULE - Trailing semicolon") {
+    TEST_CASE("RRULE - Trailing semicolon")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=10;");
 
         CHECK(rule.isDaily());
         CHECK(rule.count == 10);
     }
 
-    TEST_CASE("RRULE - Leading semicolon") {
+    TEST_CASE("RRULE - Leading semicolon")
+    {
         RRuleComponents rule = parser.parseRRule(";FREQ=DAILY;COUNT=10");
 
         CHECK(rule.isDaily());
         CHECK(rule.count == 10);
     }
 
-    TEST_CASE("RRULE - Multiple semicolons") {
+    TEST_CASE("RRULE - Multiple semicolons")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;;COUNT=10");
 
         CHECK(rule.isDaily());
         CHECK(rule.count == 10);
     }
 
-    TEST_CASE("RRULE - Unknown parameters ignored") {
+    TEST_CASE("RRULE - Unknown parameters ignored")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;UNKNOWN=value;COUNT=5");
 
         CHECK(rule.isDaily());
         CHECK(rule.count == 5);
     }
 
-    TEST_CASE("RRULE - Duplicate parameters (last wins)") {
+    TEST_CASE("RRULE - Duplicate parameters (last wins)")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=10;COUNT=20");
 
-        CHECK(rule.count == 20);  // Last value should win
+        CHECK(rule.count == 20); // Last value should win
     }
 
-    TEST_CASE("RRULE - COUNT=0 treated as invalid") {
+    TEST_CASE("RRULE - COUNT=0 treated as invalid")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=0");
 
         // COUNT=0 is invalid per RFC 5545 (must be positive)
         // toInt() returns 0 for "0", which we should handle
-        CHECK(rule.count == 0);  // Currently accepted, could add validation
+        CHECK(rule.count == 0); // Currently accepted, could add validation
     }
 
-    TEST_CASE("RRULE - Very large COUNT") {
+    TEST_CASE("RRULE - Very large COUNT")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;COUNT=10000");
 
         CHECK(rule.count == 10000);
         CHECK(rule.hasCountLimit());
     }
 
-    TEST_CASE("RRULE - INTERVAL with negative value") {
+    TEST_CASE("RRULE - INTERVAL with negative value")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=DAILY;INTERVAL=-2");
 
-        CHECK(rule.interval == 1);  // Should default to 1
+        CHECK(rule.interval == 1); // Should default to 1
     }
 
-    TEST_CASE("RRULE - Very large INTERVAL") {
+    TEST_CASE("RRULE - Very large INTERVAL")
+    {
         RRuleComponents rule = parser.parseRRule("FREQ=YEARLY;INTERVAL=100");
 
         CHECK(rule.interval == 100);
     }
 }
 
-TEST_SUITE("CalendarStreamParser - UNTIL Date Parsing") {
+TEST_SUITE("CalendarStreamParser - UNTIL Date Parsing")
+{
     CalendarStreamParser parser;
 
-    TEST_CASE("Parse UNTIL - Date only (YYYYMMDD)") {
+    TEST_CASE("Parse UNTIL - Date only (YYYYMMDD)")
+    {
         time_t until = parser.parseUntilDate("20251231");
 
         CHECK(until > 0);
 
         struct tm* tm = localtime(&until);
-        CHECK(tm->tm_year == 125);  // 2025
-        CHECK(tm->tm_mon == 11);    // December (0-based)
+        CHECK(tm->tm_year == 125); // 2025
+        CHECK(tm->tm_mon == 11); // December (0-based)
         CHECK(tm->tm_mday == 31);
-        CHECK(tm->tm_hour == 23);   // End of day
+        CHECK(tm->tm_hour == 23); // End of day
         CHECK(tm->tm_min == 59);
         CHECK(tm->tm_sec == 59);
     }
 
-    TEST_CASE("Parse UNTIL - Date and time (YYYYMMDDTHHMMSS)") {
+    TEST_CASE("Parse UNTIL - Date and time (YYYYMMDDTHHMMSS)")
+    {
         time_t until = parser.parseUntilDate("20251231T143000");
 
         CHECK(until > 0);
 
         struct tm* tm = localtime(&until);
-        CHECK(tm->tm_year == 125);  // 2025
-        CHECK(tm->tm_mon == 11);    // December
+        CHECK(tm->tm_year == 125); // 2025
+        CHECK(tm->tm_mon == 11); // December
         CHECK(tm->tm_mday == 31);
         // Note: Hour might be off due to DST, so we don't test exact hour
     }
 
-    TEST_CASE("Parse UNTIL - UTC format with Z") {
+    TEST_CASE("Parse UNTIL - UTC format with Z")
+    {
         time_t until = parser.parseUntilDate("20251231T235959Z");
 
         CHECK(until > 0);
 
         struct tm* tm = localtime(&until);
-        CHECK(tm->tm_year == 125);  // 2025
-        CHECK(tm->tm_mon == 11);    // December
+        CHECK(tm->tm_year == 125); // 2025
+        CHECK(tm->tm_mon == 11); // December
         CHECK(tm->tm_mday == 31);
     }
 
-    TEST_CASE("Parse UNTIL - Empty string") {
+    TEST_CASE("Parse UNTIL - Empty string")
+    {
         time_t until = parser.parseUntilDate("");
 
         CHECK(until == 0);
     }
 
-    TEST_CASE("Parse UNTIL - Too short string") {
+    TEST_CASE("Parse UNTIL - Too short string")
+    {
         time_t until = parser.parseUntilDate("2025");
 
         CHECK(until == 0);
     }
 
-    TEST_CASE("Parse UNTIL - Leap year date") {
-        time_t until = parser.parseUntilDate("20240229");  // Feb 29, 2024
+    TEST_CASE("Parse UNTIL - Leap year date")
+    {
+        time_t until = parser.parseUntilDate("20240229"); // Feb 29, 2024
 
         CHECK(until > 0);
 
         struct tm* tm = localtime(&until);
-        CHECK(tm->tm_year == 124);  // 2024
-        CHECK(tm->tm_mon == 1);     // February
+        CHECK(tm->tm_year == 124); // 2024
+        CHECK(tm->tm_mon == 1); // February
         CHECK(tm->tm_mday == 29);
     }
 
-    TEST_CASE("Parse UNTIL - Start of year") {
+    TEST_CASE("Parse UNTIL - Start of year")
+    {
         time_t until = parser.parseUntilDate("20250101T000000");
 
         CHECK(until > 0);
@@ -755,70 +873,80 @@ TEST_SUITE("CalendarStreamParser - UNTIL Date Parsing") {
     }
 }
 
-TEST_SUITE("CalendarStreamParser - BYDAY Advanced") {
+TEST_SUITE("CalendarStreamParser - BYDAY Advanced")
+{
     CalendarStreamParser parser;
 
-    TEST_CASE("Parse BYDAY - With position prefix (1MO)") {
+    TEST_CASE("Parse BYDAY - With position prefix (1MO)")
+    {
         std::vector<int> days = parser.parseByDay("1MO");
 
         // Position prefix is ignored for now, just extract day code
         CHECK(days.size() == 1);
-        CHECK(days[0] == 1);  // Monday
+        CHECK(days[0] == 1); // Monday
     }
 
-    TEST_CASE("Parse BYDAY - Multiple with positions (1MO,-1FR)") {
+    TEST_CASE("Parse BYDAY - Multiple with positions (1MO,-1FR)")
+    {
         std::vector<int> days = parser.parseByDay("1MO,-1FR");
 
         CHECK(days.size() == 2);
-        CHECK(days[0] == 1);  // Monday
-        CHECK(days[1] == 5);  // Friday
+        CHECK(days[0] == 1); // Monday
+        CHECK(days[1] == 5); // Friday
     }
 
-    TEST_CASE("Parse BYDAY - Mixed with and without positions") {
+    TEST_CASE("Parse BYDAY - Mixed with and without positions")
+    {
         std::vector<int> days = parser.parseByDay("MO,2WE,FR");
 
         CHECK(days.size() == 3);
-        CHECK(days[0] == 1);  // Monday
-        CHECK(days[1] == 3);  // Wednesday
-        CHECK(days[2] == 5);  // Friday
+        CHECK(days[0] == 1); // Monday
+        CHECK(days[1] == 3); // Wednesday
+        CHECK(days[2] == 5); // Friday
     }
 
-    TEST_CASE("Parse BYDAY - Invalid day code ignored") {
+    TEST_CASE("Parse BYDAY - Invalid day code ignored")
+    {
         std::vector<int> days = parser.parseByDay("MO,XX,FR");
 
-        CHECK(days.size() == 2);  // Only MO and FR
+        CHECK(days.size() == 2); // Only MO and FR
         CHECK(days[0] == 1);
         CHECK(days[1] == 5);
     }
 
-    TEST_CASE("Parse BYDAY - Spaces in list") {
+    TEST_CASE("Parse BYDAY - Spaces in list")
+    {
         std::vector<int> days = parser.parseByDay("MO, WE, FR");
 
         // Should handle spaces after commas
         CHECK(days.size() == 3);
     }
 
-    TEST_CASE("Parse BYDAY - Trailing comma") {
+    TEST_CASE("Parse BYDAY - Trailing comma")
+    {
         std::vector<int> days = parser.parseByDay("MO,WE,");
 
         CHECK(days.size() == 2);
     }
 
-    TEST_CASE("Parse BYDAY - Duplicate days") {
+    TEST_CASE("Parse BYDAY - Duplicate days")
+    {
         std::vector<int> days = parser.parseByDay("MO,WE,MO");
 
         // Duplicates are allowed (will be in vector twice)
         CHECK(days.size() == 3);
         CHECK(days[0] == 1);
         CHECK(days[1] == 3);
-        CHECK(days[2] == 1);  // Duplicate Monday
+        CHECK(days[2] == 1); // Duplicate Monday
     }
 }
 
-TEST_SUITE("CalendarStreamParser - BYMONTHDAY Advanced") {
+TEST_SUITE("CalendarStreamParser - BYMONTHDAY Advanced")
+{
     CalendarStreamParser parser;
 
-    TEST_CASE("Parse BYMONTHDAY - Mixed positive and negative") {
+    TEST_CASE("Parse BYMONTHDAY - Mixed positive and negative")
+    {
         std::vector<int> days = parser.parseByMonthDay("1,15,-1");
 
         CHECK(days.size() == 3);
@@ -827,7 +955,8 @@ TEST_SUITE("CalendarStreamParser - BYMONTHDAY Advanced") {
         CHECK(days[2] == -1);
     }
 
-    TEST_CASE("Parse BYMONTHDAY - Last two days (-1,-2)") {
+    TEST_CASE("Parse BYMONTHDAY - Last two days (-1,-2)")
+    {
         std::vector<int> days = parser.parseByMonthDay("-1,-2");
 
         CHECK(days.size() == 2);
@@ -835,31 +964,35 @@ TEST_SUITE("CalendarStreamParser - BYMONTHDAY Advanced") {
         CHECK(days[1] == -2);
     }
 
-    TEST_CASE("Parse BYMONTHDAY - Out of range days") {
+    TEST_CASE("Parse BYMONTHDAY - Out of range days")
+    {
         std::vector<int> days = parser.parseByMonthDay("1,32,15");
 
         // All values parsed (no validation yet)
         CHECK(days.size() == 3);
         CHECK(days[0] == 1);
-        CHECK(days[1] == 32);  // Will be validated during expansion
+        CHECK(days[1] == 32); // Will be validated during expansion
         CHECK(days[2] == 15);
     }
 
-    TEST_CASE("Parse BYMONTHDAY - Zero day invalid") {
+    TEST_CASE("Parse BYMONTHDAY - Zero day invalid")
+    {
         std::vector<int> days = parser.parseByMonthDay("0,15");
 
         // 0 is not a valid day (days are 1-31 or -1 to -31)
-        CHECK(days.size() == 1);  // Only 15
+        CHECK(days.size() == 1); // Only 15
         CHECK(days[0] == 15);
     }
 
-    TEST_CASE("Parse BYMONTHDAY - Spaces in list") {
+    TEST_CASE("Parse BYMONTHDAY - Spaces in list")
+    {
         std::vector<int> days = parser.parseByMonthDay("1, 15, 30");
 
         CHECK(days.size() == 3);
     }
 
-    TEST_CASE("Parse BYMONTHDAY - All days of month") {
+    TEST_CASE("Parse BYMONTHDAY - All days of month")
+    {
         std::vector<int> days = parser.parseByMonthDay("1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31");
 
         CHECK(days.size() == 31);
@@ -868,10 +1001,12 @@ TEST_SUITE("CalendarStreamParser - BYMONTHDAY Advanced") {
     }
 }
 
-TEST_SUITE("CalendarStreamParser - BYMONTH Advanced") {
+TEST_SUITE("CalendarStreamParser - BYMONTH Advanced")
+{
     CalendarStreamParser parser;
 
-    TEST_CASE("Parse BYMONTH - All months") {
+    TEST_CASE("Parse BYMONTH - All months")
+    {
         std::vector<int> months = parser.parseByMonth("1,2,3,4,5,6,7,8,9,10,11,12");
 
         CHECK(months.size() == 12);
@@ -879,7 +1014,8 @@ TEST_SUITE("CalendarStreamParser - BYMONTH Advanced") {
         CHECK(months[11] == 12);
     }
 
-    TEST_CASE("Parse BYMONTH - Quarters (Q1, Q2, Q3, Q4)") {
+    TEST_CASE("Parse BYMONTH - Quarters (Q1, Q2, Q3, Q4)")
+    {
         std::vector<int> q1 = parser.parseByMonth("1,2,3");
         std::vector<int> q2 = parser.parseByMonth("4,5,6");
         std::vector<int> q3 = parser.parseByMonth("7,8,9");
@@ -891,7 +1027,8 @@ TEST_SUITE("CalendarStreamParser - BYMONTH Advanced") {
         CHECK(q4.size() == 3);
     }
 
-    TEST_CASE("Parse BYMONTH - Out of range filtered") {
+    TEST_CASE("Parse BYMONTH - Out of range filtered")
+    {
         std::vector<int> months = parser.parseByMonth("0,1,13,7,100");
 
         // Only 1 and 7 are valid
@@ -900,7 +1037,8 @@ TEST_SUITE("CalendarStreamParser - BYMONTH Advanced") {
         CHECK(months[1] == 7);
     }
 
-    TEST_CASE("Parse BYMONTH - Negative values filtered") {
+    TEST_CASE("Parse BYMONTH - Negative values filtered")
+    {
         std::vector<int> months = parser.parseByMonth("-1,1,7");
 
         // Negative months not supported
@@ -909,10 +1047,10 @@ TEST_SUITE("CalendarStreamParser - BYMONTH Advanced") {
         CHECK(months[1] == 7);
     }
 
-    TEST_CASE("Parse BYMONTH - Spaces in list") {
+    TEST_CASE("Parse BYMONTH - Spaces in list")
+    {
         std::vector<int> months = parser.parseByMonth("1, 7, 12");
 
         CHECK(months.size() == 3);
     }
 }
-

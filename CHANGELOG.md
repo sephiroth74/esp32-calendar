@@ -5,6 +5,21 @@ All notable changes to the ESP32 E-Paper Calendar project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **WEEKLY recurrence DST shift for TZID events** - Preserved local wall-clock time across daylight saving transitions
+  - Root cause: weekly expansion used UTC-based arithmetic (`gmtime` + `portable_timegm`) for generated occurrences
+  - Impact: events created before DST transition (e.g., 20:30 CET) were shown one hour late after transition (21:30 CEST)
+  - Solution: reconstruct each weekly occurrence using local date + original local hour/min/sec and `mktime()` with `tm_isdst=-1`
+  - Result: recurring events now keep consistent local time (e.g., always 20:30) before and after DST changes
+
+### Added
+- **DST regression test for WEEKLY recurrence**
+  - Added native test covering Europe/Zurich winter-to-summer transition scenario
+  - Verifies Tuesday weekly occurrences preserve 20:30 local time after DST start
+  - Confirms UTC conversion is correct for summer occurrences (20:30 CEST -> 18:30 UTC)
+
 ## [1.10.1] - 2025-01-19
 
 ### Added

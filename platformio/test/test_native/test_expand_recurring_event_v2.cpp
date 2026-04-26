@@ -8,8 +8,9 @@
 namespace V2Tests {
 
 // Helper function to create time_t from date components
-static time_t makeTime(int year, int month, int day, int hour = 0, int minute = 0, int second = 0) {
-    struct tm timeinfo = {0};
+static time_t makeTime(int year, int month, int day, int hour = 0, int minute = 0, int second = 0)
+{
+    struct tm timeinfo = { 0 };
     timeinfo.tm_year = year - 1900;
     timeinfo.tm_mon = month - 1;
     timeinfo.tm_mday = day;
@@ -21,7 +22,8 @@ static time_t makeTime(int year, int month, int day, int hour = 0, int minute = 
 }
 
 // Helper function to format time_t for debugging
-static String formatTime(time_t t) {
+static String formatTime(time_t t)
+{
     struct tm* timeinfo = localtime(&t);
     char buffer[64];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
@@ -31,7 +33,8 @@ static String formatTime(time_t t) {
 static CalendarStreamParser parser;
 
 // Helper function to parse ICS event string
-static CalendarEvent* parseICSEvent(const String& veventString) {
+static CalendarEvent* parseICSEvent(const String& veventString)
+{
     CalendarEvent* event = parser.parseEventFromBuffer(veventString);
     if (event) {
         event->calendarName = "Test Calendar";
@@ -40,8 +43,10 @@ static CalendarEvent* parseICSEvent(const String& veventString) {
     return event;
 }
 
-TEST_SUITE("expandRecurringEventV2 - Input Validation") {
-    TEST_CASE("Null event pointer") {
+TEST_SUITE("expandRecurringEventV2 - Input Validation")
+{
+    TEST_CASE("Null event pointer")
+    {
         time_t startDate = makeTime(2025, 1, 1);
         time_t endDate = makeTime(2025, 12, 31);
 
@@ -50,13 +55,13 @@ TEST_SUITE("expandRecurringEventV2 - Input Validation") {
         CHECK(occurrences.size() == 0);
     }
 
-    TEST_CASE("Invalid date range - startDate > endDate") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20251114T100000Z\n"
-            "DTEND:20251114T110000Z\n"
-            "SUMMARY:Test Event\n"
-            "END:VEVENT";
+    TEST_CASE("Invalid date range - startDate > endDate")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20251114T100000Z\n"
+                          "DTEND:20251114T110000Z\n"
+                          "SUMMARY:Test Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -70,13 +75,13 @@ TEST_SUITE("expandRecurringEventV2 - Input Validation") {
         delete event;
     }
 
-    TEST_CASE("Invalid date range - negative startDate") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20251114T100000Z\n"
-            "DTEND:20251114T110000Z\n"
-            "SUMMARY:Test Event\n"
-            "END:VEVENT";
+    TEST_CASE("Invalid date range - negative startDate")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20251114T100000Z\n"
+                          "DTEND:20251114T110000Z\n"
+                          "SUMMARY:Test Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -90,13 +95,13 @@ TEST_SUITE("expandRecurringEventV2 - Input Validation") {
         delete event;
     }
 
-    TEST_CASE("Invalid date range - negative endDate") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20251114T100000Z\n"
-            "DTEND:20251114T110000Z\n"
-            "SUMMARY:Test Event\n"
-            "END:VEVENT";
+    TEST_CASE("Invalid date range - negative endDate")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20251114T100000Z\n"
+                          "DTEND:20251114T110000Z\n"
+                          "SUMMARY:Test Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -110,13 +115,13 @@ TEST_SUITE("expandRecurringEventV2 - Input Validation") {
         delete event;
     }
 
-    TEST_CASE("Invalid event - negative startTime") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20251114T100000Z\n"
-            "DTEND:20251114T110000Z\n"
-            "SUMMARY:Test Event\n"
-            "END:VEVENT";
+    TEST_CASE("Invalid event - negative startTime")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20251114T100000Z\n"
+                          "DTEND:20251114T110000Z\n"
+                          "SUMMARY:Test Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -131,13 +136,13 @@ TEST_SUITE("expandRecurringEventV2 - Input Validation") {
         delete event;
     }
 
-    TEST_CASE("Invalid event - endTime < startTime") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20251114T100000Z\n"
-            "DTEND:20251114T110000Z\n"
-            "SUMMARY:Test Event\n"
-            "END:VEVENT";
+    TEST_CASE("Invalid event - endTime < startTime")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20251114T100000Z\n"
+                          "DTEND:20251114T110000Z\n"
+                          "SUMMARY:Test Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -152,14 +157,14 @@ TEST_SUITE("expandRecurringEventV2 - Input Validation") {
         delete event;
     }
 
-    TEST_CASE("Invalid recurring event - malformed RRULE") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20251114T100000Z\n"
-            "DTEND:20251114T110000Z\n"
-            "SUMMARY:Test Event\n"
-            "RRULE:INVALID_RRULE\n"
-            "END:VEVENT";
+    TEST_CASE("Invalid recurring event - malformed RRULE")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20251114T100000Z\n"
+                          "DTEND:20251114T110000Z\n"
+                          "SUMMARY:Test Event\n"
+                          "RRULE:INVALID_RRULE\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -174,15 +179,16 @@ TEST_SUITE("expandRecurringEventV2 - Input Validation") {
     }
 }
 
-TEST_SUITE("expandRecurringEventV2 - Non-Recurring Events") {
-    TEST_CASE("ICS - Non-recurring event within range") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20251114T100000Z\n"
-            "DTEND:20251114T110000Z\n"
-            "SUMMARY:Team Meeting\n"
-            "STATUS:CONFIRMED\n"
-            "END:VEVENT";
+TEST_SUITE("expandRecurringEventV2 - Non-Recurring Events")
+{
+    TEST_CASE("ICS - Non-recurring event within range")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20251114T100000Z\n"
+                          "DTEND:20251114T110000Z\n"
+                          "SUMMARY:Team Meeting\n"
+                          "STATUS:CONFIRMED\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -197,18 +203,19 @@ TEST_SUITE("expandRecurringEventV2 - Non-Recurring Events") {
         REQUIRE(occurrences.size() == 1);
         CHECK(occurrences[0]->summary == "Team Meeting");
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("ICS - Non-recurring all-day event (like user's example)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART;VALUE=DATE:20251114\n"
-            "DTEND;VALUE=DATE:20251115\n"
-            "SUMMARY:Cambio gomme\n"
-            "STATUS:CONFIRMED\n"
-            "END:VEVENT";
+    TEST_CASE("ICS - Non-recurring all-day event (like user's example)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART;VALUE=DATE:20251114\n"
+                          "DTEND;VALUE=DATE:20251115\n"
+                          "SUMMARY:Cambio gomme\n"
+                          "STATUS:CONFIRMED\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -223,17 +230,18 @@ TEST_SUITE("expandRecurringEventV2 - Non-Recurring Events") {
         REQUIRE(occurrences.size() == 1);
         CHECK(occurrences[0]->summary == "Cambio gomme");
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("ICS - Non-recurring event before range") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20241114T100000Z\n"
-            "DTEND:20241114T110000Z\n"
-            "SUMMARY:Past Event\n"
-            "END:VEVENT";
+    TEST_CASE("ICS - Non-recurring event before range")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20241114T100000Z\n"
+                          "DTEND:20241114T110000Z\n"
+                          "SUMMARY:Past Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -247,13 +255,13 @@ TEST_SUITE("expandRecurringEventV2 - Non-Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("ICS - Non-recurring event after range") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20261114T100000Z\n"
-            "DTEND:20261114T110000Z\n"
-            "SUMMARY:Future Event\n"
-            "END:VEVENT";
+    TEST_CASE("ICS - Non-recurring event after range")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20261114T100000Z\n"
+                          "DTEND:20261114T110000Z\n"
+                          "SUMMARY:Future Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -267,13 +275,13 @@ TEST_SUITE("expandRecurringEventV2 - Non-Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("ICS - Non-recurring event overlapping start boundary") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20241231T230000Z\n"
-            "DTEND:20250101T010000Z\n"
-            "SUMMARY:New Year Event\n"
-            "END:VEVENT";
+    TEST_CASE("ICS - Non-recurring event overlapping start boundary")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20241231T230000Z\n"
+                          "DTEND:20250101T010000Z\n"
+                          "SUMMARY:New Year Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -286,40 +294,42 @@ TEST_SUITE("expandRecurringEventV2 - Non-Recurring Events") {
         REQUIRE(occurrences.size() == 1);
         CHECK(occurrences[0]->summary == "New Year Event");
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("ICS - Non-recurring event overlapping end boundary") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250131T230000Z\n"
-            "DTEND:20250201T010000Z\n"
-            "SUMMARY:Month End Event\n"
-            "END:VEVENT";
+    TEST_CASE("ICS - Non-recurring event overlapping end boundary")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250131T230000Z\n"
+                          "DTEND:20250201T010000Z\n"
+                          "SUMMARY:Month End Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
 
         time_t startDate = makeTime(2025, 1, 1);
-        time_t endDate = makeTime(2025, 1, 31, 23, 59, 59);  // End of Jan 31
+        time_t endDate = makeTime(2025, 1, 31, 23, 59, 59); // End of Jan 31
 
         auto occurrences = parser.expandRecurringEventV2(event, startDate, endDate);
 
         REQUIRE(occurrences.size() == 1);
         CHECK(occurrences[0]->summary == "Month End Event");
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("ICS - Non-recurring multi-day event") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20251110T090000Z\n"
-            "DTEND:20251115T170000Z\n"
-            "SUMMARY:Conference Week\n"
-            "END:VEVENT";
+    TEST_CASE("ICS - Non-recurring multi-day event")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20251110T090000Z\n"
+                          "DTEND:20251115T170000Z\n"
+                          "SUMMARY:Conference Week\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -332,17 +342,18 @@ TEST_SUITE("expandRecurringEventV2 - Non-Recurring Events") {
         REQUIRE(occurrences.size() == 1);
         CHECK(occurrences[0]->summary == "Conference Week");
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("ICS - Non-recurring event exactly at range boundaries") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250101T000000Z\n"
-            "DTEND:20250101T235959Z\n"
-            "SUMMARY:First Day\n"
-            "END:VEVENT";
+    TEST_CASE("ICS - Non-recurring event exactly at range boundaries")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250101T000000Z\n"
+                          "DTEND:20250101T235959Z\n"
+                          "SUMMARY:First Day\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -355,20 +366,22 @@ TEST_SUITE("expandRecurringEventV2 - Non-Recurring Events") {
         REQUIRE(occurrences.size() == 1);
         CHECK(occurrences[0]->summary == "First Day");
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 }
 
-TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
-    TEST_CASE("YEARLY - Simple COUNT=3") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250101T000000Z\n"
-            "DTEND:20250101T235959Z\n"
-            "RRULE:FREQ=YEARLY;COUNT=3\n"
-            "SUMMARY:New Year's Day\n"
-            "END:VEVENT";
+TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events")
+{
+    TEST_CASE("YEARLY - Simple COUNT=3")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250101T000000Z\n"
+                          "DTEND:20250101T235959Z\n"
+                          "RRULE:FREQ=YEARLY;COUNT=3\n"
+                          "SUMMARY:New Year's Day\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -383,18 +396,19 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         CHECK(occurrences[1]->summary == "New Year's Day");
         CHECK(occurrences[2]->summary == "New Year's Day");
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("YEARLY - With BYMONTH=7, COUNT=3") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250704T120000Z\n"
-            "DTEND:20250704T130000Z\n"
-            "RRULE:FREQ=YEARLY;BYMONTH=7;COUNT=3\n"
-            "SUMMARY:July 4th Celebration\n"
-            "END:VEVENT";
+    TEST_CASE("YEARLY - With BYMONTH=7, COUNT=3")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250704T120000Z\n"
+                          "DTEND:20250704T130000Z\n"
+                          "RRULE:FREQ=YEARLY;BYMONTH=7;COUNT=3\n"
+                          "SUMMARY:July 4th Celebration\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -412,14 +426,14 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - With BYMONTHDAY=15, COUNT=3") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250115T100000Z\n"
-            "DTEND:20250115T110000Z\n"
-            "RRULE:FREQ=YEARLY;BYMONTHDAY=15;COUNT=3\n"
-            "SUMMARY:Mid-month Anniversary\n"
-            "END:VEVENT";
+    TEST_CASE("YEARLY - With BYMONTHDAY=15, COUNT=3")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250115T100000Z\n"
+                          "DTEND:20250115T110000Z\n"
+                          "RRULE:FREQ=YEARLY;BYMONTHDAY=15;COUNT=3\n"
+                          "SUMMARY:Mid-month Anniversary\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -437,14 +451,14 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - With BYMONTH=12, BYMONTHDAY=25, COUNT=3") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20251225T000000Z\n"
-            "DTEND:20251225T235959Z\n"
-            "RRULE:FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=25;COUNT=3\n"
-            "SUMMARY:Christmas Day\n"
-            "END:VEVENT";
+    TEST_CASE("YEARLY - With BYMONTH=12, BYMONTHDAY=25, COUNT=3")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20251225T000000Z\n"
+                          "DTEND:20251225T235959Z\n"
+                          "RRULE:FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=25;COUNT=3\n"
+                          "SUMMARY:Christmas Day\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -462,14 +476,14 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - With INTERVAL=2 (every 2 years), COUNT=3") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250101T120000Z\n"
-            "DTEND:20250101T130000Z\n"
-            "RRULE:FREQ=YEARLY;INTERVAL=2;COUNT=3\n"
-            "SUMMARY:Biennial Event\n"
-            "END:VEVENT";
+    TEST_CASE("YEARLY - With INTERVAL=2 (every 2 years), COUNT=3")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250101T120000Z\n"
+                          "DTEND:20250101T130000Z\n"
+                          "RRULE:FREQ=YEARLY;INTERVAL=2;COUNT=3\n"
+                          "SUMMARY:Biennial Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -488,14 +502,14 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - With UNTIL date") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250101T000000Z\n"
-            "DTEND:20250101T235959Z\n"
-            "RRULE:FREQ=YEARLY;UNTIL=20270101T000000Z\n"
-            "SUMMARY:Limited Anniversary\n"
-            "END:VEVENT";
+    TEST_CASE("YEARLY - With UNTIL date")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250101T000000Z\n"
+                          "DTEND:20250101T235959Z\n"
+                          "RRULE:FREQ=YEARLY;UNTIL=20270101T000000Z\n"
+                          "SUMMARY:Limited Anniversary\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -514,14 +528,14 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - Event starts before query range, COUNT=5") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20200101T100000Z\n"
-            "DTEND:20200101T110000Z\n"
-            "RRULE:FREQ=YEARLY;COUNT=5\n"
-            "SUMMARY:5 Year Plan\n"
-            "END:VEVENT";
+    TEST_CASE("YEARLY - Event starts before query range, COUNT=5")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20200101T100000Z\n"
+                          "DTEND:20200101T110000Z\n"
+                          "RRULE:FREQ=YEARLY;COUNT=5\n"
+                          "SUMMARY:5 Year Plan\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -538,14 +552,14 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - Partial query range, COUNT=5") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20230101T100000Z\n"
-            "DTEND:20230101T110000Z\n"
-            "RRULE:FREQ=YEARLY;COUNT=5\n"
-            "SUMMARY:Annual Review\n"
-            "END:VEVENT";
+    TEST_CASE("YEARLY - Partial query range, COUNT=5")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20230101T100000Z\n"
+                          "DTEND:20230101T110000Z\n"
+                          "RRULE:FREQ=YEARLY;COUNT=5\n"
+                          "SUMMARY:Annual Review\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -565,14 +579,14 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - Query range before event starts") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20300101T100000Z\n"
-            "DTEND:20300101T110000Z\n"
-            "RRULE:FREQ=YEARLY;COUNT=3\n"
-            "SUMMARY:Future Event\n"
-            "END:VEVENT";
+    TEST_CASE("YEARLY - Query range before event starts")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20300101T100000Z\n"
+                          "DTEND:20300101T110000Z\n"
+                          "RRULE:FREQ=YEARLY;COUNT=3\n"
+                          "SUMMARY:Future Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -588,14 +602,14 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - No COUNT or UNTIL (infinite recurrence)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250101T000000Z\n"
-            "DTEND:20250101T235959Z\n"
-            "RRULE:FREQ=YEARLY\n"
-            "SUMMARY:Perpetual Event\n"
-            "END:VEVENT";
+    TEST_CASE("YEARLY - No COUNT or UNTIL (infinite recurrence)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250101T000000Z\n"
+                          "DTEND:20250101T235959Z\n"
+                          "RRULE:FREQ=YEARLY\n"
+                          "SUMMARY:Perpetual Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -614,18 +628,18 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - Real-world: Elisa's Birthday v1 (with UNTIL, ended in 2011)") {
+    TEST_CASE("YEARLY - Real-world: Elisa's Birthday v1 (with UNTIL, ended in 2011)")
+    {
         // Real event from user's calendar
         // Note: UNTIL is 20120119T065959Z (UTC), which is 07:59:59 in Amsterdam (UTC+1)
         // Event starts at 08:00 Amsterdam time, so 2012 occurrence is excluded
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20110119T080000Z\n"  // Simplified: using UTC instead of timezone
-            "DTEND:20110119T090000Z\n"
-            "RRULE:FREQ=YEARLY;WKST=MO;UNTIL=20120119T065959Z;BYMONTHDAY=19;BYMONTH=1\n"
-            "UID:akf097otsmb5mlei9l9l35cves@google.com\n"
-            "SUMMARY:Compleanno Elisa\n"
-            "END:VEVENT";
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20110119T080000Z\n" // Simplified: using UTC instead of timezone
+                          "DTEND:20110119T090000Z\n"
+                          "RRULE:FREQ=YEARLY;WKST=MO;UNTIL=20120119T065959Z;BYMONTHDAY=19;BYMONTH=1\n"
+                          "UID:akf097otsmb5mlei9l9l35cves@google.com\n"
+                          "SUMMARY:Compleanno Elisa\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -642,21 +656,22 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
 
         CHECK(occurrences[0]->uid == "akf097otsmb5mlei9l9l35cves@google.com");
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("YEARLY - Real-world: Elisa's Birthday v2 (infinite, no UNTIL)") {
+    TEST_CASE("YEARLY - Real-world: Elisa's Birthday v2 (infinite, no UNTIL)")
+    {
         // Real event from user's calendar - the updated version starting 2012
         // This one has no UNTIL, so it repeats forever
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20120119T150000Z\n"  // Simplified: using UTC instead of timezone
-            "DTEND:20120119T160000Z\n"
-            "RRULE:FREQ=YEARLY;WKST=MO\n"
-            "UID:9tsnfrmre9ltq7b2ra6gum6nng@google.com\n"
-            "SUMMARY:Compleanno Elisa\n"
-            "END:VEVENT";
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20120119T150000Z\n" // Simplified: using UTC instead of timezone
+                          "DTEND:20120119T160000Z\n"
+                          "RRULE:FREQ=YEARLY;WKST=MO\n"
+                          "UID:9tsnfrmre9ltq7b2ra6gum6nng@google.com\n"
+                          "SUMMARY:Compleanno Elisa\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -675,7 +690,7 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
             CHECK(occ->uid == "9tsnfrmre9ltq7b2ra6gum6nng@google.com");
             // Should be on January 19th at 15:00
             struct tm* tm = localtime(&occ->startTime);
-            CHECK(tm->tm_mon == 0);  // January (0-based)
+            CHECK(tm->tm_mon == 0); // January (0-based)
             CHECK(tm->tm_mday == 19);
             CHECK(tm->tm_hour == 15);
             delete occ;
@@ -683,17 +698,17 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         delete event;
     }
 
-    TEST_CASE("YEARLY - Real-world: Elisa's Birthday v2 in 2026 (far future query)") {
+    TEST_CASE("YEARLY - Real-world: Elisa's Birthday v2 in 2026 (far future query)")
+    {
         // Same event, but query for 2026 (14 years after start)
         // This tests that infinite recurrence continues working correctly
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20120119T150000Z\n"
-            "DTEND:20120119T160000Z\n"
-            "RRULE:FREQ=YEARLY;WKST=MO\n"
-            "UID:9tsnfrmre9ltq7b2ra6gum6nng@google.com\n"
-            "SUMMARY:Compleanno Elisa\n"
-            "END:VEVENT";
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20120119T150000Z\n"
+                          "DTEND:20120119T160000Z\n"
+                          "RRULE:FREQ=YEARLY;WKST=MO\n"
+                          "UID:9tsnfrmre9ltq7b2ra6gum6nng@google.com\n"
+                          "SUMMARY:Compleanno Elisa\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -711,25 +726,26 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         CHECK(occurrences[0]->uid == "9tsnfrmre9ltq7b2ra6gum6nng@google.com");
         struct tm* tm = localtime(&occurrences[0]->startTime);
         CHECK(tm->tm_year + 1900 == 2026);
-        CHECK(tm->tm_mon == 0);  // January
+        CHECK(tm->tm_mon == 0); // January
         CHECK(tm->tm_mday == 19);
         CHECK(tm->tm_hour == 15);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - Real-world: Office Hours with TZID and BYDAY (not yet implemented)") {
+    TEST_CASE("WEEKLY - Real-world: Office Hours with TZID and BYDAY (not yet implemented)")
+    {
         // Real event with WEEKLY frequency, TZID, BYDAY, and UNTIL
         // This documents expected behavior once expandWeeklyV2 is implemented
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART;TZID=America/New_York:20150513T190000\n"
-            "DTEND;TZID=America/New_York:20150513T220000\n"
-            "RRULE:FREQ=WEEKLY;UNTIL=20150520T230000Z;BYDAY=WE\n"
-            "UID:03l8qvftb6v1hobj9iodo061n0_R20150513T230000@google.com\n"
-            "SUMMARY:OFFICE HOURS:  Andrew, John, Alessandro\n"
-            "END:VEVENT";
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART;TZID=America/New_York:20150513T190000\n"
+                          "DTEND;TZID=America/New_York:20150513T220000\n"
+                          "RRULE:FREQ=WEEKLY;UNTIL=20150520T230000Z;BYDAY=WE\n"
+                          "UID:03l8qvftb6v1hobj9iodo061n0_R20150513T230000@google.com\n"
+                          "SUMMARY:OFFICE HOURS:  Andrew, John, Alessandro\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -742,7 +758,7 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         // Verify timezone conversion: 19:00 EDT (UTC-4) = 23:00 UTC
         struct tm* tm = gmtime(&event->startTime);
         MESSAGE("Start time (UTC): ", tm->tm_year + 1900, "-", tm->tm_mon + 1, "-", tm->tm_mday, " ", tm->tm_hour, ":", tm->tm_min);
-        CHECK(tm->tm_hour == 23);  // 19:00 EDT = 23:00 UTC
+        CHECK(tm->tm_hour == 23); // 19:00 EDT = 23:00 UTC
 
         // Query for May 2015
         time_t startDate = makeTime(2015, 5, 1);
@@ -758,21 +774,22 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         // - 2015-05-20 (Wednesday, matches UNTIL exactly)
         // REQUIRE(occurrences.size() == 2);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("YEARLY - Real-world: Elisa's Birthday v2 with ORIGINAL TZID format") {
+    TEST_CASE("YEARLY - Real-world: Elisa's Birthday v2 with ORIGINAL TZID format")
+    {
         // ORIGINAL event format from Google Calendar with TZID=Europe/Amsterdam
         // This tests timezone conversion: 15:00 Amsterdam time = 14:00 UTC (winter)
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART;TZID=Europe/Amsterdam:20120119T150000\n"
-            "DTEND;TZID=Europe/Amsterdam:20120119T160000\n"
-            "RRULE:FREQ=YEARLY;WKST=MO\n"
-            "UID:9tsnfrmre9ltq7b2ra6gum6nng@google.com\n"
-            "SUMMARY:Compleanno Elisa\n"
-            "END:VEVENT";
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART;TZID=Europe/Amsterdam:20120119T150000\n"
+                          "DTEND;TZID=Europe/Amsterdam:20120119T160000\n"
+                          "RRULE:FREQ=YEARLY;WKST=MO\n"
+                          "UID:9tsnfrmre9ltq7b2ra6gum6nng@google.com\n"
+                          "SUMMARY:Compleanno Elisa\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -798,12 +815,13 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
         MESSAGE("Parsed time (UTC): ", tm->tm_year + 1900, "-", tm->tm_mon + 1, "-", tm->tm_mday, " ", tm->tm_hour, ":", tm->tm_min);
 
         CHECK(tm->tm_year + 1900 == 2025);
-        CHECK(tm->tm_mon == 0);  // January
+        CHECK(tm->tm_mon == 0); // January
         CHECK(tm->tm_mday == 19);
         // Hour should be 14 (UTC) since Amsterdam is UTC+1 in winter
         CHECK(tm->tm_hour == 14);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 }
@@ -812,16 +830,17 @@ TEST_SUITE("expandRecurringEventV2 - YEARLY Recurring Events") {
 // MONTHLY Recurring Events - Test Suite
 // =============================================================================
 
-TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events") {
+TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events")
+{
 
-    TEST_CASE("MONTHLY - Simple COUNT=3") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250115T100000Z\n"
-            "DTEND:20250115T110000Z\n"
-            "RRULE:FREQ=MONTHLY;COUNT=3\n"
-            "SUMMARY:Monthly Meeting\n"
-            "END:VEVENT";
+    TEST_CASE("MONTHLY - Simple COUNT=3")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250115T100000Z\n"
+                          "DTEND:20250115T110000Z\n"
+                          "RRULE:FREQ=MONTHLY;COUNT=3\n"
+                          "SUMMARY:Monthly Meeting\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -840,34 +859,35 @@ TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events") {
             // Verify first occurrence (Jan 15)
             struct tm* tm = gmtime(&occurrences[0]->startTime);
             CHECK(tm->tm_year + 1900 == 2025);
-            CHECK(tm->tm_mon == 0);  // January
+            CHECK(tm->tm_mon == 0); // January
             CHECK(tm->tm_mday == 15);
 
             // Verify second occurrence (Feb 15)
             tm = gmtime(&occurrences[1]->startTime);
             CHECK(tm->tm_year + 1900 == 2025);
-            CHECK(tm->tm_mon == 1);  // February
+            CHECK(tm->tm_mon == 1); // February
             CHECK(tm->tm_mday == 15);
 
             // Verify third occurrence (Mar 15)
             tm = gmtime(&occurrences[2]->startTime);
             CHECK(tm->tm_year + 1900 == 2025);
-            CHECK(tm->tm_mon == 2);  // March
+            CHECK(tm->tm_mon == 2); // March
             CHECK(tm->tm_mday == 15);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("MONTHLY - With INTERVAL=2 (bi-monthly), COUNT=3") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250115T100000Z\n"
-            "DTEND:20250115T110000Z\n"
-            "RRULE:FREQ=MONTHLY;INTERVAL=2;COUNT=3\n"
-            "SUMMARY:Bi-monthly Review\n"
-            "END:VEVENT";
+    TEST_CASE("MONTHLY - With INTERVAL=2 (bi-monthly), COUNT=3")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250115T100000Z\n"
+                          "DTEND:20250115T110000Z\n"
+                          "RRULE:FREQ=MONTHLY;INTERVAL=2;COUNT=3\n"
+                          "SUMMARY:Bi-monthly Review\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -882,27 +902,28 @@ TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events") {
 
         if (occurrences.size() >= 3) {
             struct tm* tm = gmtime(&occurrences[0]->startTime);
-            CHECK(tm->tm_mon == 0);  // January
+            CHECK(tm->tm_mon == 0); // January
 
             tm = gmtime(&occurrences[1]->startTime);
-            CHECK(tm->tm_mon == 2);  // March (skip Feb)
+            CHECK(tm->tm_mon == 2); // March (skip Feb)
 
             tm = gmtime(&occurrences[2]->startTime);
-            CHECK(tm->tm_mon == 4);  // May (skip Apr)
+            CHECK(tm->tm_mon == 4); // May (skip Apr)
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("MONTHLY - Event starts before query range, COUNT=5") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20240315T100000Z\n"
-            "DTEND:20240315T110000Z\n"
-            "RRULE:FREQ=MONTHLY;COUNT=5\n"
-            "SUMMARY:Monthly Report\n"
-            "END:VEVENT";
+    TEST_CASE("MONTHLY - Event starts before query range, COUNT=5")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20240315T100000Z\n"
+                          "DTEND:20240315T110000Z\n"
+                          "RRULE:FREQ=MONTHLY;COUNT=5\n"
+                          "SUMMARY:Monthly Report\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -918,18 +939,19 @@ TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events") {
         // Should get 0 occurrences
         CHECK(occurrences.size() == 0);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("MONTHLY - Partial query range, COUNT=10") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250115T100000Z\n"
-            "DTEND:20250115T110000Z\n"
-            "RRULE:FREQ=MONTHLY;COUNT=10\n"
-            "SUMMARY:Monthly Sync\n"
-            "END:VEVENT";
+    TEST_CASE("MONTHLY - Partial query range, COUNT=10")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250115T100000Z\n"
+                          "DTEND:20250115T110000Z\n"
+                          "RRULE:FREQ=MONTHLY;COUNT=10\n"
+                          "SUMMARY:Monthly Sync\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -943,18 +965,19 @@ TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events") {
         // Should get occurrences 3,4,5,6 = Mar 15, Apr 15, May 15, Jun 15
         CHECK(occurrences.size() == 4);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("MONTHLY - With UNTIL date") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250115T100000Z\n"
-            "DTEND:20250115T110000Z\n"
-            "RRULE:FREQ=MONTHLY;UNTIL=20250415T235959Z\n"
-            "SUMMARY:Monthly Task\n"
-            "END:VEVENT";
+    TEST_CASE("MONTHLY - With UNTIL date")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250115T100000Z\n"
+                          "DTEND:20250115T110000Z\n"
+                          "RRULE:FREQ=MONTHLY;UNTIL=20250415T235959Z\n"
+                          "SUMMARY:Monthly Task\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -970,21 +993,22 @@ TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events") {
         if (occurrences.size() >= 4) {
             struct tm* tm = gmtime(&occurrences[3]->startTime);
             CHECK(tm->tm_year + 1900 == 2025);
-            CHECK(tm->tm_mon == 3);  // April
+            CHECK(tm->tm_mon == 3); // April
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("MONTHLY - Query range before event starts") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20260315T100000Z\n"
-            "DTEND:20260315T110000Z\n"
-            "RRULE:FREQ=MONTHLY;COUNT=5\n"
-            "SUMMARY:Future Monthly Event\n"
-            "END:VEVENT";
+    TEST_CASE("MONTHLY - Query range before event starts")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20260315T100000Z\n"
+                          "DTEND:20260315T110000Z\n"
+                          "RRULE:FREQ=MONTHLY;COUNT=5\n"
+                          "SUMMARY:Future Monthly Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -998,18 +1022,19 @@ TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events") {
         // Event hasn't started yet
         CHECK(occurrences.size() == 0);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("MONTHLY - No COUNT or UNTIL (infinite recurrence)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250115T100000Z\n"
-            "DTEND:20250115T110000Z\n"
-            "RRULE:FREQ=MONTHLY\n"
-            "SUMMARY:Infinite Monthly Event\n"
-            "END:VEVENT";
+    TEST_CASE("MONTHLY - No COUNT or UNTIL (infinite recurrence)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250115T100000Z\n"
+                          "DTEND:20250115T110000Z\n"
+                          "RRULE:FREQ=MONTHLY\n"
+                          "SUMMARY:Infinite Monthly Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1023,7 +1048,8 @@ TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events") {
         // Should get 6 occurrences: Jan 15 through Jun 15
         CHECK(occurrences.size() == 6);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 }
@@ -1032,16 +1058,17 @@ TEST_SUITE("expandRecurringEventV2 - MONTHLY Recurring Events") {
 // WEEKLY Recurring Events - Test Suite
 // =============================================================================
 
-TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
+TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events")
+{
 
-    TEST_CASE("WEEKLY - Simple COUNT=3 (every week on same day)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=3\n"
-            "SUMMARY:Weekly Meeting\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - Simple COUNT=3 (every week on same day)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=3\n"
+                          "SUMMARY:Weekly Meeting\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1059,7 +1086,7 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         if (occurrences.size() >= 3) {
             struct tm* tm = gmtime(&occurrences[0]->startTime);
             CHECK(tm->tm_year + 1900 == 2025);
-            CHECK(tm->tm_mon == 0);  // January
+            CHECK(tm->tm_mon == 0); // January
             CHECK(tm->tm_mday == 13);
 
             tm = gmtime(&occurrences[1]->startTime);
@@ -1069,18 +1096,19 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
             CHECK(tm->tm_mday == 27);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - With INTERVAL=2 (bi-weekly), COUNT=3") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=3\n"
-            "SUMMARY:Bi-weekly Standup\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - With INTERVAL=2 (bi-weekly), COUNT=3")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=3\n"
+                          "SUMMARY:Bi-weekly Standup\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1101,22 +1129,23 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
             CHECK(tm->tm_mday == 27);
 
             tm = gmtime(&occurrences[2]->startTime);
-            CHECK(tm->tm_mon == 1);  // February
+            CHECK(tm->tm_mon == 1); // February
             CHECK(tm->tm_mday == 10);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - Event starts before query range, COUNT=6") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20241202T100000Z\n"  // Monday, Dec 2, 2024
-            "DTEND:20241202T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=6\n"
-            "SUMMARY:Weekly Review\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - Event starts before query range, COUNT=6")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20241202T100000Z\n" // Monday, Dec 2, 2024
+                          "DTEND:20241202T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=6\n"
+                          "SUMMARY:Weekly Review\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1138,24 +1167,25 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
             // Actually Jan 6 is a Monday, but let me verify the calculation
             // Dec 2 + 5 weeks = Jan 6 (correct)
             CHECK(tm->tm_year + 1900 == 2025);
-            CHECK(tm->tm_mon == 0);  // January
+            CHECK(tm->tm_mon == 0); // January
             // The test expects mday == 6, but let's see what we actually get
             INFO("Actual day of month: " << tm->tm_mday << ", expected: 6");
             CHECK(tm->tm_mday == 6);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - With UNTIL date") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=WEEKLY;UNTIL=20250203T235959Z\n"
-            "SUMMARY:Weekly Task\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - With UNTIL date")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n"
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;UNTIL=20250203T235959Z\n"
+                          "SUMMARY:Weekly Task\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1168,18 +1198,19 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         // UNTIL is Feb 3, so: Jan 13, 20, 27, Feb 3 = 4 occurrences
         CHECK(occurrences.size() == 4);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - Query range before event starts") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20260113T100000Z\n"
-            "DTEND:20260113T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=5\n"
-            "SUMMARY:Future Weekly Event\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - Query range before event starts")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20260113T100000Z\n"
+                          "DTEND:20260113T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=5\n"
+                          "SUMMARY:Future Weekly Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1193,18 +1224,19 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         // Event hasn't started yet
         CHECK(occurrences.size() == 0);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - No COUNT or UNTIL (infinite recurrence)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=WEEKLY\n"
-            "SUMMARY:Infinite Weekly Event\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - No COUNT or UNTIL (infinite recurrence)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n"
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=WEEKLY\n"
+                          "SUMMARY:Infinite Weekly Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1218,18 +1250,19 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         // Should get 3 occurrences in January: 13, 20, 27
         CHECK(occurrences.size() == 3);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - Recurrence already completed before query range") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20240101T100000Z\n"  // Jan 1, 2024
-            "DTEND:20240101T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=4\n"
-            "SUMMARY:Short-lived Weekly Event\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - Recurrence already completed before query range")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20240101T100000Z\n" // Jan 1, 2024
+                          "DTEND:20240101T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=4\n"
+                          "SUMMARY:Short-lived Weekly Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1243,18 +1276,19 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         // All 4 occurrences completed in 2024, none in 2025
         CHECK(occurrences.size() == 0);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - UNTIL date before query range") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20240101T100000Z\n"
-            "DTEND:20240101T110000Z\n"
-            "RRULE:FREQ=WEEKLY;UNTIL=20240131T235959Z\n"
-            "SUMMARY:January Only Event\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - UNTIL date before query range")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20240101T100000Z\n"
+                          "DTEND:20240101T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;UNTIL=20240131T235959Z\n"
+                          "SUMMARY:January Only Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1268,18 +1302,19 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         // UNTIL ended before query range
         CHECK(occurrences.size() == 0);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - Partial COUNT overlap with query range") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250106T100000Z\n"  // Jan 6, 2025 (Monday)
-            "DTEND:20250106T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=8\n"
-            "SUMMARY:8-Week Program\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - Partial COUNT overlap with query range")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250106T100000Z\n" // Jan 6, 2025 (Monday)
+                          "DTEND:20250106T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=8\n"
+                          "SUMMARY:8-Week Program\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1294,18 +1329,19 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         // Query is Feb only: Feb 3, 10, 17, 24 = 4 occurrences
         CHECK(occurrences.size() == 4);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - Event with INTERVAL=3 (every 3 weeks)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250106T100000Z\n"  // Jan 6, 2025
-            "DTEND:20250106T110000Z\n"
-            "RRULE:FREQ=WEEKLY;INTERVAL=3;COUNT=4\n"
-            "SUMMARY:Tri-weekly Meeting\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - Event with INTERVAL=3 (every 3 weeks)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250106T100000Z\n" // Jan 6, 2025
+                          "DTEND:20250106T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;INTERVAL=3;COUNT=4\n"
+                          "SUMMARY:Tri-weekly Meeting\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1321,33 +1357,34 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
 
         if (occurrences.size() >= 4) {
             struct tm* tm = gmtime(&occurrences[0]->startTime);
-            CHECK(tm->tm_mon == 0);  // January
+            CHECK(tm->tm_mon == 0); // January
             CHECK(tm->tm_mday == 6);
 
             tm = gmtime(&occurrences[1]->startTime);
             CHECK(tm->tm_mday == 27);
 
             tm = gmtime(&occurrences[2]->startTime);
-            CHECK(tm->tm_mon == 1);  // February
+            CHECK(tm->tm_mon == 1); // February
             CHECK(tm->tm_mday == 17);
 
             tm = gmtime(&occurrences[3]->startTime);
-            CHECK(tm->tm_mon == 2);  // March
+            CHECK(tm->tm_mon == 2); // March
             CHECK(tm->tm_mday == 10);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - UNTIL exactly matches query end date") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250106T100000Z\n"
-            "DTEND:20250106T110000Z\n"
-            "RRULE:FREQ=WEEKLY;UNTIL=20250131T235959Z\n"
-            "SUMMARY:January Weekly Event\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - UNTIL exactly matches query end date")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250106T100000Z\n"
+                          "DTEND:20250106T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;UNTIL=20250131T235959Z\n"
+                          "SUMMARY:January Weekly Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1361,18 +1398,19 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         // Jan 6, 13, 20, 27 = 4 occurrences (all within January)
         CHECK(occurrences.size() == 4);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - With BYDAY=MO (single day specified)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=3;BYDAY=MO\n"
-            "SUMMARY:Monday Meetings\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - With BYDAY=MO (single day specified)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=3;BYDAY=MO\n"
+                          "SUMMARY:Monday Meetings\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1388,22 +1426,23 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         if (occurrences.size() >= 3) {
             for (int i = 0; i < 3; i++) {
                 struct tm* tm = gmtime(&occurrences[i]->startTime);
-                CHECK(tm->tm_wday == 1);  // All should be Monday
+                CHECK(tm->tm_wday == 1); // All should be Monday
             }
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - With BYDAY=MO,WE,FR (weekdays subset)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=9;BYDAY=MO,WE,FR\n"
-            "SUMMARY:MWF Classes\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - With BYDAY=MO,WE,FR (weekdays subset)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=9;BYDAY=MO,WE,FR\n"
+                          "SUMMARY:MWF Classes\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1419,35 +1458,36 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         if (occurrences.size() >= 9) {
             // Check first week
             struct tm* tm = gmtime(&occurrences[0]->startTime);
-            CHECK(tm->tm_wday == 1);  // Monday
+            CHECK(tm->tm_wday == 1); // Monday
             CHECK(tm->tm_mday == 13);
 
             tm = gmtime(&occurrences[1]->startTime);
-            CHECK(tm->tm_wday == 3);  // Wednesday
+            CHECK(tm->tm_wday == 3); // Wednesday
             CHECK(tm->tm_mday == 15);
 
             tm = gmtime(&occurrences[2]->startTime);
-            CHECK(tm->tm_wday == 5);  // Friday
+            CHECK(tm->tm_wday == 5); // Friday
             CHECK(tm->tm_mday == 17);
 
             // Check last occurrence
             tm = gmtime(&occurrences[8]->startTime);
-            CHECK(tm->tm_wday == 5);  // Friday
+            CHECK(tm->tm_wday == 5); // Friday
             CHECK(tm->tm_mday == 31);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - With BYDAY=SA,SU (weekends only)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250111T100000Z\n"  // Saturday, Jan 11, 2025
-            "DTEND:20250111T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=6;BYDAY=SA,SU\n"
-            "SUMMARY:Weekend Events\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - With BYDAY=SA,SU (weekends only)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250111T100000Z\n" // Saturday, Jan 11, 2025
+                          "DTEND:20250111T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=6;BYDAY=SA,SU\n"
+                          "SUMMARY:Weekend Events\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1464,25 +1504,26 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
             // Verify alternating Sat/Sun pattern
             for (int i = 0; i < 6; i += 2) {
                 struct tm* tm = gmtime(&occurrences[i]->startTime);
-                CHECK(tm->tm_wday == 6);  // Saturday
+                CHECK(tm->tm_wday == 6); // Saturday
 
                 tm = gmtime(&occurrences[i + 1]->startTime);
-                CHECK(tm->tm_wday == 0);  // Sunday
+                CHECK(tm->tm_wday == 0); // Sunday
             }
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - With BYDAY=TU,TH and INTERVAL=2") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250107T100000Z\n"  // Tuesday, Jan 7, 2025
-            "DTEND:20250107T110000Z\n"
-            "RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=6;BYDAY=TU,TH\n"
-            "SUMMARY:Bi-weekly Tue/Thu\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - With BYDAY=TU,TH and INTERVAL=2")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250107T100000Z\n" // Tuesday, Jan 7, 2025
+                          "DTEND:20250107T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=6;BYDAY=TU,TH\n"
+                          "SUMMARY:Bi-weekly Tue/Thu\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1498,33 +1539,34 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         if (occurrences.size() >= 6) {
             // First occurrence: Jan 7 (Tue)
             struct tm* tm = gmtime(&occurrences[0]->startTime);
-            CHECK(tm->tm_mon == 0);  // January
+            CHECK(tm->tm_mon == 0); // January
             CHECK(tm->tm_mday == 7);
-            CHECK(tm->tm_wday == 2);  // Tuesday
+            CHECK(tm->tm_wday == 2); // Tuesday
 
             // Second occurrence: Jan 9 (Thu)
             tm = gmtime(&occurrences[1]->startTime);
             CHECK(tm->tm_mday == 9);
-            CHECK(tm->tm_wday == 4);  // Thursday
+            CHECK(tm->tm_wday == 4); // Thursday
 
             // Third occurrence: Jan 21 (skip week 14-20)
             tm = gmtime(&occurrences[2]->startTime);
             CHECK(tm->tm_mday == 21);
-            CHECK(tm->tm_wday == 2);  // Tuesday
+            CHECK(tm->tm_wday == 2); // Tuesday
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - BYDAY with all 7 days (every day)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250112T100000Z\n"  // Sunday, Jan 12, 2025 (start on Sunday to get all 7 days)
-            "DTEND:20250112T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=7;BYDAY=SU,MO,TU,WE,TH,FR,SA\n"
-            "SUMMARY:Every Day of Week\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - BYDAY with all 7 days (every day)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250112T100000Z\n" // Sunday, Jan 12, 2025 (start on Sunday to get all 7 days)
+                          "DTEND:20250112T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=7;BYDAY=SU,MO,TU,WE,TH,FR,SA\n"
+                          "SUMMARY:Every Day of Week\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1541,22 +1583,23 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
             // Should get all 7 days of the week in order
             for (int i = 0; i < 7; i++) {
                 struct tm* tm = gmtime(&occurrences[i]->startTime);
-                CHECK(tm->tm_wday == i);  // Sun=0, Mon=1, ..., Sat=6
+                CHECK(tm->tm_wday == i); // Sun=0, Mon=1, ..., Sat=6
             }
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - BYDAY with COUNT boundary spanning weeks") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=5;BYDAY=MO,WE,FR\n"
-            "SUMMARY:5 Total Occurrences\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - BYDAY with COUNT boundary spanning weeks")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=5;BYDAY=MO,WE,FR\n"
+                          "SUMMARY:5 Total Occurrences\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1571,22 +1614,23 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
 
         if (occurrences.size() >= 5) {
             struct tm* tm = gmtime(&occurrences[4]->startTime);
-            CHECK(tm->tm_mday == 22);  // Last occurrence is Wed Jan 22
-            CHECK(tm->tm_wday == 3);   // Wednesday
+            CHECK(tm->tm_mday == 22); // Last occurrence is Wed Jan 22
+            CHECK(tm->tm_wday == 3); // Wednesday
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - BYDAY starting mid-week") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250115T100000Z\n"  // Wednesday, Jan 15, 2025
-            "DTEND:20250115T110000Z\n"
-            "RRULE:FREQ=WEEKLY;COUNT=4;BYDAY=MO,WE,FR\n"
-            "SUMMARY:Start Mid-week\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - BYDAY starting mid-week")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250115T100000Z\n" // Wednesday, Jan 15, 2025
+                          "DTEND:20250115T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;COUNT=4;BYDAY=MO,WE,FR\n"
+                          "SUMMARY:Start Mid-week\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1602,30 +1646,31 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
 
         if (occurrences.size() >= 4) {
             struct tm* tm = gmtime(&occurrences[0]->startTime);
-            CHECK(tm->tm_mday == 15);  // Wed
+            CHECK(tm->tm_mday == 15); // Wed
             CHECK(tm->tm_wday == 3);
 
             tm = gmtime(&occurrences[1]->startTime);
-            CHECK(tm->tm_mday == 17);  // Fri
+            CHECK(tm->tm_mday == 17); // Fri
             CHECK(tm->tm_wday == 5);
 
             tm = gmtime(&occurrences[2]->startTime);
-            CHECK(tm->tm_mday == 20);  // Mon (next week)
+            CHECK(tm->tm_mday == 20); // Mon (next week)
             CHECK(tm->tm_wday == 1);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - BYDAY with UNTIL date") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=WEEKLY;UNTIL=20250124T235959Z;BYDAY=MO,FR\n"
-            "SUMMARY:Mon/Fri Until Jan 24\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - BYDAY with UNTIL date")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=WEEKLY;UNTIL=20250124T235959Z;BYDAY=MO,FR\n"
+                          "SUMMARY:Mon/Fri Until Jan 24\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1640,23 +1685,24 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
 
         if (occurrences.size() >= 4) {
             struct tm* tm = gmtime(&occurrences[3]->startTime);
-            CHECK(tm->tm_mday == 24);  // Last occurrence is Fri Jan 24
-            CHECK(tm->tm_wday == 5);   // Friday
+            CHECK(tm->tm_mday == 24); // Last occurrence is Fri Jan 24
+            CHECK(tm->tm_wday == 5); // Friday
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - Real-world: Office Hours with BYDAY=WE (Wednesday)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART;TZID=America/New_York:20150513T190000\n"
-            "DTEND;TZID=America/New_York:20150513T220000\n"
-            "RRULE:FREQ=WEEKLY;UNTIL=20150520T230000Z;BYDAY=WE\n"
-            "UID:03l8qvftb6v1hobj9iodo061n0_R20150513T230000@google.com\n"
-            "SUMMARY:OFFICE HOURS:  Andrew, John, Alessandro\n"
-            "END:VEVENT";
+    TEST_CASE("WEEKLY - Real-world: Office Hours with BYDAY=WE (Wednesday)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART;TZID=America/New_York:20150513T190000\n"
+                          "DTEND;TZID=America/New_York:20150513T220000\n"
+                          "RRULE:FREQ=WEEKLY;UNTIL=20150520T230000Z;BYDAY=WE\n"
+                          "UID:03l8qvftb6v1hobj9iodo061n0_R20150513T230000@google.com\n"
+                          "SUMMARY:OFFICE HOURS:  Andrew, John, Alessandro\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1664,7 +1710,7 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         // Verify timezone conversion: 19:00 EDT (UTC-4) = 23:00 UTC
         struct tm* tm = gmtime(&event->startTime);
         CHECK(tm->tm_hour == 23);
-        CHECK(tm->tm_wday == 3);  // Wednesday
+        CHECK(tm->tm_wday == 3); // Wednesday
 
         // Query the event in its date range
         time_t startDate = makeTime(2015, 5, 1, 0, 0, 0);
@@ -1677,39 +1723,41 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
         // With our current implementation using > for effectiveEndDate check, May 20 at exactly 23:00 is excluded
         // We should get only May 13 (or possibly 0 if there's a timezone issue)
         // For now, just verify we get at least some occurrences and they're in May
-        CHECK(occurrences.size() >= 0);  // Accept any result for this complex timezone case
+        CHECK(occurrences.size() >= 0); // Accept any result for this complex timezone case
 
         if (occurrences.size() >= 1) {
             tm = gmtime(&occurrences[0]->startTime);
             MESSAGE("First occurrence: " << (tm->tm_year + 1900) << "-" << (tm->tm_mon + 1) << "-" << tm->tm_mday << " (wday=" << tm->tm_wday << ")");
             CHECK(tm->tm_year + 1900 == 2015);
-            CHECK(tm->tm_mon == 4);  // May
+            CHECK(tm->tm_mon == 4); // May
             // Not checking specific day or weekday due to timezone complexity
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("WEEKLY - November 2025 validation (Europe/Rome timezone)") {
+    TEST_CASE("WEEKLY - November 2025 validation (Europe/Rome timezone)")
+    {
         // Test various WEEKLY scenarios for the specific date: Nov 1st, 2025
         // Nov 1st, 2025 is a Saturday in Europe/Rome (UTC+1)
 
-        SUBCASE("Simple weekly starting before Nov 2025") {
-            String icsEvent =
-                "BEGIN:VEVENT\n"
-                "DTSTART;TZID=Europe/Rome:20251027T100000\n"  // Monday, Oct 27, 2025 at 10:00 Rome time
-                "DTEND;TZID=Europe/Rome:20251027T110000\n"
-                "RRULE:FREQ=WEEKLY;COUNT=5\n"
-                "SUMMARY:Weekly Team Meeting\n"
-                "END:VEVENT";
+        SUBCASE("Simple weekly starting before Nov 2025")
+        {
+            String icsEvent = "BEGIN:VEVENT\n"
+                              "DTSTART;TZID=Europe/Rome:20251027T100000\n" // Monday, Oct 27, 2025 at 10:00 Rome time
+                              "DTEND;TZID=Europe/Rome:20251027T110000\n"
+                              "RRULE:FREQ=WEEKLY;COUNT=5\n"
+                              "SUMMARY:Weekly Team Meeting\n"
+                              "END:VEVENT";
 
             CalendarEvent* event = parseICSEvent(icsEvent);
             REQUIRE(event != nullptr);
 
             // Query Nov 1-7, 2025 (Rome is UTC+1, so adjust query to UTC)
-            time_t startDate = makeTime(2025, 11, 1, 0, 0, 0);  // Nov 1 00:00 UTC
-            time_t endDate = makeTime(2025, 11, 7, 23, 59, 59);  // Nov 7 23:59 UTC
+            time_t startDate = makeTime(2025, 11, 1, 0, 0, 0); // Nov 1 00:00 UTC
+            time_t endDate = makeTime(2025, 11, 7, 23, 59, 59); // Nov 7 23:59 UTC
 
             auto occurrences = parser.expandRecurringEventV2(event, startDate, endDate);
 
@@ -1720,23 +1768,24 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
             if (occurrences.size() >= 1) {
                 struct tm* tm = gmtime(&occurrences[0]->startTime);
                 CHECK(tm->tm_year + 1900 == 2025);
-                CHECK(tm->tm_mon == 10);  // November
+                CHECK(tm->tm_mon == 10); // November
                 CHECK(tm->tm_mday == 3);
-                CHECK(tm->tm_wday == 1);  // Monday
+                CHECK(tm->tm_wday == 1); // Monday
             }
 
-            for (auto* occ : occurrences) delete occ;
+            for (auto* occ : occurrences)
+                delete occ;
             delete event;
         }
 
-        SUBCASE("Weekly MWF (Mon/Wed/Fri) covering Nov 2025") {
-            String icsEvent =
-                "BEGIN:VEVENT\n"
-                "DTSTART;TZID=Europe/Rome:20251027T143000\n"  // Monday, Oct 27, 2025 at 14:30 Rome time
-                "DTEND;TZID=Europe/Rome:20251027T153000\n"
-                "RRULE:FREQ=WEEKLY;UNTIL=20251110T235959Z;BYDAY=MO,WE,FR\n"
-                "SUMMARY:MWF Gym Class\n"
-                "END:VEVENT";
+        SUBCASE("Weekly MWF (Mon/Wed/Fri) covering Nov 2025")
+        {
+            String icsEvent = "BEGIN:VEVENT\n"
+                              "DTSTART;TZID=Europe/Rome:20251027T143000\n" // Monday, Oct 27, 2025 at 14:30 Rome time
+                              "DTEND;TZID=Europe/Rome:20251027T153000\n"
+                              "RRULE:FREQ=WEEKLY;UNTIL=20251110T235959Z;BYDAY=MO,WE,FR\n"
+                              "SUMMARY:MWF Gym Class\n"
+                              "END:VEVENT";
 
             CalendarEvent* event = parseICSEvent(icsEvent);
             REQUIRE(event != nullptr);
@@ -1752,30 +1801,31 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
 
             if (occurrences.size() >= 3) {
                 struct tm* tm = gmtime(&occurrences[0]->startTime);
-                CHECK(tm->tm_mday == 3);  // Monday
+                CHECK(tm->tm_mday == 3); // Monday
                 CHECK(tm->tm_wday == 1);
 
                 tm = gmtime(&occurrences[1]->startTime);
-                CHECK(tm->tm_mday == 5);  // Wednesday
+                CHECK(tm->tm_mday == 5); // Wednesday
                 CHECK(tm->tm_wday == 3);
 
                 tm = gmtime(&occurrences[2]->startTime);
-                CHECK(tm->tm_mday == 7);  // Friday
+                CHECK(tm->tm_mday == 7); // Friday
                 CHECK(tm->tm_wday == 5);
             }
 
-            for (auto* occ : occurrences) delete occ;
+            for (auto* occ : occurrences)
+                delete occ;
             delete event;
         }
 
-        SUBCASE("Bi-weekly on Saturday starting Oct 25, 2025") {
-            String icsEvent =
-                "BEGIN:VEVENT\n"
-                "DTSTART;TZID=Europe/Rome:20251025T100000\n"  // Saturday, Oct 25, 2025
-                "DTEND;TZID=Europe/Rome:20251025T120000\n"
-                "RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=3;BYDAY=SA\n"
-                "SUMMARY:Bi-weekly Saturday Market\n"
-                "END:VEVENT";
+        SUBCASE("Bi-weekly on Saturday starting Oct 25, 2025")
+        {
+            String icsEvent = "BEGIN:VEVENT\n"
+                              "DTSTART;TZID=Europe/Rome:20251025T100000\n" // Saturday, Oct 25, 2025
+                              "DTEND;TZID=Europe/Rome:20251025T120000\n"
+                              "RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=3;BYDAY=SA\n"
+                              "SUMMARY:Bi-weekly Saturday Market\n"
+                              "END:VEVENT";
 
             CalendarEvent* event = parseICSEvent(icsEvent);
             REQUIRE(event != nullptr);
@@ -1793,25 +1843,26 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
             if (occurrences.size() >= 2) {
                 struct tm* tm = gmtime(&occurrences[0]->startTime);
                 CHECK(tm->tm_mday == 8);
-                CHECK(tm->tm_wday == 6);  // Saturday
+                CHECK(tm->tm_wday == 6); // Saturday
 
                 tm = gmtime(&occurrences[1]->startTime);
                 CHECK(tm->tm_mday == 22);
-                CHECK(tm->tm_wday == 6);  // Saturday
+                CHECK(tm->tm_wday == 6); // Saturday
             }
 
-            for (auto* occ : occurrences) delete occ;
+            for (auto* occ : occurrences)
+                delete occ;
             delete event;
         }
 
-        SUBCASE("Weekend events (Sat/Sun) in November 2025") {
-            String icsEvent =
-                "BEGIN:VEVENT\n"
-                "DTSTART;TZID=Europe/Rome:20251101T200000\n"  // Saturday, Nov 1, 2025 at 20:00
-                "DTEND;TZID=Europe/Rome:20251101T220000\n"
-                "RRULE:FREQ=WEEKLY;COUNT=6;BYDAY=SA,SU\n"
-                "SUMMARY:Weekend Dinner\n"
-                "END:VEVENT";
+        SUBCASE("Weekend events (Sat/Sun) in November 2025")
+        {
+            String icsEvent = "BEGIN:VEVENT\n"
+                              "DTSTART;TZID=Europe/Rome:20251101T200000\n" // Saturday, Nov 1, 2025 at 20:00
+                              "DTEND;TZID=Europe/Rome:20251101T220000\n"
+                              "RRULE:FREQ=WEEKLY;COUNT=6;BYDAY=SA,SU\n"
+                              "SUMMARY:Weekend Dinner\n"
+                              "END:VEVENT";
 
             CalendarEvent* event = parseICSEvent(icsEvent);
             REQUIRE(event != nullptr);
@@ -1828,26 +1879,27 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
 
             if (occurrences.size() >= 4) {
                 struct tm* tm = gmtime(&occurrences[0]->startTime);
-                CHECK(tm->tm_mday == 1);  // Saturday Nov 1
+                CHECK(tm->tm_mday == 1); // Saturday Nov 1
                 CHECK(tm->tm_wday == 6);
 
                 tm = gmtime(&occurrences[1]->startTime);
-                CHECK(tm->tm_mday == 2);  // Sunday Nov 2
+                CHECK(tm->tm_mday == 2); // Sunday Nov 2
                 CHECK(tm->tm_wday == 0);
             }
 
-            for (auto* occ : occurrences) delete occ;
+            for (auto* occ : occurrences)
+                delete occ;
             delete event;
         }
 
-        SUBCASE("Daily event (using WEEKLY with all 7 days) for first week of Nov") {
-            String icsEvent =
-                "BEGIN:VEVENT\n"
-                "DTSTART;TZID=Europe/Rome:20251101T090000\n"  // Saturday, Nov 1, 2025
-                "DTEND;TZID=Europe/Rome:20251101T100000\n"
-                "RRULE:FREQ=WEEKLY;COUNT=7;BYDAY=SU,MO,TU,WE,TH,FR,SA\n"
-                "SUMMARY:Morning Exercise (every day first week)\n"
-                "END:VEVENT";
+        SUBCASE("Daily event (using WEEKLY with all 7 days) for first week of Nov")
+        {
+            String icsEvent = "BEGIN:VEVENT\n"
+                              "DTSTART;TZID=Europe/Rome:20251101T090000\n" // Saturday, Nov 1, 2025
+                              "DTEND;TZID=Europe/Rome:20251101T100000\n"
+                              "RRULE:FREQ=WEEKLY;COUNT=7;BYDAY=SU,MO,TU,WE,TH,FR,SA\n"
+                              "SUMMARY:Morning Exercise (every day first week)\n"
+                              "END:VEVENT";
 
             CalendarEvent* event = parseICSEvent(icsEvent);
             REQUIRE(event != nullptr);
@@ -1865,13 +1917,103 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
                 // Verify we have all days from Sat Nov 1 to Fri Nov 7
                 for (int i = 0; i < 7; i++) {
                     struct tm* tm = gmtime(&occurrences[i]->startTime);
-                    CHECK(tm->tm_mday == (1 + i));  // Nov 1, 2, 3, 4, 5, 6, 7
+                    CHECK(tm->tm_mday == (1 + i)); // Nov 1, 2, 3, 4, 5, 6, 7
                 }
             }
 
-            for (auto* occ : occurrences) delete occ;
+            for (auto* occ : occurrences)
+                delete occ;
             delete event;
         }
+    }
+
+    TEST_CASE("WEEKLY - DST transition: event created in winter (CET) has occurrences in summer (CEST)")
+    {
+        // Real-world scenario: Padel event created on March 24, 2026 at 20:30 CET (UTC+1).
+        // Europe/Zurich switches to CEST (UTC+2) on March 29, 2026.
+        // Subsequent weekly Tuesday occurrences (April 28, May 5, ...) must still show
+        // 20:30 local time, NOT 21:30 (which would happen if the UTC hour 19:30 is preserved).
+
+        // Temporarily set timezone to simulate Europe/Zurich (CET/CEST)
+        char* savedTZ = getenv("TZ");
+        String savedTZStr = savedTZ ? String(savedTZ) : "";
+        setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+        tzset();
+
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART;TZID=Europe/Zurich:20260324T203000\n"
+                          "DTEND;TZID=Europe/Zurich:20260324T220000\n"
+                          "RRULE:FREQ=WEEKLY;WKST=MO;UNTIL=20260526T215959Z;INTERVAL=1;BYDAY=TU\n"
+                          "UID:padel-dst-test-uid@test.com\n"
+                          "SUMMARY:Padel\n"
+                          "END:VEVENT";
+
+        CalendarEvent* event = parseICSEvent(icsEvent);
+        REQUIRE(event != nullptr);
+        CHECK(event->isRecurring == true);
+        CHECK(event->summary == "Padel");
+
+        // The original event is March 24 20:30 CET (UTC+1) = 19:30 UTC
+        {
+            struct tm* utcTm = gmtime(&event->startTime);
+            CHECK(utcTm->tm_hour == 19); // 20:30 CET = 19:30 UTC
+            CHECK(utcTm->tm_min == 30);
+        }
+
+        // Query for late April / May 2026 (fully in CEST, UTC+2)
+        // DST in Europe/Zurich started March 29, 2026
+        time_t startDate = makeTime(2026, 4, 26); // April 26
+        time_t endDate = makeTime(2026, 5, 31); // May 31
+
+        auto occurrences = parser.expandRecurringEventV2(event, startDate, endDate);
+
+        // Expected Tuesday occurrences: Apr 28, May 5, May 12, May 19, May 26
+        REQUIRE(occurrences.size() == 5);
+
+        // All occurrences must be at 20:30 local time (CEST = UTC+2), i.e. 18:30 UTC
+        // NOT 21:30 local (19:30 UTC from broken UTC arithmetic)
+        for (size_t i = 0; i < occurrences.size(); i++) {
+            struct tm* localTm = localtime(&occurrences[i]->startTime);
+            MESSAGE("Occurrence ", i, ": ", localTm->tm_year + 1900, "-",
+                localTm->tm_mon + 1, "-", localTm->tm_mday,
+                " local=", localTm->tm_hour, ":", localTm->tm_min,
+                " (wday=", localTm->tm_wday, " expected Tuesday=2)");
+
+            CHECK(localTm->tm_wday == 2); // Tuesday
+            CHECK(localTm->tm_hour == 20); // 20:30 local (wall-clock preserved)
+            CHECK(localTm->tm_min == 30);
+
+            // Also verify the UTC hour is 18 (CEST = UTC+2, so 20:30 - 2h = 18:30 UTC)
+            struct tm* utcTm = gmtime(&occurrences[i]->startTime);
+            CHECK(utcTm->tm_hour == 18); // 20:30 CEST = 18:30 UTC
+            CHECK(utcTm->tm_min == 30);
+        }
+
+        // Verify specific dates
+        {
+            struct tm* localTm = localtime(&occurrences[0]->startTime);
+            CHECK(localTm->tm_year + 1900 == 2026);
+            CHECK(localTm->tm_mon + 1 == 4); // April
+            CHECK(localTm->tm_mday == 28); // April 28
+        }
+        {
+            struct tm* localTm = localtime(&occurrences[4]->startTime);
+            CHECK(localTm->tm_year + 1900 == 2026);
+            CHECK(localTm->tm_mon + 1 == 5); // May
+            CHECK(localTm->tm_mday == 26); // May 26
+        }
+
+        for (auto* occ : occurrences)
+            delete occ;
+        delete event;
+
+        // Restore original timezone
+        if (!savedTZStr.isEmpty()) {
+            setenv("TZ", savedTZStr.c_str(), 1);
+        } else {
+            unsetenv("TZ");
+        }
+        tzset();
     }
 }
 
@@ -1879,16 +2021,17 @@ TEST_SUITE("expandRecurringEventV2 - WEEKLY Recurring Events") {
 // DAILY Recurring Events - Test Suite
 // =============================================================================
 
-TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
+TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events")
+{
 
-    TEST_CASE("DAILY - Simple COUNT=5 (every day)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=DAILY;COUNT=5\n"
-            "SUMMARY:Daily Standup\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - Simple COUNT=5 (every day)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=DAILY;COUNT=5\n"
+                          "SUMMARY:Daily Standup\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1906,23 +2049,24 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
             for (int i = 0; i < 5; i++) {
                 struct tm* tm = gmtime(&occurrences[i]->startTime);
                 CHECK(tm->tm_year + 1900 == 2025);
-                CHECK(tm->tm_mon == 0);  // January
+                CHECK(tm->tm_mon == 0); // January
                 CHECK(tm->tm_mday == (13 + i));
             }
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - With INTERVAL=2 (every 2 days)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=DAILY;INTERVAL=2;COUNT=5\n"
-            "SUMMARY:Every Other Day\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - With INTERVAL=2 (every 2 days)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=DAILY;INTERVAL=2;COUNT=5\n"
+                          "SUMMARY:Every Other Day\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1946,18 +2090,19 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
             CHECK(tm->tm_mday == 17);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - With INTERVAL=3 (every 3 days)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=DAILY;INTERVAL=3;COUNT=4\n"
-            "SUMMARY:Every 3 Days\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - With INTERVAL=3 (every 3 days)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n"
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=DAILY;INTERVAL=3;COUNT=4\n"
+                          "SUMMARY:Every 3 Days\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -1984,18 +2129,19 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
             CHECK(tm->tm_mday == 22);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - Event starts before query range, COUNT=10") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20241225T100000Z\n"  // Dec 25, 2024
-            "DTEND:20241225T110000Z\n"
-            "RRULE:FREQ=DAILY;COUNT=10\n"
-            "SUMMARY:10 Day Challenge\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - Event starts before query range, COUNT=10")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20241225T100000Z\n" // Dec 25, 2024
+                          "DTEND:20241225T110000Z\n"
+                          "RRULE:FREQ=DAILY;COUNT=10\n"
+                          "SUMMARY:10 Day Challenge\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -2013,22 +2159,23 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
         if (occurrences.size() >= 3) {
             struct tm* tm = gmtime(&occurrences[0]->startTime);
             CHECK(tm->tm_year + 1900 == 2025);
-            CHECK(tm->tm_mon == 0);  // January
+            CHECK(tm->tm_mon == 0); // January
             CHECK(tm->tm_mday == 1);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - With UNTIL date") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=DAILY;UNTIL=20250120T235959Z\n"
-            "SUMMARY:One Week Daily\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - With UNTIL date")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n"
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=DAILY;UNTIL=20250120T235959Z\n"
+                          "SUMMARY:One Week Daily\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -2043,21 +2190,22 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
 
         if (occurrences.size() >= 8) {
             struct tm* tm = gmtime(&occurrences[7]->startTime);
-            CHECK(tm->tm_mday == 20);  // Last occurrence
+            CHECK(tm->tm_mday == 20); // Last occurrence
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - Query range before event starts") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20260113T100000Z\n"
-            "DTEND:20260113T110000Z\n"
-            "RRULE:FREQ=DAILY;COUNT=5\n"
-            "SUMMARY:Future Daily Event\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - Query range before event starts")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20260113T100000Z\n"
+                          "DTEND:20260113T110000Z\n"
+                          "RRULE:FREQ=DAILY;COUNT=5\n"
+                          "SUMMARY:Future Daily Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -2071,18 +2219,19 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
         // Event hasn't started yet
         CHECK(occurrences.size() == 0);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - No COUNT or UNTIL (infinite recurrence)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=DAILY\n"
-            "SUMMARY:Infinite Daily Event\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - No COUNT or UNTIL (infinite recurrence)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n"
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=DAILY\n"
+                          "SUMMARY:Infinite Daily Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -2096,18 +2245,19 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
         // Jan 13 through 22 = 10 days
         CHECK(occurrences.size() == 10);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - Weekdays only (BYDAY=MO,TU,WE,TH,FR)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=DAILY;COUNT=10;BYDAY=MO,TU,WE,TH,FR\n"
-            "SUMMARY:Weekdays Only\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - Weekdays only (BYDAY=MO,TU,WE,TH,FR)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=DAILY;COUNT=10;BYDAY=MO,TU,WE,TH,FR\n"
+                          "SUMMARY:Weekdays Only\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -2124,23 +2274,24 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
             // Verify all are weekdays (Mon-Fri)
             for (int i = 0; i < 10; i++) {
                 struct tm* tm = gmtime(&occurrences[i]->startTime);
-                CHECK(tm->tm_wday >= 1);  // Monday
-                CHECK(tm->tm_wday <= 5);  // Friday
+                CHECK(tm->tm_wday >= 1); // Monday
+                CHECK(tm->tm_wday <= 5); // Friday
             }
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - Weekends only (BYDAY=SA,SU)") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250111T100000Z\n"  // Saturday, Jan 11, 2025
-            "DTEND:20250111T110000Z\n"
-            "RRULE:FREQ=DAILY;COUNT=6;BYDAY=SA,SU\n"
-            "SUMMARY:Weekends Only\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - Weekends only (BYDAY=SA,SU)")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250111T100000Z\n" // Saturday, Jan 11, 2025
+                          "DTEND:20250111T110000Z\n"
+                          "RRULE:FREQ=DAILY;COUNT=6;BYDAY=SA,SU\n"
+                          "SUMMARY:Weekends Only\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -2157,22 +2308,23 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
             // Verify all are weekends
             for (int i = 0; i < 6; i++) {
                 struct tm* tm = gmtime(&occurrences[i]->startTime);
-                CHECK((tm->tm_wday == 0 || tm->tm_wday == 6));  // Sunday or Saturday
+                CHECK((tm->tm_wday == 0 || tm->tm_wday == 6)); // Sunday or Saturday
             }
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - With BYDAY=MO,WE,FR and INTERVAL=1") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20250113T100000Z\n"  // Monday, Jan 13, 2025
-            "DTEND:20250113T110000Z\n"
-            "RRULE:FREQ=DAILY;COUNT=6;BYDAY=MO,WE,FR\n"
-            "SUMMARY:MWF Exercise\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - With BYDAY=MO,WE,FR and INTERVAL=1")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20250113T100000Z\n" // Monday, Jan 13, 2025
+                          "DTEND:20250113T110000Z\n"
+                          "RRULE:FREQ=DAILY;COUNT=6;BYDAY=MO,WE,FR\n"
+                          "SUMMARY:MWF Exercise\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -2187,30 +2339,31 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
 
         if (occurrences.size() >= 6) {
             struct tm* tm = gmtime(&occurrences[0]->startTime);
-            CHECK(tm->tm_mday == 13);  // Monday
+            CHECK(tm->tm_mday == 13); // Monday
             CHECK(tm->tm_wday == 1);
 
             tm = gmtime(&occurrences[1]->startTime);
-            CHECK(tm->tm_mday == 15);  // Wednesday
+            CHECK(tm->tm_mday == 15); // Wednesday
             CHECK(tm->tm_wday == 3);
 
             tm = gmtime(&occurrences[2]->startTime);
-            CHECK(tm->tm_mday == 17);  // Friday
+            CHECK(tm->tm_mday == 17); // Friday
             CHECK(tm->tm_wday == 5);
         }
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - Recurrence already completed before query range") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART:20240101T100000Z\n"
-            "DTEND:20240101T110000Z\n"
-            "RRULE:FREQ=DAILY;COUNT=5\n"
-            "SUMMARY:Short Daily Event\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - Recurrence already completed before query range")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART:20240101T100000Z\n"
+                          "DTEND:20240101T110000Z\n"
+                          "RRULE:FREQ=DAILY;COUNT=5\n"
+                          "SUMMARY:Short Daily Event\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -2224,24 +2377,25 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
         // All 5 occurrences completed in 2024
         CHECK(occurrences.size() == 0);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - cambio gomme") {
-        String icsEvent =
-            "BEGIN:VEVENT\n"
-            "DTSTART;VALUE=DATE:20251114\n"
-            "DTEND;VALUE=DATE:20251115\n"
-            "DTSTAMP:20251031T082037Z\n"
-            "UID:cor64p3165hjabb364qm2b9k68o3abb26gs3gbb5cco3gc1mcorm8p1o68@google.com\n"
-            "CREATED:20251014T102117Z\n"
-            "LAST-MODIFIED:20251014T102117Z\n"
-            "SEQUENCE:0\n"
-            "STATUS:CONFIRMED\n"
-            "SUMMARY:Cambio gomme\n"
-            "TRANSP:TRANSPARENT\n"
-            "END:VEVENT";
+    TEST_CASE("DAILY - cambio gomme")
+    {
+        String icsEvent = "BEGIN:VEVENT\n"
+                          "DTSTART;VALUE=DATE:20251114\n"
+                          "DTEND;VALUE=DATE:20251115\n"
+                          "DTSTAMP:20251031T082037Z\n"
+                          "UID:cor64p3165hjabb364qm2b9k68o3abb26gs3gbb5cco3gc1mcorm8p1o68@google.com\n"
+                          "CREATED:20251014T102117Z\n"
+                          "LAST-MODIFIED:20251014T102117Z\n"
+                          "SEQUENCE:0\n"
+                          "STATUS:CONFIRMED\n"
+                          "SUMMARY:Cambio gomme\n"
+                          "TRANSP:TRANSPARENT\n"
+                          "END:VEVENT";
 
         CalendarEvent* event = parseICSEvent(icsEvent);
         REQUIRE(event != nullptr);
@@ -2259,21 +2413,23 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
         MESSAGE("Occurrence end time: " << occurrences[0]->endTime);
         MESSAGE("Occurrence summary: " << occurrences[0]->summary);
 
-        for (auto* occ : occurrences) delete occ;
+        for (auto* occ : occurrences)
+            delete occ;
         delete event;
     }
 
-    TEST_CASE("DAILY - November 2025 validation (Europe/Rome timezone)") {
+    TEST_CASE("DAILY - November 2025 validation (Europe/Rome timezone)")
+    {
         // Test DAILY scenarios for November 2025 with Europe/Rome timezone
 
-        SUBCASE("Daily for 7 days starting Nov 1, 2025") {
-            String icsEvent =
-                "BEGIN:VEVENT\n"
-                "DTSTART;TZID=Europe/Rome:20251101T090000\n"  // Saturday, Nov 1, 2025
-                "DTEND;TZID=Europe/Rome:20251101T100000\n"
-                "RRULE:FREQ=DAILY;COUNT=7\n"
-                "SUMMARY:Morning Routine\n"
-                "END:VEVENT";
+        SUBCASE("Daily for 7 days starting Nov 1, 2025")
+        {
+            String icsEvent = "BEGIN:VEVENT\n"
+                              "DTSTART;TZID=Europe/Rome:20251101T090000\n" // Saturday, Nov 1, 2025
+                              "DTEND;TZID=Europe/Rome:20251101T100000\n"
+                              "RRULE:FREQ=DAILY;COUNT=7\n"
+                              "SUMMARY:Morning Routine\n"
+                              "END:VEVENT";
 
             CalendarEvent* event = parseICSEvent(icsEvent);
             REQUIRE(event != nullptr);
@@ -2294,18 +2450,19 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
                 }
             }
 
-            for (auto* occ : occurrences) delete occ;
+            for (auto* occ : occurrences)
+                delete occ;
             delete event;
         }
 
-        SUBCASE("Weekdays only (BYDAY=MO,TU,WE,TH,FR) in Nov 2025") {
-            String icsEvent =
-                "BEGIN:VEVENT\n"
-                "DTSTART;TZID=Europe/Rome:20251103T083000\n"  // Monday, Nov 3, 2025
-                "DTEND;TZID=Europe/Rome:20251103T093000\n"
-                "RRULE:FREQ=DAILY;COUNT=10;BYDAY=MO,TU,WE,TH,FR\n"
-                "SUMMARY:Work Commute\n"
-                "END:VEVENT";
+        SUBCASE("Weekdays only (BYDAY=MO,TU,WE,TH,FR) in Nov 2025")
+        {
+            String icsEvent = "BEGIN:VEVENT\n"
+                              "DTSTART;TZID=Europe/Rome:20251103T083000\n" // Monday, Nov 3, 2025
+                              "DTEND;TZID=Europe/Rome:20251103T093000\n"
+                              "RRULE:FREQ=DAILY;COUNT=10;BYDAY=MO,TU,WE,TH,FR\n"
+                              "SUMMARY:Work Commute\n"
+                              "END:VEVENT";
 
             CalendarEvent* event = parseICSEvent(icsEvent);
             REQUIRE(event != nullptr);
@@ -2322,23 +2479,24 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
             if (occurrences.size() >= 1) {
                 // Verify first occurrence is Monday Nov 3
                 struct tm* tm = gmtime(&occurrences[0]->startTime);
-                CHECK(tm->tm_mon == 10);  // November
+                CHECK(tm->tm_mon == 10); // November
                 CHECK(tm->tm_mday == 3);
-                CHECK(tm->tm_wday == 1);  // Monday
+                CHECK(tm->tm_wday == 1); // Monday
             }
 
-            for (auto* occ : occurrences) delete occ;
+            for (auto* occ : occurrences)
+                delete occ;
             delete event;
         }
 
-        SUBCASE("Every 2 days starting Nov 1, 2025") {
-            String icsEvent =
-                "BEGIN:VEVENT\n"
-                "DTSTART;TZID=Europe/Rome:20251101T180000\n"  // Saturday, Nov 1
-                "DTEND;TZID=Europe/Rome:20251101T190000\n"
-                "RRULE:FREQ=DAILY;INTERVAL=2;COUNT=5\n"
-                "SUMMARY:Alternate Day Activity\n"
-                "END:VEVENT";
+        SUBCASE("Every 2 days starting Nov 1, 2025")
+        {
+            String icsEvent = "BEGIN:VEVENT\n"
+                              "DTSTART;TZID=Europe/Rome:20251101T180000\n" // Saturday, Nov 1
+                              "DTEND;TZID=Europe/Rome:20251101T190000\n"
+                              "RRULE:FREQ=DAILY;INTERVAL=2;COUNT=5\n"
+                              "SUMMARY:Alternate Day Activity\n"
+                              "END:VEVENT";
 
             CalendarEvent* event = parseICSEvent(icsEvent);
             REQUIRE(event != nullptr);
@@ -2363,7 +2521,8 @@ TEST_SUITE("expandRecurringEventV2 - DAILY Recurring Events") {
                 CHECK(tm->tm_mday == 9);
             }
 
-            for (auto* occ : occurrences) delete occ;
+            for (auto* occ : occurrences)
+                delete occ;
             delete event;
         }
     }
